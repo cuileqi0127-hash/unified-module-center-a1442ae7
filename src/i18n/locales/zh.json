@@ -1,0 +1,146 @@
+{
+  "common": {
+    "views": "浏览",
+    "copies": "复制",
+    "collapse": "收起",
+    "expand": "展开",
+    "profile": "个人资料",
+    "billing": "账单",
+    "team": "团队",
+    "logout": "退出登录"
+  },
+  "modules": {
+    "geoInsights": "GEO Insights",
+    "llmConsole": "LLM Console",
+    "aiToolbox": "AI Toolbox"
+  },
+  "sidebar": {
+    "appPlaza": "应用广场",
+    "marketInsights": "市场洞察",
+    "brandHealth": "品牌健康度诊断",
+    "marketingPlanning": "营销策划",
+    "campaignPlanner": "营销策划方案",
+    "materialGeneration": "素材生成",
+    "imageGeneration": "图片生成",
+    "textToImage": "文生图",
+    "ecommerceAssets": "电商素材图",
+    "referenceToImage": "素材库对标生图",
+    "videoGeneration": "视频生成",
+    "textToVideo": "文生视频",
+    "referenceToVideo": "素材库对标生视频",
+    "digitalHuman": "数字人",
+    "digitalHumanGen": "数字人生成"
+  },
+  "appPlaza": {
+    "title": "应用广场",
+    "subtitle": "发现和探索AI智能工具，助力您的业务增长",
+    "digitalHuman": {
+      "tag": "数字人",
+      "title": "数字人生成",
+      "subtitle": "Digital Human",
+      "description": "创建逼真的AI数字人形象，用于视频和演示"
+    },
+    "videoGen": {
+      "tag": "视频生成",
+      "title": "视频生成",
+      "subtitle": "Video Generation",
+      "description": "AI助手帮您快速生成专业视频内容"
+    },
+    "sections": {
+      "marketInsights": "市场洞察",
+      "marketingPlanning": "营销策划",
+      "materialGeneration": "素材生成",
+      "imageGeneration": "图片生成",
+      "videoGeneration": "视频生成",
+      "digitalHuman": "数字人"
+    },
+    "tools": {
+      "brandHealth": {
+        "title": "品牌健康度诊断",
+        "description": "全面分析品牌健康状况，洞察市场表现与消费者认知"
+      },
+      "campaignPlanner": {
+        "title": "营销策划方案",
+        "description": "智能生成营销策划方案，提升营销效率与效果"
+      },
+      "textToImage": {
+        "title": "文生图",
+        "description": "根据文字描述生成精美图片"
+      },
+      "ecommerceAssets": {
+        "title": "电商素材图",
+        "description": "一键生成电商产品图和广告素材"
+      },
+      "referenceToImage": {
+        "title": "素材库对标生图",
+        "description": "参考素材库图片风格生成新图"
+      },
+      "textToVideo": {
+        "title": "文生视频",
+        "description": "根据文字描述生成短视频"
+      },
+      "referenceToVideo": {
+        "title": "素材库对标生视频",
+        "description": "参考素材库视频风格生成新视频"
+      },
+      "digitalHumanGen": {
+        "title": "数字人生成",
+        "description": "创建逼真的AI数字人形象"
+      }
+    }
+  },
+  "textToImage": {
+    "title": "文生图",
+    "subtitle": "输入文字描述，AI为您生成精美图片",
+    "inputPlaceholder": "发送指令，让遥鲟为您处理商品链接和图片",
+    "generate": "生成图片",
+    "generating": "生成中...",
+    "generatedImages": "生成的图片",
+    "noImages": "还没有生成的图片",
+    "startPrompt": "开始输入提示词来生成您的第一张图片",
+    "status": {
+      "thinking": "思考中...",
+      "analyzing": "图片理解",
+      "designing": "正在设计",
+      "optimizing": "优化细节...",
+      "complete": "任务已结束"
+    },
+    "history": "历史",
+    "images": "张图片",
+    "model": "模型",
+    "aspectRatio": "宽高比",
+    "style": "风格",
+    "workModes": {
+      "sceneFusion": "场景融合",
+      "textToImage": "文生图",
+      "styleTransfer": "风格迁移",
+      "imageEnhance": "图片增强"
+    },
+    "actions": {
+      "share": "分享",
+      "new": "新建",
+      "history": "历史",
+      "collapse": "收起",
+      "feedback": "反馈",
+      "add": "添加"
+    },
+    "enhanceMode": "增强模式",
+    "footerNote": "请使用有权素材，并合法使用生成结果"
+  },
+  "llmConsole": {
+    "dashboard": "仪表盘",
+    "playground": "Playground",
+    "tokens": "Token 管理",
+    "usage": "使用日志",
+    "wallet": "钱包",
+    "profile": "个人设置"
+  },
+  "geoInsights": {
+    "dashboard": "仪表盘",
+    "writeArticle": "撰写文章",
+    "myArticles": "我的文章",
+    "auditHistory": "审计历史",
+    "competitor": "竞争对手分析",
+    "settings": "设置"
+  }
+}

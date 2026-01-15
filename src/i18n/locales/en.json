@@ -1,0 +1,130 @@
+{
+  "common": {
+    "views": "Views",
+    "copies": "Copies",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "profile": "Profile",
+    "billing": "Billing",
+    "team": "Team",
+    "logout": "Log out"
+  },
+  "modules": {
+    "geoInsights": "GEO Insights",
+    "llmConsole": "LLM Console",
+    "aiToolbox": "AI Toolbox"
+  },
+  "sidebar": {
+    "appPlaza": "App Plaza",
+    "marketInsights": "Market Insights",
+    "brandHealth": "Brand Health Diagnosis",
+    "marketingPlanning": "Marketing Planning",
+    "campaignPlanner": "Campaign Planner",
+    "materialGeneration": "Material Generation",
+    "imageGeneration": "Image Generation",
+    "textToImage": "Text to Image",
+    "ecommerceAssets": "E-commerce Assets",
+    "referenceToImage": "Reference to Image",
+    "videoGeneration": "Video Generation",
+    "textToVideo": "Text to Video",
+    "referenceToVideo": "Reference to Video",
+    "digitalHuman": "Digital Human",
+    "digitalHumanGen": "Digital Human Generator"
+  },
+  "appPlaza": {
+    "title": "App Plaza",
+    "subtitle": "Discover and explore AI-powered tools for your business",
+    "digitalHuman": {
+      "tag": "Digital Human",
+      "title": "Digital Human Generator",
+      "subtitle": "Digital Human",
+      "description": "Create realistic AI digital human avatars for videos and presentations"
+    },
+    "videoGen": {
+      "tag": "Video Generation",
+      "title": "Video Generation",
+      "subtitle": "Video Generation",
+      "description": "AI assistant helps you quickly generate professional video content"
+    },
+    "sections": {
+      "marketInsights": "Market Insights",
+      "marketingPlanning": "Marketing Planning",
+      "materialGeneration": "Material Generation",
+      "imageGeneration": "Image Generation",
+      "videoGeneration": "Video Generation",
+      "digitalHuman": "Digital Human"
+    },
+    "tools": {
+      "brandHealth": {
+        "title": "Brand Health Diagnosis",
+        "description": "Comprehensive brand health analysis, insight into market performance and consumer perception"
+      },
+      "campaignPlanner": {
+        "title": "Campaign Planner",
+        "description": "Intelligently generate marketing plans to improve marketing efficiency and effectiveness"
+      },
+      "textToImage": {
+        "title": "Text to Image",
+        "description": "Generate beautiful images from text descriptions"
+      },
+      "ecommerceAssets": {
+        "title": "E-commerce Assets",
+        "description": "One-click generation of e-commerce product images and advertising materials"
+      },
+      "referenceToImage": {
+        "title": "Reference to Image",
+        "description": "Generate new images based on reference library image styles"
+      },
+      "textToVideo": {
+        "title": "Text to Video",
+        "description": "Generate short videos from text descriptions"
+      },
+      "referenceToVideo": {
+        "title": "Reference to Video",
+        "description": "Generate new videos based on reference library video styles"
+      },
+      "digitalHumanGen": {
+        "title": "Digital Human Generator",
+        "description": "Create realistic AI digital human avatars"
+      }
+    }
+  },
+  "textToImage": {
+    "title": "Text to Image",
+    "subtitle": "Enter a text description and AI will generate beautiful images for you",
+    "inputPlaceholder": "Describe the image you want to generate...",
+    "generate": "Generate Image",
+    "generating": "Generating...",
+    "generatedImages": "Generated Images",
+    "noImages": "No generated images yet",
+    "startPrompt": "Start entering prompts to generate your first image",
+    "status": {
+      "thinking": "Thinking...",
+      "analyzing": "Analyzing prompt...",
+      "designing": "Designing composition...",
+      "optimizing": "Optimizing details...",
+      "complete": "Generation complete"
+    },
+    "history": "History",
+    "images": "images",
+    "model": "Model",
+    "aspectRatio": "Aspect Ratio",
+    "style": "Style"
+  },
+  "llmConsole": {
+    "dashboard": "Dashboard",
+    "playground": "Playground",
+    "tokens": "Token Management",
+    "usage": "Usage Logs",
+    "wallet": "Wallet",
+    "profile": "Profile Settings"
+  },
+  "geoInsights": {
+    "dashboard": "Dashboard",
+    "writeArticle": "Write Article",
+    "myArticles": "My Articles",
+    "auditHistory": "Audit History",
+    "competitor": "Competitor Analysis",
+    "settings": "Settings"
+  }
+}
