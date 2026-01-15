@@ -419,9 +419,9 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   const selectedImage = canvasImages.find(img => img.id === selectedImageId);
 
   return (
-    <div className="flex h-full max-h-full gap-0 animate-fade-in overflow-hidden rounded-xl border border-border bg-background">
+    <div className="flex h-[calc(100vh-72px)] gap-0 animate-fade-in overflow-hidden rounded-xl border border-border bg-background">
       {/* Left Panel - Chat Interface (35%) - Fixed height with flex layout */}
-      <div className="w-[35%] h-full max-h-full flex flex-col border-r border-border bg-background overflow-hidden">
+      <div className="w-[35%] h-full flex flex-col border-r border-border bg-background overflow-hidden">
         {/* Header Bar - Fixed at top */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
           {/* Back Button + Title - Merged as single clickable component */}
@@ -481,7 +481,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex-1 overflow-y-auto px-2 py-2">
+              <div className="flex-1 overflow-y-auto px-2 py-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30">
                 <div className="space-y-1">
                   {historySessions.map((session) => (
                     <button
@@ -501,7 +501,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               </div>
             </div>
           ) : (
-            <div className="h-full overflow-y-auto px-4 py-3">
+            <div className="h-full overflow-y-auto px-4 py-3 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-12">
                   <ImageIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
