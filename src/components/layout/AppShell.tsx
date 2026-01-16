@@ -32,7 +32,7 @@ const homeItems = [
 ];
 
 export function AppShell({ children }: AppShellProps) {
-  const { activeModule, setSidebarCollapsed } = useModule();
+  const { activeModule, sidebarCollapsed, setSidebarCollapsed } = useModule();
   const [activeItem, setActiveItem] = useState(defaultItems[activeModule]);
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export function AppShell({ children }: AppShellProps) {
       <TopNav />
       <div className="flex flex-1 overflow-hidden">
         <DynamicSidebar activeItem={activeItem} onItemClick={setActiveItem} />
-        <main className="flex-1 overflow-auto">
+        <main className={`flex-1 overflow-auto pt-14 transition-all duration-500 ${sidebarCollapsed ? 'pl-[64px]' : 'pl-64'}`}>
           {children(activeItem, setActiveItem)}
         </main>
       </div>

@@ -55,7 +55,7 @@ export function Playground() {
   };
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-8rem)] animate-fade-in">
+    <div className="flex gap-6 h-[calc(100vh-8rem)] animate-fade-in p-6 min-h-[calc(100vh-60px)]">
       {/* Config Panel */}
       <Card className="w-72 flex-shrink-0">
         <CardHeader className="pb-4">

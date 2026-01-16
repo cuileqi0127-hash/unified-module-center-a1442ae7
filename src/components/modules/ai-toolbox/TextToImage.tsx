@@ -144,6 +144,8 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   const { t, i18n } = useTranslation();
   const isZh = i18n.language === 'zh';
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const [prompt, setPrompt] = useState('');
   const [workMode, setWorkMode] = useState('text-to-image');
@@ -158,6 +160,8 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedImage, setCopiedImage] = useState<CanvasImage | null>(null);
   const [highlightedImageId, setHighlightedImageId] = useState<string | null>(null);
+  const [chatPanelWidth, setChatPanelWidth] = useState(35); // 百分比宽度，默认35%
+  const [isResizing, setIsResizing] = useState(false);
 
   const workModes = [
     { id: 'text-to-image', label: isZh ? '文生图' : 'Text to Image' },
@@ -437,6 +441,43 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     }
   };
 
+  // Handle resize drag
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    const handleResizeMove = (e: MouseEvent) => {
+      if (!isResizing || !containerRef.current) return;
+      
+      const containerWidth = containerRef.current.offsetWidth;
+      const newWidthPercent = (e.clientX / containerWidth) * 100;
+      
+      // 限制宽度范围：最小20%，最大60%
+      const clampedWidth = Math.max(20, Math.min(60, newWidthPercent));
+      setChatPanelWidth(clampedWidth);
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
+
   const handleDeleteImage = () => {
     if (selectedImageId) {
       setCanvasImages(prev => prev.filter(img => img.id !== selectedImageId));
@@ -447,9 +488,12 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   const selectedImage = canvasImages.find(img => img.id === selectedImageId);
 
   return (
-    <div className="flex h-[calc(100vh-72px)] gap-0 animate-fade-in overflow-hidden rounded-xl border border-border bg-background">
-      {/* Left Panel - Chat Interface (35%) - Fixed height with flex layout */}
-      <div className="w-[35%] h-full flex flex-col border-r border-border bg-background overflow-hidden">
+    <div ref={containerRef} className="flex h-[calc(100vh-3.5rem)] gap-0 animate-fade-in overflow-hidden bg-background">
+      {/* Left Panel - Chat Interface - Fixed height with flex layout */}
+      <div 
+        className="h-full flex flex-col border-r border-border bg-background overflow-hidden"
+        style={{ width: `${chatPanelWidth}%` }}
+      >
         {/* Header Bar - Fixed at top */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
           {/* Back Button + Title - Merged as single clickable component */}
@@ -768,8 +812,22 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
         </div>
       </div>
 
-      {/* Right Panel - Infinite Canvas (65%) */}
-      <div className="relative flex w-[65%] flex-col bg-muted/20">
+      {/* Resize Handle */}
+      <div
+        ref={resizeRef}
+        onMouseDown={handleResizeStart}
+        className={cn(
+          "w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
+          isResizing && "bg-primary"
+        )}
+        style={{ touchAction: 'none' }}
+      />
+
+      {/* Right Panel - Infinite Canvas */}
+      <div 
+        className="relative flex flex-col bg-muted/20"
+        style={{ width: `${100 - chatPanelWidth}%` }}
+      >
         {/* Workspace Header - Fixed Position */}
         <div className="pointer-events-none absolute left-10 top-10 z-10">
           <h1 className="text-2xl font-bold text-foreground/90">

@@ -221,7 +221,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     <TooltipProvider>
       <aside
         className={cn(
-          'bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out',
+          'bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out fixed h-screen top-0 pt-14 box-border',
           sidebarCollapsed ? 'w-[68px]' : 'w-64'
         )}
       >
