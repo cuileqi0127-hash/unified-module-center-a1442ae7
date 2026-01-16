@@ -157,6 +157,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedImage, setCopiedImage] = useState<CanvasImage | null>(null);
+  const [highlightedImageId, setHighlightedImageId] = useState<string | null>(null);
 
   const workModes = [
     { id: 'text-to-image', label: isZh ? '文生图' : 'Text to Image' },
@@ -238,6 +239,33 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
       return [...prev, image];
     });
   }, []);
+
+  // Handle double-click on canvas image to attach to input
+  const handleImageDoubleClick = useCallback((image: CanvasImage) => {
+    const selectedImage: SelectedImage = {
+      id: image.id,
+      url: image.url,
+      prompt: image.prompt,
+    };
+    
+    // Add to selected images (prevent duplicates)
+    setSelectedImages(prev => {
+      if (prev.some(img => img.id === image.id)) {
+        toast.info(isZh ? '该图片已在输入框中' : 'Image already attached');
+        return prev;
+      }
+      return [...prev, selectedImage];
+    });
+    
+    // Show visual feedback with highlight
+    setHighlightedImageId(image.id);
+    toast.success(isZh ? '已添加到输入框' : 'Added to input');
+    
+    // Remove highlight after animation
+    setTimeout(() => {
+      setHighlightedImageId(null);
+    }, 600);
+  }, [isZh]);
 
   // Handle copying image to clipboard for cross-session paste
   const handleCopyImage = useCallback((image: CanvasImage) => {
@@ -760,6 +788,8 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           onImageDragStart={(image) => {
             // Optional: could show visual feedback when drag starts
           }}
+          onImageDoubleClick={handleImageDoubleClick}
+          highlightedImageId={highlightedImageId}
         />
 
         {/* Selected Image Floating Toolbar */}

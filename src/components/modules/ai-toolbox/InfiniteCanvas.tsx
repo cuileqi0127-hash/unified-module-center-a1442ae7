@@ -20,6 +20,8 @@ interface InfiniteCanvasProps {
   onImageSelect?: (id: string | null) => void;
   selectedImageId?: string | null;
   onImageDragStart?: (image: CanvasImage) => void;
+  onImageDoubleClick?: (image: CanvasImage) => void;
+  highlightedImageId?: string | null;
 }
 
 const MIN_ZOOM = 0.25;
@@ -32,6 +34,8 @@ export function InfiniteCanvas({
   onImageSelect,
   selectedImageId,
   onImageDragStart,
+  onImageDoubleClick,
+  highlightedImageId,
 }: InfiniteCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -161,7 +165,8 @@ export function InfiniteCanvas({
                 'absolute cursor-move rounded-lg bg-background shadow-lg transition-all duration-150',
                 selectedImageId === image.id
                   ? 'ring-2 ring-primary shadow-xl z-50'
-                  : 'ring-1 ring-border hover:shadow-xl'
+                  : 'ring-1 ring-border hover:shadow-xl',
+                highlightedImageId === image.id && 'ring-2 ring-green-500 shadow-xl animate-pulse'
               )}
               style={{ 
                 width: image.width, 
@@ -171,6 +176,10 @@ export function InfiniteCanvas({
               onMouseDown={(e) => {
                 e.stopPropagation();
                 onImageSelect?.(image.id);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onImageDoubleClick?.(image);
               }}
             >
               <img
