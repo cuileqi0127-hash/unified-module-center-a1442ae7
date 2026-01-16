@@ -160,7 +160,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedImage, setCopiedImage] = useState<CanvasImage | null>(null);
   const [highlightedImageId, setHighlightedImageId] = useState<string | null>(null);
-  const [chatPanelWidth, setChatPanelWidth] = useState(35); // 百分比宽度，默认35%
+  const [chatPanelWidth, setChatPanelWidth] = useState(30); // 百分比宽度，默认35%
   const [isResizing, setIsResizing] = useState(false);
 
   const workModes = [
