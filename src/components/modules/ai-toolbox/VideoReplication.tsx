@@ -14,6 +14,8 @@ import {
   Loader2,
   Plus,
   History,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +34,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { InfiniteCanvas } from './InfiniteCanvas';
 
 interface VideoReplicationProps {
@@ -80,6 +89,23 @@ interface CanvasItem {
   prompt?: string;
 }
 
+// History interface for saving projects
+interface ProjectHistoryItem {
+  id: string;
+  name: string;
+  createdAt: Date;
+  viewState: ViewState;
+  originalVideoName: string | null;
+  referenceImageName: string | null;
+  sellingPoints: string;
+  segmentsCount: number;
+  // We store serializable data only (no blob URLs)
+  segments: VideoSegment[];
+  messages: Message[];
+}
+
+const HISTORY_STORAGE_KEY = 'video-replication-history';
+
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   // View state
   const [viewState, setViewState] = useState<ViewState>('upload');
@@ -112,6 +138,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [replacingItemId, setReplacingItemId] = useState<string | null>(null);
   
+  // History state
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [projectHistory, setProjectHistory] = useState<ProjectHistoryItem[]>([]);
+  
   // Panel resize
   const [chatPanelWidth, setChatPanelWidth] = useState(35);
   const [isResizing, setIsResizing] = useState(false);
@@ -120,6 +150,91 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  
+  // Load history from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convert date strings back to Date objects
+        const history = parsed.map((item: any) => ({
+          ...item,
+          createdAt: new Date(item.createdAt),
+          messages: item.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          })),
+        }));
+        setProjectHistory(history);
+      }
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    }
+  }, []);
+
+  // Save history to localStorage
+  const saveHistoryToStorage = useCallback((history: ProjectHistoryItem[]) => {
+    try {
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+    } catch (error) {
+      console.error('Failed to save history:', error);
+    }
+  }, []);
+
+  // Save current project to history
+  const saveToHistory = useCallback(() => {
+    if (!originalVideo && segments.length === 0) {
+      toast.error('当前项目为空，无法保存');
+      return;
+    }
+
+    const historyItem: ProjectHistoryItem = {
+      id: crypto.randomUUID(),
+      name: originalVideo?.name || `项目 ${new Date().toLocaleString('zh-CN')}`,
+      createdAt: new Date(),
+      viewState,
+      originalVideoName: originalVideo?.name || null,
+      referenceImageName: referenceImage?.name || null,
+      sellingPoints,
+      segmentsCount: segments.length,
+      segments,
+      messages,
+    };
+
+    const newHistory = [historyItem, ...projectHistory].slice(0, 20); // Keep last 20 items
+    setProjectHistory(newHistory);
+    saveHistoryToStorage(newHistory);
+    toast.success('项目已保存到历史记录');
+  }, [originalVideo, referenceImage, sellingPoints, segments, messages, viewState, projectHistory, saveHistoryToStorage]);
+
+  // Restore project from history
+  const restoreFromHistory = useCallback((item: ProjectHistoryItem) => {
+    setViewState(item.viewState === 'upload' ? 'prompts' : item.viewState);
+    setSegments(item.segments);
+    setMessages(item.messages.map(m => ({
+      ...m,
+      timestamp: new Date(m.timestamp),
+    })));
+    setSellingPoints(item.sellingPoints);
+    setSelectedSegments(new Set());
+    setCanvasItems([]);
+    setGeneratedVideo(null);
+    // Note: We can't restore actual video/image files (blob URLs are not persistent)
+    // So we set them to null and inform the user
+    setOriginalVideo(null);
+    setReferenceImage(null);
+    setHistoryOpen(false);
+    toast.success('项目已恢复，请重新上传视频和参考图');
+  }, []);
+
+  // Delete from history
+  const deleteFromHistory = useCallback((id: string) => {
+    const newHistory = projectHistory.filter(item => item.id !== id);
+    setProjectHistory(newHistory);
+    saveHistoryToStorage(newHistory);
+    toast.success('已从历史记录中删除');
+  }, [projectHistory, saveHistoryToStorage]);
   
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -550,6 +665,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               size="icon"
               className="h-8 w-8"
               onClick={() => {
+                // Save current before creating new
+                if (originalVideo || segments.length > 0) {
+                  saveToHistory();
+                }
                 // Reset all state for new project
                 setViewState('upload');
                 setOriginalVideo(null);
@@ -570,9 +689,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => {
-                toast.info('历史记录功能即将上线');
-              }}
+              onClick={() => setHistoryOpen(true)}
               title="历史记录"
             >
               <History className="w-4 h-4" />
@@ -1055,6 +1172,86 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           }}
         />
       </div>
+
+      {/* History Sheet */}
+      <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+        <SheetContent side="left" className="w-[400px] sm:w-[450px]">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              历史记录
+            </SheetTitle>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-100px)] mt-4">
+            {projectHistory.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>暂无历史记录</p>
+                <p className="text-sm mt-1">开始复刻视频后会自动保存</p>
+              </div>
+            ) : (
+              <div className="space-y-3 pr-4">
+                {projectHistory.map((item) => (
+                  <div 
+                    key={item.id} 
+                    className="border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate" title={item.name}>
+                          {item.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {item.createdAt.toLocaleString('zh-CN')}
+                        </p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {item.originalVideoName && (
+                            <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                              <Video className="w-3 h-3" />
+                              视频
+                            </span>
+                          )}
+                          {item.referenceImageName && (
+                            <span className="inline-flex items-center gap-1 text-xs bg-secondary/50 text-secondary-foreground px-2 py-0.5 rounded">
+                              <ImageIcon className="w-3 h-3" />
+                              参考图
+                            </span>
+                          )}
+                          {item.segmentsCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                              {item.segmentsCount} 个片段
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => restoreFromHistory(item)}
+                          title="恢复项目"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => deleteFromHistory(item.id)}
+                          title="删除"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
