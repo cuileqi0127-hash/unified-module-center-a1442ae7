@@ -408,32 +408,21 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             <Video className="w-5 h-5 text-primary" />
             <span className="font-medium">复刻视频</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-3"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="w-3 h-3 mr-1" />
-              上传
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 px-2">
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onNavigate?.('text-to-video')}>
-                  文生视频
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onNavigate?.('text-to-image')}>
-                  文生图
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-2">
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onNavigate?.('text-to-video')}>
+                文生视频
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onNavigate?.('text-to-image')}>
+                文生图
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Upload Section (show until all uploads are complete and user clicks analyze) */}
