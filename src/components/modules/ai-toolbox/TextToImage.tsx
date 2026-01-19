@@ -1,9 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Download, 
-  Share2, 
-  Edit3, 
-  Trash2, 
   Send,
   ChevronDown,
   ChevronLeft,
@@ -16,7 +12,8 @@ import {
   RatioIcon,
   X,
   Copy,
-  Clipboard
+  Clipboard,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,191 +24,75 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useTranslation } from 'react-i18next';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { InfiniteCanvas } from './InfiniteCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
-import { toast } from 'sonner';
-
-interface ChatMessage {
-  id: string;
-  type: 'user' | 'system';
-  content: string;
-  image?: string;
-  timestamp: Date;
-  status?: 'thinking' | 'analyzing' | 'designing' | 'optimizing' | 'complete';
-  designThoughts?: string[];
-  resultSummary?: string;
-}
-
-interface CanvasImage {
-  id: string;
-  url: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  prompt?: string;
-}
-
-const mockHistory: ChatMessage[] = [
-  {
-    id: '1',
-    type: 'user',
-    content: '一只可爱的橘猫在阳光下打盹',
-    timestamp: new Date(Date.now() - 300000),
-  },
-  {
-    id: '2',
-    type: 'system',
-    content: '',
-    timestamp: new Date(Date.now() - 299000),
-    status: 'complete',
-    image: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?w=400&h=400&fit=crop',
-    designThoughts: [
-      '图片理解：图片主体为一只橘色虎斑猫，毛色以橙黄为主，带有深色条纹',
-      '正在设计：将用户上传的橘猫融入温暖的阳光场景中',
-      '光影效果：根据自然光调整画面，阴影投向右下方，确保光线柔和',
-    ],
-    resultSummary: '已完成橘猫在阳光下打盹的场景生成，整体风格温馨自然，输出尺寸为1:1。',
-  },
-  {
-    id: '3',
-    type: 'user',
-    content: 'A mountain landscape at sunset with dramatic clouds',
-    timestamp: new Date(Date.now() - 200000),
-  },
-  {
-    id: '4',
-    type: 'system',
-    content: '',
-    timestamp: new Date(Date.now() - 199000),
-    status: 'complete',
-    image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=crop',
-    designThoughts: [
-      '场景分析：山脉轮廓与落日余晖的构图设计',
-      '色彩调整：暖色调渐变，从橙红到深紫的天空过渡',
-      '云层渲染：动态云层形态，增强戏剧性视觉效果',
-    ],
-    resultSummary: '已生成日落山景图，云层层次丰富，整体氛围壮观，输出尺寸为16:9。',
-  },
-];
-
-const initialCanvasImages: CanvasImage[] = [
-  {
-    id: 'img-1',
-    url: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?w=800&h=800&fit=crop',
-    x: 100,
-    y: 100,
-    width: 280,
-    height: 280,
-    prompt: '一只可爱的橘猫在阳光下打盹',
-  },
-  {
-    id: 'img-2',
-    url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=800&fit=crop',
-    x: 420,
-    y: 80,
-    width: 320,
-    height: 200,
-    prompt: 'A mountain landscape at sunset',
-  },
-  {
-    id: 'img-3',
-    url: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=800&fit=crop',
-    x: 150,
-    y: 420,
-    width: 240,
-    height: 240,
-    prompt: 'New Year greeting card',
-  },
-  {
-    id: 'img-4',
-    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&h=800&fit=crop',
-    x: 450,
-    y: 340,
-    width: 260,
-    height: 260,
-    prompt: 'Abstract digital art',
-  },
-];
+import { useTextToImage, type CanvasImage } from './useTextToImage';
 
 interface TextToImageProps {
   onNavigate?: (itemId: string) => void;
 }
 
 export function TextToImage({ onNavigate }: TextToImageProps) {
-  const { t, i18n } = useTranslation();
-  const isZh = i18n.language === 'zh';
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const resizeRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  
-  const [prompt, setPrompt] = useState('');
-  const [workMode, setWorkMode] = useState('text-to-image');
-  const [showHistory, setShowHistory] = useState(false);
-  const [model, setModel] = useState('flux-schnell');
-  const [aspectRatio, setAspectRatio] = useState('1:1');
-  const [messages, setMessages] = useState<ChatMessage[]>(mockHistory);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [canvasImages, setCanvasImages] = useState<CanvasImage[]>(initialCanvasImages);
-  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
-  const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [copiedImage, setCopiedImage] = useState<CanvasImage | null>(null);
-  const [highlightedImageId, setHighlightedImageId] = useState<string | null>(null);
-  const [chatPanelWidth, setChatPanelWidth] = useState(35); // 百分比宽度，默认35%
-  const [isResizing, setIsResizing] = useState(false);
+  // 从业务逻辑层获取所有状态和处理函数
+  const {
+    // Refs
+    chatEndRef,
+    resizeRef,
+    containerRef,
+    // State
+    prompt,
+    setPrompt,
+    workMode,
+    setWorkMode,
+    showHistory,
+    setShowHistory,
+    model,
+    setModel,
+    aspectRatio,
+    setAspectRatio,
+    messages,
+    isGenerating,
+    canvasImages,
+    selectedImageId,
+    setSelectedImageId,
+    selectedImageIds,
+    setSelectedImageIds,
+    selectedImages,
+    isDragOver,
+    copiedImage,
+    highlightedImageId,
+    chatPanelWidth,
+    isResizing,
+    // Config
+    workModes,
+    models,
+    aspectRatios,
+    historySessions,
+    // Handlers
+    handleNewConversation,
+    handleLoadSession,
+    handleImageMove,
+    handleAddSelectedImage,
+    handleRemoveSelectedImage,
+    handleCopyImage,
+    handlePasteImage,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    handleGenerate,
+    handleKeyDown,
+    handleImageDoubleClick,
+    handleDeleteImage,
+    handleBatchCopyImages,
+    handleBatchDownloadImages,
+    handleCopyImageToClipboard,
+    handleResizeStart,
+    // Utils
+    cleanMessageContent,
+    isZh,
+  } = useTextToImage();
 
-  const workModes = [
-    { id: 'text-to-image', label: isZh ? '文生图' : 'Text to Image' },
-  ];
-
-  // Mock history sessions for the sidebar
-  const historySessions = [
-    { id: 'session-1', title: '橘猫阳光场景生成', timestamp: new Date(Date.now() - 3600000), messageCount: 4 },
-    { id: 'session-2', title: '山脉日落风景图', timestamp: new Date(Date.now() - 86400000), messageCount: 6 },
-    { id: 'session-3', title: '新年贺卡设计', timestamp: new Date(Date.now() - 172800000), messageCount: 3 },
-    { id: 'session-4', title: '抽象数字艺术', timestamp: new Date(Date.now() - 259200000), messageCount: 5 },
-  ];
-
-  // Handle new conversation - clears chat AND canvas (but preserves copied image)
-  const handleNewConversation = useCallback(() => {
-    setMessages([]);
-    setSelectedImages([]);
-    setPrompt('');
-    setCanvasImages([]);
-    setSelectedImageId(null);
-    // Note: copiedImage is intentionally NOT cleared to allow cross-session paste
-  }, []);
-
-  // Handle loading history session
-  const handleLoadSession = useCallback((sessionId: string) => {
-    // In a real app, this would load the session from backend
-    // For now, we'll just reset to mock history as a demo
-    setMessages(mockHistory);
-    setSelectedImages([]);
-    setShowHistory(false);
-  }, []);
-
-  const models = [
-    { id: 'flux-schnell', label: 'FLUX Schnell' },
-    { id: 'flux-dev', label: 'FLUX Dev' },
-    { id: 'dall-e-3', label: 'DALL-E 3' },
-    { id: 'midjourney', label: 'Midjourney v6' },
-  ];
-
-  const aspectRatios = [
-    { id: '1:1', label: '1:1' },
-    { id: '16:9', label: '16:9' },
-    { id: '9:16', label: '9:16' },
-    { id: '4:3', label: '4:3' },
-  ];
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
+  // 视图层辅助函数
   const getStatusText = (status?: string) => {
     if (!status) return '';
     const statusMap: Record<string, { zh: string; en: string }> = {
@@ -222,267 +103,6 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
       complete: { zh: '任务已结束', en: 'Task Completed' },
     };
     return statusMap[status]?.[isZh ? 'zh' : 'en'] || status;
-  };
-
-  const handleImageMove = useCallback((id: string, x: number, y: number) => {
-    setCanvasImages(prev => 
-      prev.map(img => img.id === id ? { ...img, x, y } : img)
-    );
-  }, []);
-
-  // Handle removing selected image from input area
-  const handleRemoveSelectedImage = useCallback((id: string) => {
-    setSelectedImages(prev => prev.filter(img => img.id !== id));
-  }, []);
-
-  // Handle adding image to selected (from drag or auto-attach)
-  const handleAddSelectedImage = useCallback((image: SelectedImage) => {
-    setSelectedImages(prev => {
-      // Prevent duplicates
-      if (prev.some(img => img.id === image.id)) return prev;
-      return [...prev, image];
-    });
-  }, []);
-
-  // Handle double-click on canvas image to attach to input
-  const handleImageDoubleClick = useCallback((image: CanvasImage) => {
-    const selectedImage: SelectedImage = {
-      id: image.id,
-      url: image.url,
-      prompt: image.prompt,
-    };
-    
-    // Add to selected images (prevent duplicates)
-    setSelectedImages(prev => {
-      if (prev.some(img => img.id === image.id)) {
-        toast.info(isZh ? '该图片已在输入框中' : 'Image already attached');
-        return prev;
-      }
-      return [...prev, selectedImage];
-    });
-    
-    // Show visual feedback with highlight
-    setHighlightedImageId(image.id);
-    toast.success(isZh ? '已添加到输入框' : 'Added to input');
-    
-    // Remove highlight after animation
-    setTimeout(() => {
-      setHighlightedImageId(null);
-    }, 600);
-  }, [isZh]);
-
-  // Handle copying image to clipboard for cross-session paste
-  const handleCopyImage = useCallback((image: CanvasImage) => {
-    setCopiedImage(image);
-    toast.success(isZh ? '已复制到剪贴板，可在新画布粘贴' : 'Copied to clipboard, can paste in new canvas');
-  }, [isZh]);
-
-  // Handle pasting copied image to canvas (clears copiedImage after paste)
-  const handlePasteImage = useCallback(() => {
-    if (copiedImage) {
-      const newImage: CanvasImage = {
-        ...copiedImage,
-        id: `img-${Date.now()}`,
-        x: 100 + Math.random() * 100,
-        y: 100 + Math.random() * 100,
-      };
-      setCanvasImages(prev => [...prev, newImage]);
-      setSelectedImageId(newImage.id);
-      setCopiedImage(null); // Clear after paste - single use
-      toast.success(isZh ? '已粘贴图片到画布' : 'Image pasted to canvas');
-    }
-  }, [copiedImage, isZh]);
-
-  // Handle keyboard shortcuts for copy/paste
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedImageId) {
-        const image = canvasImages.find(img => img.id === selectedImageId);
-        if (image) handleCopyImage(image);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedImage) {
-        handlePasteImage();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImageId, canvasImages, copiedImage, handleCopyImage, handlePasteImage]);
-
-  // Drag and drop handlers for input area
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    
-    try {
-      const data = e.dataTransfer.getData('application/json');
-      if (data) {
-        const imageData = JSON.parse(data) as SelectedImage;
-        handleAddSelectedImage(imageData);
-      }
-    } catch (err) {
-      console.error('Failed to parse dropped image data:', err);
-    }
-  }, [handleAddSelectedImage]);
-
-  const handleGenerate = () => {
-    if (!prompt.trim() || isGenerating) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: prompt,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    const currentPrompt = prompt;
-    setPrompt('');
-    setIsGenerating(true);
-
-    const systemMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      type: 'system',
-      content: '',
-      timestamp: new Date(),
-      status: 'thinking',
-      designThoughts: [],
-    };
-    
-    setTimeout(() => {
-      setMessages(prev => [...prev, systemMessage]);
-    }, 300);
-
-    const newImageUrl = 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=800&h=800&fit=crop';
-    
-    const designSteps = isZh ? [
-      `图片理解：${currentPrompt}`,
-      '正在设计：分析画面构图与色彩搭配',
-      '光影效果：根据场景调整光线与阴影',
-    ] : [
-      `Image Understanding: ${currentPrompt}`,
-      'Designing: Analyzing composition and color palette',
-      'Lighting: Adjusting light and shadow based on scene',
-    ];
-    
-    const resultSummary = isZh 
-      ? `已完成图片生成，整体风格协调，输出尺寸为1:1。`
-      : `Image generation complete, overall style harmonious, output size 1:1.`;
-
-    // Progress through design thoughts
-    designSteps.forEach((thought, index) => {
-      setTimeout(() => {
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === systemMessage.id 
-              ? { 
-                  ...msg, 
-                  status: index < designSteps.length - 1 ? 'designing' : 'optimizing',
-                  designThoughts: [...(msg.designThoughts || []), thought],
-                }
-              : msg
-          )
-        );
-      }, (index + 1) * 600);
-    });
-
-    // Complete with image
-    setTimeout(() => {
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === systemMessage.id 
-            ? { 
-                ...msg, 
-                status: 'complete',
-                image: newImageUrl,
-                resultSummary,
-              }
-            : msg
-        )
-      );
-      // Add new image to canvas at center
-      const newImage: CanvasImage = {
-        id: `img-${Date.now()}`,
-        url: newImageUrl,
-        x: 300,
-        y: 200,
-        width: 280,
-        height: 280,
-        prompt: currentPrompt,
-      };
-      setCanvasImages(prev => [...prev, newImage]);
-      setSelectedImageId(newImage.id);
-      
-      // Auto-attach newly generated image to input area
-      handleAddSelectedImage({
-        id: newImage.id,
-        url: newImage.url,
-        prompt: newImage.prompt,
-      });
-      
-      setIsGenerating(false);
-    }, (designSteps.length + 1) * 600);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleGenerate();
-    }
-  };
-
-  // Handle resize drag
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
-
-  useEffect(() => {
-    const handleResizeMove = (e: MouseEvent) => {
-      if (!isResizing || !containerRef.current) return;
-      
-      const containerWidth = containerRef.current.offsetWidth;
-      const newWidthPercent = (e.clientX / containerWidth) * 100;
-      
-      // 限制宽度范围：最小20%，最大60%
-      const clampedWidth = Math.max(20, Math.min(60, newWidthPercent));
-      setChatPanelWidth(clampedWidth);
-    };
-
-    const handleResizeEnd = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      document.addEventListener('mousemove', handleResizeMove);
-      document.addEventListener('mouseup', handleResizeEnd);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleResizeMove);
-      document.removeEventListener('mouseup', handleResizeEnd);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizing]);
-
-  const handleDeleteImage = () => {
-    if (selectedImageId) {
-      setCanvasImages(prev => prev.filter(img => img.id !== selectedImageId));
-      setSelectedImageId(null);
-    }
   };
 
   const selectedImage = canvasImages.find(img => img.id === selectedImageId);
@@ -597,24 +217,28 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                       {message.type === 'user' ? (
                         <div className="flex items-start gap-2">
                           <span className="mt-0.5 text-lg">•</span>
-                          <p className="text-sm leading-relaxed text-foreground">{message.content}</p>
+                          <p className="text-sm leading-relaxed text-foreground">{cleanMessageContent(message.content)}</p>
                         </div>
                       ) : (
                         <div className="w-full space-y-3">
                           {/* Design Thoughts */}
                           {message.designThoughts && message.designThoughts.length > 0 && (
                             <div className="space-y-2">
-                              {message.designThoughts.map((thought, idx) => (
+                              {message.designThoughts.map((thought, idx) => {
+                                const cleanedThought = cleanMessageContent(thought);
+                                if (!cleanedThought) return null; // 如果清理后为空，不显示
+                                return (
                                 <div key={idx} className="flex items-start gap-2">
                                   <span className="mt-0.5 text-primary">•</span>
                                   <p className="text-sm leading-relaxed text-muted-foreground">
                                     <span className="font-medium text-foreground">
-                                      {thought.split('：')[0]}：
+                                        {cleanedThought.split('：')[0]}：
                                     </span>
-                                    {thought.split('：').slice(1).join('：')}
+                                      {cleanedThought.split('：').slice(1).join('：')}
                                   </p>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                           
@@ -659,7 +283,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                           {/* Result Summary */}
                           {message.resultSummary && message.status === 'complete' && (
                             <p className="text-sm leading-relaxed text-muted-foreground">
-                              {message.resultSummary}
+                              {cleanMessageContent(message.resultSummary)}
                             </p>
                           )}
                           
@@ -698,18 +322,53 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* Selected Images Capsules */}
-            {selectedImages.length > 0 && (
+            {/* Selected Images Capsules - Show all selected canvas images */}
+            {(selectedImageIds.length > 0 || selectedImageId) && (() => {
+              // Get all selected images from canvas
+              const imagesToDisplay = selectedImageIds.length > 0
+                ? selectedImageIds
+                    .map(id => canvasImages.find(img => img.id === id))
+                    .filter((img): img is CanvasImage => img !== undefined)
+                    .map(img => ({
+                      id: img.id,
+                      url: img.url,
+                      prompt: img.prompt,
+                    } as SelectedImage))
+                : selectedImageId
+                  ? (() => {
+                      const img = canvasImages.find(img => img.id === selectedImageId);
+                      return img ? [{
+                        id: img.id,
+                        url: img.url,
+                        prompt: img.prompt,
+                      } as SelectedImage] : [];
+                    })()
+                  : [];
+              
+              if (imagesToDisplay.length === 0) return null;
+              
+              return (
               <div className="flex flex-wrap items-center gap-2 px-4 pt-3 pb-1">
-                {selectedImages.map((img) => (
+                  {imagesToDisplay.map((image) => (
                   <ImageCapsule
-                    key={img.id}
-                    image={img}
-                    onRemove={handleRemoveSelectedImage}
+                      key={image.id}
+                      image={image}
+                      onRemove={(id) => {
+                        // Remove from selectedImages if it exists there
+                        handleRemoveSelectedImage(id);
+                        // Remove from selectedImageIds
+                        const newIds = selectedImageIds.filter(selectedId => selectedId !== id);
+                        setSelectedImageIds(newIds);
+                        // Clear selectedImageId if it's the removed one
+                        if (id === selectedImageId) {
+                          setSelectedImageId(newIds.length > 0 ? newIds[0] : null);
+                        }
+                      }}
                   />
                 ))}
               </div>
-            )}
+              );
+            })()}
             
             <textarea
               value={prompt}
@@ -719,7 +378,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               rows={2}
               className={cn(
                 "w-full resize-none border-0 bg-transparent px-4 text-sm placeholder:text-muted-foreground focus:outline-none",
-                selectedImages.length > 0 ? "pt-2 pb-3" : "py-3"
+                (selectedImageId || selectedImageIds.length > 0) ? "pt-2 pb-3" : "py-3"
               )}
             />
             
@@ -842,7 +501,9 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           images={canvasImages}
           onImageMove={handleImageMove}
           onImageSelect={setSelectedImageId}
+          onImageMultiSelect={setSelectedImageIds}
           selectedImageId={selectedImageId}
+          selectedImageIds={selectedImageIds}
           onImageDragStart={(image) => {
             // Optional: could show visual feedback when drag starts
           }}
@@ -850,33 +511,39 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           highlightedImageId={highlightedImageId}
         />
 
-        {/* Selected Image Floating Toolbar */}
-        {selectedImage && (
+        {/* Selected Image(s) Floating Toolbar */}
+        {(selectedImage || selectedImageIds.length > 0) && (
           <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm animate-fade-in">
             <span className="max-w-[200px] truncate text-xs text-muted-foreground">
-              {selectedImage.prompt}
+              {selectedImageIds.length > 1 
+                ? isZh ? `已选择 ${selectedImageIds.length} 张图片` : `${selectedImageIds.length} images selected`
+                : selectedImage?.prompt ? cleanMessageContent(selectedImage.prompt) : ''}
             </span>
             <div className="h-4 w-px bg-border" />
             <Button 
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 rounded-full"
-              onClick={() => handleCopyImage(selectedImage)}
-              title={isZh ? '复制到新对话' : 'Copy to new session'}
+              onClick={selectedImageIds.length > 1 ? handleBatchCopyImages : () => selectedImage && handleCopyImageToClipboard(selectedImage)}
+              title={isZh ? (selectedImageIds.length > 1 ? '批量复制' : '复制') : (selectedImageIds.length > 1 ? 'Copy All' : 'Copy')}
             >
               <Copy className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-full"
+              onClick={handleBatchDownloadImages}
+              title={isZh ? (selectedImageIds.length > 1 ? '批量下载' : '下载') : (selectedImageIds.length > 1 ? 'Download All' : 'Download')}
+            >
               <Download className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-              <Edit3 className="h-4 w-4" />
             </Button>
             <Button 
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
               onClick={handleDeleteImage}
+              title={isZh ? (selectedImageIds.length > 1 ? '批量删除' : '删除') : (selectedImageIds.length > 1 ? 'Delete All' : 'Delete')}
             >
               <Trash2 className="h-4 w-4" />
             </Button>

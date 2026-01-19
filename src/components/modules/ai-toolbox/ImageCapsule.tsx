@@ -19,11 +19,19 @@ interface ImageCapsuleProps {
 }
 
 export function ImageCapsule({ image, onRemove }: ImageCapsuleProps) {
-  // Truncate prompt for display
-  const displayText = image.prompt 
-    ? image.prompt.length > 8 
-      ? image.prompt.slice(0, 8) + '...' 
-      : image.prompt
+  // 清理消息内容，移除 markdown 图片链接
+  const cleanMessageContent = (content: string): string => {
+    if (!content) return content;
+    // 移除 markdown 图片链接格式：![image](url) 或 ![alt text](url)
+    return content.replace(/!\[([^\]]*)\]\([^)]+\)/g, '').trim();
+  };
+
+  // 清理并截断 prompt 用于显示
+  const cleanedPrompt = image.prompt ? cleanMessageContent(image.prompt) : null;
+  const displayText = cleanedPrompt 
+    ? cleanedPrompt.length > 8 
+      ? cleanedPrompt.slice(0, 8) + '...' 
+      : cleanedPrompt
     : '图片';
 
   return (
@@ -80,9 +88,9 @@ export function ImageCapsule({ image, onRemove }: ImageCapsuleProps) {
               className="max-w-[120px] max-h-[120px] object-contain"
             />
           </div>
-          {image.prompt && (
+          {cleanedPrompt && (
             <p className="text-[10px] text-muted-foreground max-w-[120px] line-clamp-2 leading-tight">
-              {image.prompt}
+              {cleanedPrompt}
             </p>
           )}
         </div>

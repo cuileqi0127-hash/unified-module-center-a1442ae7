@@ -18,7 +18,9 @@ interface InfiniteCanvasProps {
   images: CanvasImage[];
   onImageMove?: (id: string, x: number, y: number) => void;
   onImageSelect?: (id: string | null) => void;
+  onImageMultiSelect?: (ids: string[]) => void;
   selectedImageId?: string | null;
+  selectedImageIds?: string[]; // Multi-select support
   onImageDragStart?: (image: CanvasImage) => void;
   onImageDoubleClick?: (image: CanvasImage) => void;
   highlightedImageId?: string | null;
@@ -32,7 +34,9 @@ export function InfiniteCanvas({
   images,
   onImageMove,
   onImageSelect,
+  onImageMultiSelect,
   selectedImageId,
+  selectedImageIds = [],
   onImageDragStart,
   onImageDoubleClick,
   highlightedImageId,
@@ -43,6 +47,11 @@ export function InfiniteCanvas({
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
+  
+  // Box selection state
+  const [isBoxSelecting, setIsBoxSelecting] = useState(false);
+  const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const selectionStartPos = useRef<{ x: number; y: number } | null>(null);
 
   // Touch gesture state
   const touchState = useRef<{
@@ -140,7 +149,7 @@ export function InfiniteCanvas({
   // Handle mouse wheel zoom - zoom towards mouse position
   // Supports: regular wheel, trackpad pinch (Ctrl/Cmd + wheel), trackpad scroll
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
+      e.preventDefault();
     e.stopPropagation();
     
     if (!containerRef.current) return;
@@ -183,33 +192,168 @@ export function InfiniteCanvas({
     zoomTowardsPoint(e.clientX, e.clientY, zoomDelta);
   }, [zoomTowardsPoint]);
 
-  // Handle panning start
+  // Check if point is inside selection box (in canvas coordinates)
+  const isPointInSelectionBox = useCallback((x: number, y: number, box: { x: number; y: number; width: number; height: number }, zoom: number, pan: { x: number; y: number }): boolean => {
+    // Convert selection box to canvas coordinates
+    const boxLeft = (box.x - pan.x) / zoom;
+    const boxTop = (box.y - pan.y) / zoom;
+    const boxRight = boxLeft + box.width / zoom;
+    const boxBottom = boxTop + box.height / zoom;
+    
+    return x >= Math.min(boxLeft, boxRight) && x <= Math.max(boxLeft, boxRight) &&
+           y >= Math.min(boxTop, boxBottom) && y <= Math.max(boxTop, boxBottom);
+  }, []);
+
+  // Handle panning/box selection start
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Middle mouse button or space + left click
+    // Middle mouse button or space + left click - panning
     if (e.button === 1 || (isSpacePressed && e.button === 0)) {
       e.preventDefault();
       setIsPanning(true);
       lastMousePos.current = { x: e.clientX, y: e.clientY };
-    } else if (e.target === containerRef.current || (e.target as HTMLElement).classList.contains('canvas-background')) {
+      return;
+    }
+    
+    // Left click - check if clicking on empty canvas or image
+    if (e.button === 0) {
+      // Check if click is on an image by checking the target element
+      const target = e.target as HTMLElement;
+      const isClickOnImage = target.closest('[data-image-id]') !== null;
+      
+      // Only start box selection if clicking on empty canvas (not on an image)
+      if (!isClickOnImage && !isSpacePressed && containerRef.current) {
+        e.preventDefault();
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Check if click is within any image bounds
+        const isClickInImage = images.some(image => {
+          const screenX = image.x * zoom + pan.x;
+          const screenY = image.y * zoom + pan.y;
+          const screenWidth = image.width * zoom;
+          const screenHeight = image.height * zoom;
+          
+          return x >= screenX && x <= screenX + screenWidth &&
+                 y >= screenY && y <= screenY + screenHeight;
+        });
+        
+        // Start box selection only if not clicking on any image
+        if (!isClickInImage) {
+          selectionStartPos.current = { x, y };
+          setIsBoxSelecting(true);
+          setSelectionBox({ x, y, width: 0, height: 0 });
+          
+          // Clear selection if not holding Ctrl/Cmd
+          if (!e.ctrlKey && !e.metaKey) {
+            onImageSelect?.(null);
+            onImageMultiSelect?.([]);
+          }
+        }
+      } else if (!isClickOnImage && isSpacePressed) {
       // Click on empty canvas deselects
       onImageSelect?.(null);
+        onImageMultiSelect?.([]);
+      }
     }
-  }, [isSpacePressed, onImageSelect]);
+  }, [isSpacePressed, onImageSelect, onImageMultiSelect, images, zoom, pan]);
 
-  // Handle panning move
+  // Handle panning/box selection move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
       const dx = e.clientX - lastMousePos.current.x;
       const dy = e.clientY - lastMousePos.current.y;
       setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
       lastMousePos.current = { x: e.clientX, y: e.clientY };
+    } else if (isBoxSelecting && selectionStartPos.current && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const width = x - selectionStartPos.current.x;
+      const height = y - selectionStartPos.current.y;
+      
+      setSelectionBox({
+        x: Math.min(selectionStartPos.current.x, x),
+        y: Math.min(selectionStartPos.current.y, y),
+        width: Math.abs(width),
+        height: Math.abs(height),
+      });
     }
-  }, [isPanning]);
+  }, [isPanning, isBoxSelecting]);
 
-  // Handle panning end
-  const handleMouseUp = useCallback(() => {
+  // Handle panning/box selection end
+  const handleMouseUp = useCallback((e?: React.MouseEvent) => {
+    if (isBoxSelecting && containerRef.current && onImageMultiSelect) {
+      // Use current selectionBox or calculate from selectionStartPos
+      const currentBox = selectionBox || (selectionStartPos.current ? {
+        x: selectionStartPos.current.x,
+        y: selectionStartPos.current.y,
+        width: 0,
+        height: 0
+      } : null);
+      
+      // Only process selection if box has minimum size
+      if (currentBox && (currentBox.width > 5 || currentBox.height > 5)) {
+        // Find images within selection box
+        const selectedIds: string[] = [];
+        
+        images.forEach(image => {
+          // Convert image position to screen coordinates
+          const screenX = image.x * zoom + pan.x;
+          const screenY = image.y * zoom + pan.y;
+          const screenWidth = image.width * zoom;
+          const screenHeight = image.height * zoom;
+          
+          // Check if image overlaps with selection box
+          const imageLeft = screenX;
+          const imageTop = screenY;
+          const imageRight = screenX + screenWidth;
+          const imageBottom = screenY + screenHeight;
+          
+          const boxLeft = currentBox.x;
+          const boxTop = currentBox.y;
+          const boxRight = currentBox.x + currentBox.width;
+          const boxBottom = currentBox.y + currentBox.height;
+          
+          // Check overlap
+          const overlaps = !(imageRight < boxLeft || imageLeft > boxRight || imageBottom < boxTop || imageTop > boxBottom);
+          
+          if (overlaps) {
+            selectedIds.push(image.id);
+          }
+        });
+        
+        if (selectedIds.length > 0) {
+          // If Ctrl/Cmd pressed, add to existing selection
+          const addToSelection = e?.ctrlKey || e?.metaKey;
+          if (addToSelection && selectedImageIds.length > 0) {
+            const combined = [...new Set([...selectedImageIds, ...selectedIds])];
+            onImageMultiSelect(combined);
+          } else {
+            onImageMultiSelect(selectedIds);
+          }
+          
+          // Also set the first selected image as selectedImageId
+          if (onImageSelect && selectedIds.length > 0) {
+            onImageSelect(selectedIds[0]);
+          }
+        } else {
+          // No images selected, clear selection if not holding Ctrl/Cmd
+          if (!e?.ctrlKey && !e?.metaKey) {
+            onImageSelect?.(null);
+            onImageMultiSelect([]);
+          }
+        }
+      }
+      
+      setIsBoxSelecting(false);
+      setSelectionBox(null);
+      selectionStartPos.current = null;
+    }
+    
     setIsPanning(false);
-  }, []);
+  }, [isBoxSelecting, selectionBox, images, zoom, pan, selectedImageIds, onImageMultiSelect, onImageSelect]);
 
   // Calculate distance between two touches
   const getTouchDistance = (touch1: Touch, touch2: Touch): number => {
@@ -384,9 +528,10 @@ export function InfiniteCanvas({
             cancel=".no-drag"
           >
             <div
+              data-image-id={image.id}
               className={cn(
                 'absolute cursor-move rounded-lg bg-background shadow-lg',
-                selectedImageId === image.id
+                (selectedImageId === image.id || selectedImageIds.includes(image.id))
                   ? 'ring-2 ring-primary shadow-xl z-50'
                   : 'ring-1 ring-border hover:shadow-xl',
                 highlightedImageId === image.id && 'ring-2 ring-green-500 shadow-xl animate-pulse'
@@ -394,11 +539,28 @@ export function InfiniteCanvas({
               style={{ 
                 width: image.width * zoom, 
                 height: image.height * zoom,
-                zIndex: selectedImageId === image.id ? 50 : index + 1,
+                zIndex: (selectedImageId === image.id || selectedImageIds.includes(image.id)) ? 50 : index + 1,
               }}
               onMouseDown={(e) => {
                 e.stopPropagation();
+                // Support Ctrl/Cmd + click for multi-select
+                if (e.ctrlKey || e.metaKey) {
+                  if (selectedImageIds.includes(image.id)) {
+                    // Remove from selection
+                    const newIds = selectedImageIds.filter(id => id !== image.id);
+                    onImageMultiSelect?.(newIds);
+                    onImageSelect?.(newIds.length > 0 ? newIds[0] : null);
+                  } else {
+                    // Add to selection
+                    const newIds = [...selectedImageIds, image.id];
+                    onImageMultiSelect?.(newIds);
+                    onImageSelect?.(image.id);
+                  }
+                } else {
+                  // Single select
                 onImageSelect?.(image.id);
+                  onImageMultiSelect?.([image.id]);
+                }
               }}
               onDoubleClick={(e) => {
                 e.stopPropagation();
@@ -408,7 +570,7 @@ export function InfiniteCanvas({
               <img
                 src={image.url}
                 alt={image.prompt || 'Generated image'}
-                className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
+                className="h-full w-full rounded-lg object-contain pointer-events-none select-none"
                 draggable={false}
               />
               {/* Drag handle overlay for HTML5 drag (to input area) */}
@@ -441,6 +603,19 @@ export function InfiniteCanvas({
           );
         })}
       </div>
+
+      {/* Selection Box */}
+      {selectionBox && (
+        <div
+          className="absolute border-2 border-primary bg-primary/10 pointer-events-none z-[100]"
+          style={{
+            left: selectionBox.x,
+            top: selectionBox.y,
+            width: selectionBox.width,
+            height: selectionBox.height,
+          }}
+        />
+      )}
 
       {/* Zoom Controls */}
       <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-lg backdrop-blur-sm">
