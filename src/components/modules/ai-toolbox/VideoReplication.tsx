@@ -36,6 +36,7 @@ interface VideoSegment {
   newPrompt: string;
   isEditing: boolean;
   thumbnail?: string;
+  isSelected: boolean;
 }
 
 interface UploadedFile {
@@ -75,7 +76,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   
   // Segmentation state
   const [segments, setSegments] = useState<VideoSegment[]>([]);
-  const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
+  const [selectedSegments, setSelectedSegments] = useState<Set<string>>(new Set());
+  const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
+  const [editingPromptText, setEditingPromptText] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   // Chat state
@@ -240,6 +243,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         originalPrompt: '产品展示镜头，特写产品外观，柔和的灯光环境',
         newPrompt: '',
         isEditing: false,
+        isSelected: false,
       },
       {
         id: '2',
@@ -248,6 +252,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         originalPrompt: '产品功能演示，手部操作特写，流畅的动作',
         newPrompt: '',
         isEditing: false,
+        isSelected: false,
       },
       {
         id: '3',
@@ -256,6 +261,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         originalPrompt: '使用场景展示，生活化环境，自然光线',
         newPrompt: '',
         isEditing: false,
+        isSelected: false,
       },
       {
         id: '4',
@@ -264,6 +270,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         originalPrompt: '品牌logo展示，简洁背景，产品卖点文字叠加',
         newPrompt: '',
         isEditing: false,
+        isSelected: false,
       },
     ];
     
@@ -298,31 +305,80 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     toast.success('复刻分析完成');
   }, [originalVideo, sellingPoints]);
 
-  // Handle segment selection for editing
-  const handleSegmentClick = useCallback((segmentId: string) => {
-    setSelectedSegment(segmentId);
+  // Handle segment selection (click = toggle single, ctrl+click = multi-select)
+  const handleSegmentClick = useCallback((segmentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedSegments(prev => {
+      const newSet = new Set(prev);
+      if (e.ctrlKey || e.metaKey) {
+        // Multi-select mode
+        if (newSet.has(segmentId)) {
+          newSet.delete(segmentId);
+        } else {
+          newSet.add(segmentId);
+        }
+      } else {
+        // Single select mode
+        if (newSet.has(segmentId) && newSet.size === 1) {
+          newSet.clear();
+        } else {
+          newSet.clear();
+          newSet.add(segmentId);
+        }
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Handle select all
+  const handleSelectAll = useCallback(() => {
+    if (selectedSegments.size === segments.length) {
+      setSelectedSegments(new Set());
+    } else {
+      setSelectedSegments(new Set(segments.map(s => s.id)));
+    }
+  }, [segments, selectedSegments]);
+
+  // Handle double-click to edit
+  const handleSegmentDoubleClick = useCallback((segmentId: string) => {
     const segment = segments.find(s => s.id === segmentId);
     if (segment) {
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'system',
-        content: `已选中片段 ${segmentId}（${segment.startTime}s - ${segment.endTime}s）\n原始prompt: ${segment.originalPrompt}\n新prompt: ${segment.newPrompt || '未生成'}`,
-        timestamp: new Date(),
-        segmentId,
-      }]);
+      setEditingSegmentId(segmentId);
+      setEditingPromptText(segment.newPrompt || segment.originalPrompt);
     }
   }, [segments]);
+
+  // Handle save edit
+  const handleSaveEdit = useCallback(() => {
+    if (editingSegmentId) {
+      setSegments(prev => prev.map(s => 
+        s.id === editingSegmentId 
+          ? { ...s, newPrompt: editingPromptText }
+          : s
+      ));
+      setEditingSegmentId(null);
+      setEditingPromptText('');
+      toast.success('已保存修改');
+    }
+  }, [editingSegmentId, editingPromptText]);
+
+  // Handle cancel edit
+  const handleCancelEdit = useCallback(() => {
+    setEditingSegmentId(null);
+    setEditingPromptText('');
+  }, []);
 
   // Handle chat message send
   const handleSendMessage = useCallback(async () => {
     if (!inputMessage.trim()) return;
     
+    const selectedIds = Array.from(selectedSegments);
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
       content: inputMessage,
       timestamp: new Date(),
-      segmentId: selectedSegment || undefined,
+      segmentId: selectedIds.length === 1 ? selectedIds[0] : undefined,
     };
     
     setMessages(prev => [...prev, userMessage]);
@@ -332,16 +388,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     // Mock LLM response - replace with actual API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // If a segment is selected, update its prompt
-    if (selectedSegment === 'all') {
-      // Update all segments
-      setSegments(prev => prev.map(s => ({
-        ...s,
-        newPrompt: `${s.newPrompt} [用户修改: ${inputMessage}]`
-      })));
-    } else if (selectedSegment) {
+    // Update selected segments' prompts
+    if (selectedIds.length > 0) {
       setSegments(prev => prev.map(s => 
-        s.id === selectedSegment 
+        selectedIds.includes(s.id)
           ? { ...s, newPrompt: `${s.newPrompt} [用户修改: ${inputMessage}]` }
           : s
       ));
@@ -350,17 +400,17 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     const assistantMessage: Message = {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: selectedSegment === 'all'
+      content: selectedIds.length === segments.length
         ? '已根据您的要求更新所有片段的prompt。您可以继续优化或直接生成视频。'
-        : selectedSegment 
-          ? `已根据您的要求更新片段 ${selectedSegment} 的prompt。您可以继续优化或选择其他片段。`
-          : '收到您的反馈。请选择"全部"或具体片段进行修改，或者直接点击"生成视频"按钮。',
+        : selectedIds.length > 0
+          ? `已根据您的要求更新 ${selectedIds.length} 个片段的prompt。您可以继续优化或选择其他片段。`
+          : '收到您的反馈。请在时间轴选择片段进行修改，或者直接点击"生成视频"按钮。',
       timestamp: new Date(),
     };
     
     setMessages(prev => [...prev, assistantMessage]);
     setIsGenerating(false);
-  }, [inputMessage, selectedSegment]);
+  }, [inputMessage, selectedSegments, segments.length]);
 
   // Handle video generation
   const handleGenerateVideo = useCallback(async () => {
@@ -630,58 +680,102 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               )}
             </div>
 
-            {/* Segments List with Prompts */}
+            {/* Timeline Segments */}
             {segments.length > 0 && (
-              <div className="px-4 py-2 border-b border-border shrink-0 max-h-[40%] overflow-y-auto">
+              <div className="px-4 py-3 border-b border-border shrink-0">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-muted-foreground">视频片段（点击选中进行对话修改）</p>
+                  <p className="text-xs text-muted-foreground">
+                    时间轴（单击选中，Ctrl+单击多选，双击编辑）
+                  </p>
                   <button
                     className={cn(
                       "text-xs px-2 py-1 rounded transition-colors",
-                      selectedSegment === 'all' 
+                      selectedSegments.size === segments.length 
                         ? "bg-primary text-primary-foreground" 
                         : "bg-muted hover:bg-muted/80 text-muted-foreground"
                     )}
-                    onClick={() => {
-                      setSelectedSegment('all');
-                      setMessages(prev => [...prev, {
-                        id: crypto.randomUUID(),
-                        role: 'system',
-                        content: '已选中全部片段，您的修改将应用到所有片段。',
-                        timestamp: new Date(),
-                      }]);
-                    }}
+                    onClick={handleSelectAll}
                   >
-                    全部
+                    {selectedSegments.size === segments.length ? '取消全选' : '全选'}
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {segments.map((segment) => (
-                    <div
-                      key={segment.id}
-                      className={cn(
-                        "p-3 rounded-lg border cursor-pointer transition-all",
-                        selectedSegment === segment.id 
-                          ? "border-primary bg-primary/10" 
-                          : "border-border hover:border-primary/50"
-                      )}
-                      onClick={() => handleSegmentClick(segment.id)}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          片段 {segment.id}（{segment.startTime}s - {segment.endTime}s）
-                        </span>
-                        {segment.newPrompt && (
-                          <Check className="w-3 h-3 text-green-500" />
+                
+                {/* Horizontal Timeline */}
+                <div className="overflow-x-auto pb-2 scrollbar-thin">
+                  <div className="flex gap-2 min-w-max">
+                    {segments.map((segment) => (
+                      <div
+                        key={segment.id}
+                        className={cn(
+                          "relative flex-shrink-0 w-[180px] p-2 rounded-lg border cursor-pointer transition-all select-none",
+                          selectedSegments.has(segment.id) 
+                            ? "border-primary bg-primary/10 ring-1 ring-primary" 
+                            : "border-border hover:border-primary/50",
+                          editingSegmentId === segment.id && "ring-2 ring-primary"
+                        )}
+                        onClick={(e) => handleSegmentClick(segment.id, e)}
+                        onDoubleClick={() => handleSegmentDoubleClick(segment.id)}
+                      >
+                        {/* Time indicator */}
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-medium text-primary">
+                            {segment.startTime}s - {segment.endTime}s
+                          </span>
+                          {segment.newPrompt && (
+                            <Check className="w-3 h-3 text-green-500" />
+                          )}
+                        </div>
+                        
+                        {/* Prompt content */}
+                        {editingSegmentId === segment.id ? (
+                          <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                            <Textarea
+                              value={editingPromptText}
+                              onChange={(e) => setEditingPromptText(e.target.value)}
+                              className="text-xs min-h-[60px] resize-none"
+                              autoFocus
+                            />
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-6 text-xs flex-1" onClick={handleSaveEdit}>
+                                <Check className="w-3 h-3 mr-1" />
+                                保存
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-6 text-xs flex-1" onClick={handleCancelEdit}>
+                                <X className="w-3 h-3 mr-1" />
+                                取消
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground line-clamp-2" title={segment.originalPrompt}>
+                              原: {segment.originalPrompt}
+                            </p>
+                            {segment.newPrompt && (
+                              <p className="text-[10px] text-foreground line-clamp-2" title={segment.newPrompt}>
+                                新: {segment.newPrompt}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Selection indicator */}
+                        {selectedSegments.has(segment.id) && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                          </div>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mb-1">原始: {segment.originalPrompt}</p>
-                      {segment.newPrompt && (
-                        <p className="text-xs text-foreground">新版: {segment.newPrompt}</p>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+                
+                {/* Selection hint */}
+                {selectedSegments.size > 0 && (
+                  <p className="text-xs text-primary mt-2">
+                    已选中 {selectedSegments.size} 个片段，在下方输入修改建议
+                  </p>
+                )}
               </div>
             )}
 
@@ -732,7 +826,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 <Textarea
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder={selectedSegment ? `对片段 ${selectedSegment} 提出修改建议...` : "输入消息..."}
+                  placeholder={
+                    selectedSegments.size > 0 
+                      ? `对 ${selectedSegments.size} 个片段提出修改建议...` 
+                      : "选择片段后输入修改建议..."
+                  }
                   className="min-h-[44px] max-h-[120px] resize-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
