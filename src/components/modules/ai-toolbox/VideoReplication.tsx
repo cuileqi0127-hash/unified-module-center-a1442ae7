@@ -87,6 +87,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [canvasItems, setCanvasItems] = useState<CanvasItem[]>([]);
   const [selectedCanvasItem, setSelectedCanvasItem] = useState<string | null>(null);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
+  const [replacingItemId, setReplacingItemId] = useState<string | null>(null);
   
   // Panel resize
   const [chatPanelWidth, setChatPanelWidth] = useState(35);
@@ -113,27 +114,52 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     }
     
     const url = URL.createObjectURL(file);
-    setOriginalVideo({
-      id: crypto.randomUUID(),
-      type: 'video',
-      name: file.name,
-      url,
-    });
     
-    // Add to canvas
-    setCanvasItems(prev => [...prev, {
-      id: crypto.randomUUID(),
-      type: 'video',
-      url,
-      name: file.name,
-      x: 50,
-      y: 50,
-      width: 320,
-      height: 180,
-    }]);
+    // Check if replacing an existing item
+    if (replacingItemId) {
+      const oldItem = canvasItems.find(i => i.id === replacingItemId);
+      setCanvasItems(prev => prev.map(item => 
+        item.id === replacingItemId 
+          ? { ...item, url, name: file.name }
+          : item
+      ));
+      // Update sidebar state if the replaced item was the original video
+      if (oldItem && originalVideo && oldItem.url === originalVideo.url) {
+        setOriginalVideo({
+          id: crypto.randomUUID(),
+          type: 'video',
+          name: file.name,
+          url,
+        });
+      }
+      setReplacingItemId(null);
+      toast.success('视频已替换');
+    } else {
+      setOriginalVideo({
+        id: crypto.randomUUID(),
+        type: 'video',
+        name: file.name,
+        url,
+      });
+      
+      // Add to canvas
+      setCanvasItems(prev => [...prev, {
+        id: crypto.randomUUID(),
+        type: 'video',
+        url,
+        name: file.name,
+        x: 50,
+        y: 50,
+        width: 320,
+        height: 180,
+      }]);
+      
+      toast.success('视频上传成功');
+    }
     
-    toast.success('视频上传成功');
-  }, []);
+    // Reset input
+    e.target.value = '';
+  }, [replacingItemId, canvasItems, originalVideo]);
 
   // Handle reference image upload
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,27 +172,52 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     }
     
     const url = URL.createObjectURL(file);
-    setReferenceImage({
-      id: crypto.randomUUID(),
-      type: 'image',
-      name: file.name,
-      url,
-    });
     
-    // Add to canvas
-    setCanvasItems(prev => [...prev, {
-      id: crypto.randomUUID(),
-      type: 'image',
-      url,
-      name: file.name,
-      x: 400,
-      y: 50,
-      width: 200,
-      height: 200,
-    }]);
+    // Check if replacing an existing item
+    if (replacingItemId) {
+      const oldItem = canvasItems.find(i => i.id === replacingItemId);
+      setCanvasItems(prev => prev.map(item => 
+        item.id === replacingItemId 
+          ? { ...item, url, name: file.name }
+          : item
+      ));
+      // Update sidebar state if the replaced item was the reference image
+      if (oldItem && referenceImage && oldItem.url === referenceImage.url) {
+        setReferenceImage({
+          id: crypto.randomUUID(),
+          type: 'image',
+          name: file.name,
+          url,
+        });
+      }
+      setReplacingItemId(null);
+      toast.success('图片已替换');
+    } else {
+      setReferenceImage({
+        id: crypto.randomUUID(),
+        type: 'image',
+        name: file.name,
+        url,
+      });
+      
+      // Add to canvas
+      setCanvasItems(prev => [...prev, {
+        id: crypto.randomUUID(),
+        type: 'image',
+        url,
+        name: file.name,
+        x: 400,
+        y: 50,
+        width: 200,
+        height: 200,
+      }]);
+      
+      toast.success('参考图上传成功');
+    }
     
-    toast.success('参考图上传成功');
-  }, []);
+    // Reset input
+    e.target.value = '';
+  }, [replacingItemId, canvasItems, referenceImage]);
 
   // Analyze video and generate segments (mock - leave interface for LLM)
   const handleAnalyzeVideo = useCallback(async () => {
@@ -724,12 +775,21 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           onImageSelect={setSelectedCanvasItem}
           selectedImageId={selectedCanvasItem}
           onImageDelete={(id) => {
+            const item = canvasItems.find(i => i.id === id);
             setCanvasItems(prev => prev.filter(item => item.id !== id));
             setSelectedCanvasItem(null);
+            // Sync with sidebar state
+            if (item && originalVideo && item.url === originalVideo.url) {
+              setOriginalVideo(null);
+            }
+            if (item && referenceImage && item.url === referenceImage.url) {
+              setReferenceImage(null);
+            }
             toast.success('已删除');
           }}
           onImageReplace={(id) => {
             const item = canvasItems.find(i => i.id === id);
+            setReplacingItemId(id);
             if (item?.type === 'video') {
               fileInputRef.current?.click();
             } else {
