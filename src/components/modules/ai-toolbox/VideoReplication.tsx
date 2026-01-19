@@ -11,6 +11,7 @@ import {
   Sparkles,
   Edit3,
   Check,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,6 +23,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { InfiniteCanvas } from './InfiniteCanvas';
 
 interface VideoReplicationProps {
@@ -55,6 +63,9 @@ interface Message {
   segmentId?: string;
 }
 
+// View state: 'upload' -> 'analyzing' -> 'prompts' -> 'chat'
+type ViewState = 'upload' | 'analyzing' | 'prompts' | 'chat';
+
 interface CanvasItem {
   id: string;
   type: 'video' | 'image';
@@ -68,6 +79,9 @@ interface CanvasItem {
 }
 
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
+  // View state
+  const [viewState, setViewState] = useState<ViewState>('upload');
+  
   // Upload state
   const [originalVideo, setOriginalVideo] = useState<UploadedFile | null>(null);
   const [referenceImage, setReferenceImage] = useState<UploadedFile | null>(null);
@@ -79,7 +93,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [selectedSegments, setSelectedSegments] = useState<Set<string>>(new Set());
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
   const [editingPromptText, setEditingPromptText] = useState<string>('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // Dialog state for prompt editing
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogPromptText, setDialogPromptText] = useState('');
+  const [dialogSegmentId, setDialogSegmentId] = useState<string | null>(null);
   
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -229,7 +247,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       return;
     }
     
-    setIsAnalyzing(true);
+    setViewState('analyzing');
     
     // Mock API call - replace with actual LLM integration
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -274,14 +292,6 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       },
     ];
     
-    // Add system message for analysis complete
-    setMessages(prev => [...prev, {
-      id: crypto.randomUUID(),
-      role: 'system',
-      content: `视频分析完成，共识别 ${mockSegments.length} 个片段。正在根据商品信息生成新prompt...`,
-      timestamp: new Date(),
-    }]);
-    
     // Auto-generate new prompts based on product info
     await new Promise(resolve => setTimeout(resolve, 1500));
     
@@ -292,18 +302,53 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     }));
     
     setSegments(segmentsWithNewPrompts);
-    setIsAnalyzing(false);
-    
-    // Add completion message
-    setMessages(prev => [...prev, {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: '已根据您的商品信息和卖点自动生成新的prompt。您可以：\n• 点击"全部"修改所有片段\n• 点击具体片段进行单独修改\n• 直接点击"生成视频"按钮',
-      timestamp: new Date(),
-    }]);
+    setViewState('prompts');
     
     toast.success('复刻分析完成');
   }, [originalVideo, sellingPoints]);
+
+  // Handle prompt click - open dialog
+  const handlePromptClick = useCallback((segmentId: string) => {
+    const segment = segments.find(s => s.id === segmentId);
+    if (segment) {
+      setDialogSegmentId(segmentId);
+      setDialogPromptText(segment.newPrompt);
+      setDialogOpen(true);
+    }
+  }, [segments]);
+
+  // Handle dialog send - save and enter chat view
+  const handleDialogSend = useCallback(() => {
+    if (dialogSegmentId && dialogPromptText.trim()) {
+      // Update the segment's prompt
+      setSegments(prev => prev.map(s => 
+        s.id === dialogSegmentId 
+          ? { ...s, newPrompt: dialogPromptText }
+          : s
+      ));
+      
+      // Add to messages
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: `修改片段 ${dialogSegmentId} 的prompt为: ${dialogPromptText}`,
+        timestamp: new Date(),
+      }, {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: '已更新prompt。您可以继续修改其他片段或直接生成视频。',
+        timestamp: new Date(),
+      }]);
+      
+      // Close dialog and enter chat view
+      setDialogOpen(false);
+      setDialogSegmentId(null);
+      setDialogPromptText('');
+      setViewState('chat');
+      
+      toast.success('已保存修改');
+    }
+  }, [dialogSegmentId, dialogPromptText]);
 
   // Handle segment selection (click = toggle single, ctrl+click = multi-select)
   const handleSegmentClick = useCallback((segmentId: string, e: React.MouseEvent) => {
@@ -481,7 +526,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   }, [isResizing]);
 
   // Check if ready to analyze
-  const canAnalyze = originalVideo && !isAnalyzing;
+  const canAnalyze = originalVideo && viewState === 'upload';
   const canGenerateVideo = segments.some(s => s.newPrompt) && !isGenerating;
 
   return (
@@ -497,8 +542,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           <span className="font-medium">复刻视频</span>
         </div>
 
-        {/* Upload Section (show until all uploads are complete and user clicks analyze) */}
-        {segments.length === 0 && (
+        {/* Upload Section */}
+        {viewState === 'upload' && (
           <div className="flex-1 p-4 space-y-4 overflow-y-auto">
             {/* Video Upload */}
             {!originalVideo ? (
@@ -596,31 +641,110 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               />
             </div>
 
-            {/* Analyze Button - only show when all uploads are complete */}
+            {/* Analyze Button */}
             {originalVideo && referenceImage && sellingPoints.trim() && (
               <Button 
                 className="w-full"
                 onClick={handleAnalyzeVideo}
-                disabled={isAnalyzing}
               >
-                {isAnalyzing ? (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
-                    复刻中...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    开始复刻
-                  </>
-                )}
+                <Sparkles className="w-4 h-4 mr-2" />
+                开始复刻
               </Button>
             )}
           </div>
         )}
 
-        {/* Segments View (after analysis) */}
-        {segments.length > 0 && (
+        {/* Analyzing Animation */}
+        {viewState === 'analyzing' && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <div className="relative w-24 h-24 mb-6">
+              <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
+              <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <Sparkles className="absolute inset-0 m-auto w-10 h-10 text-primary animate-pulse" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">正在分析视频...</h3>
+            <p className="text-sm text-muted-foreground text-center">
+              AI正在识别视频片段并生成新的prompt
+            </p>
+          </div>
+        )}
+
+        {/* Prompts List View (after analysis, before chat) */}
+        {viewState === 'prompts' && (
+          <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4 overflow-y-auto">
+            <div className="text-center mb-2">
+              <h3 className="font-medium">生成的Prompt列表</h3>
+              <p className="text-sm text-muted-foreground">点击任意片段进行修改</p>
+            </div>
+            
+            {/* Prompt Cards */}
+            <div className="space-y-3">
+              {segments.map((segment) => (
+                <div
+                  key={segment.id}
+                  className="p-4 rounded-lg border border-border hover:border-primary/50 cursor-pointer transition-all hover:bg-muted/30"
+                  onClick={() => handlePromptClick(segment.id)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-primary">
+                      片段 {segment.id} • {segment.startTime}s - {segment.endTime}s
+                    </span>
+                    <Edit3 className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm">{segment.newPrompt}</p>
+                </div>
+              ))}
+            </div>
+            
+            {/* Direct Generate Button */}
+            <Button 
+              className="w-full mt-4"
+              onClick={() => {
+                setViewState('chat');
+                setMessages([{
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  content: '已进入编辑模式。您可以在时间轴选择片段进行修改，或直接生成视频。',
+                  timestamp: new Date(),
+                }]);
+              }}
+            >
+              <Play className="w-4 h-4 mr-2" />
+              直接生成视频
+            </Button>
+          </div>
+        )}
+
+        {/* Prompt Edit Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>
+                编辑片段 {dialogSegmentId} 的Prompt
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Textarea
+                value={dialogPromptText}
+                onChange={(e) => setDialogPromptText(e.target.value)}
+                placeholder="输入新的prompt..."
+                className="min-h-[150px]"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={handleDialogSend}>
+                <Send className="w-4 h-4 mr-2" />
+                发送并继续编辑
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Chat View with Timeline */}
+        {viewState === 'chat' && (
           <div className="flex-1 flex flex-col min-h-0">
 
             {/* Timeline Segments */}
