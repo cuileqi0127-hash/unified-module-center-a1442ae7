@@ -219,7 +219,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     e.target.value = '';
   }, [replacingItemId, canvasItems, referenceImage]);
 
-  // Analyze video and generate segments (mock - leave interface for LLM)
+  // Analyze video and generate segments, then auto-generate new prompts
   const handleAnalyzeVideo = useCallback(async () => {
     if (!originalVideo) {
       toast.error('请先上传原视频');
@@ -231,7 +231,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     // Mock API call - replace with actual LLM integration
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Generate mock segments
+    // Generate mock segments with original prompts
     const mockSegments: VideoSegment[] = [
       {
         id: '1',
@@ -267,55 +267,36 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       },
     ];
     
-    setSegments(mockSegments);
-    setIsAnalyzing(false);
-    
-    // Add system message
+    // Add system message for analysis complete
     setMessages(prev => [...prev, {
       id: crypto.randomUUID(),
       role: 'system',
-      content: `视频分析完成，共识别 ${mockSegments.length} 个片段。点击任意片段可进行对话式优化修改。`,
+      content: `视频分析完成，共识别 ${mockSegments.length} 个片段。正在根据商品信息生成新prompt...`,
       timestamp: new Date(),
     }]);
     
-    toast.success('视频分析完成');
-  }, [originalVideo]);
-
-  // Generate new prompts based on product info (mock - leave interface for LLM)
-  const handleGenerateNewPrompts = useCallback(async () => {
-    if (segments.length === 0) {
-      toast.error('请先分析视频');
-      return;
-    }
-    
-    if (!referenceImage && !sellingPoints) {
-      toast.error('请上传参考图或输入商品卖点');
-      return;
-    }
-    
-    setIsGenerating(true);
-    
-    // Mock API call - replace with actual LLM integration
+    // Auto-generate new prompts based on product info
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Generate new prompts based on product info
-    const updatedSegments = segments.map(segment => ({
+    // Generate new prompts based on selling points and reference image
+    const segmentsWithNewPrompts = mockSegments.map(segment => ({
       ...segment,
       newPrompt: `[新商品] ${segment.originalPrompt}，融入${sellingPoints || '产品特色'}，参考商品图片风格`,
     }));
     
-    setSegments(updatedSegments);
-    setIsGenerating(false);
+    setSegments(segmentsWithNewPrompts);
+    setIsAnalyzing(false);
     
+    // Add completion message
     setMessages(prev => [...prev, {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: '已根据您的商品信息和卖点生成新的prompt，您可以点击各片段进行进一步优化。',
+      content: '已根据您的商品信息和卖点自动生成新的prompt。您可以：\n• 点击"全部"修改所有片段\n• 点击具体片段进行单独修改\n• 直接点击"生成视频"按钮',
       timestamp: new Date(),
     }]);
     
-    toast.success('新prompt生成完成');
-  }, [segments, referenceImage, sellingPoints]);
+    toast.success('复刻分析完成');
+  }, [originalVideo, sellingPoints]);
 
   // Handle segment selection for editing
   const handleSegmentClick = useCallback((segmentId: string) => {
@@ -352,7 +333,13 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // If a segment is selected, update its prompt
-    if (selectedSegment) {
+    if (selectedSegment === 'all') {
+      // Update all segments
+      setSegments(prev => prev.map(s => ({
+        ...s,
+        newPrompt: `${s.newPrompt} [用户修改: ${inputMessage}]`
+      })));
+    } else if (selectedSegment) {
       setSegments(prev => prev.map(s => 
         s.id === selectedSegment 
           ? { ...s, newPrompt: `${s.newPrompt} [用户修改: ${inputMessage}]` }
@@ -363,9 +350,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     const assistantMessage: Message = {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: selectedSegment 
-        ? `已根据您的要求更新片段 ${selectedSegment} 的prompt。您可以继续优化或选择其他片段。`
-        : `收到您的反馈。请选择一个具体片段进行修改，或者直接点击"生成视频"按钮。`,
+      content: selectedSegment === 'all'
+        ? '已根据您的要求更新所有片段的prompt。您可以继续优化或直接生成视频。'
+        : selectedSegment 
+          ? `已根据您的要求更新片段 ${selectedSegment} 的prompt。您可以继续优化或选择其他片段。`
+          : '收到您的反馈。请选择"全部"或具体片段进行修改，或者直接点击"生成视频"按钮。',
       timestamp: new Date(),
     };
     
@@ -443,7 +432,6 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
 
   // Check if ready to analyze
   const canAnalyze = originalVideo && !isAnalyzing;
-  const canGeneratePrompts = segments.length > 0 && (referenceImage || sellingPoints) && !isGenerating;
   const canGenerateVideo = segments.some(s => s.newPrompt) && !isGenerating;
 
   return (
@@ -568,12 +556,12 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 {isAnalyzing ? (
                   <>
                     <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
-                    分析中...
+                    复刻中...
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
-                    开始分析视频
+                    开始复刻
                   </>
                 )}
               </Button>
@@ -619,64 +607,77 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 </div>
               )}
               
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                {segments.length > 0 && !segments.some(s => s.newPrompt) && (
-                  <Button 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={handleGenerateNewPrompts}
-                    disabled={!canGeneratePrompts}
-                  >
-                    <Edit3 className="w-4 h-4 mr-1" />
-                    生成新Prompt
-                  </Button>
-                )}
-                {segments.some(s => s.newPrompt) && (
-                  <Button 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={handleGenerateVideo}
-                    disabled={!canGenerateVideo}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-1 animate-pulse" />
-                        生成中...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 mr-1" />
-                        生成视频
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+              {/* Action Button - Generate Video */}
+              {segments.some(s => s.newPrompt) && (
+                <Button 
+                  size="sm" 
+                  className="w-full"
+                  onClick={handleGenerateVideo}
+                  disabled={!canGenerateVideo}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-1 animate-pulse" />
+                      生成中...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-1" />
+                      生成视频
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
 
-            {/* Segments List */}
+            {/* Segments List with Prompts */}
             {segments.length > 0 && (
-              <div className="px-4 py-2 border-b border-border shrink-0">
-                <p className="text-xs text-muted-foreground mb-2">视频片段（点击选中进行对话修改）</p>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+              <div className="px-4 py-2 border-b border-border shrink-0 max-h-[40%] overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-muted-foreground">视频片段（点击选中进行对话修改）</p>
+                  <button
+                    className={cn(
+                      "text-xs px-2 py-1 rounded transition-colors",
+                      selectedSegment === 'all' 
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                    onClick={() => {
+                      setSelectedSegment('all');
+                      setMessages(prev => [...prev, {
+                        id: crypto.randomUUID(),
+                        role: 'system',
+                        content: '已选中全部片段，您的修改将应用到所有片段。',
+                        timestamp: new Date(),
+                      }]);
+                    }}
+                  >
+                    全部
+                  </button>
+                </div>
+                <div className="space-y-2">
                   {segments.map((segment) => (
                     <div
                       key={segment.id}
                       className={cn(
-                        "flex-shrink-0 p-2 rounded-lg border cursor-pointer transition-all",
+                        "p-3 rounded-lg border cursor-pointer transition-all",
                         selectedSegment === segment.id 
                           ? "border-primary bg-primary/10" 
                           : "border-border hover:border-primary/50"
                       )}
                       onClick={() => handleSegmentClick(segment.id)}
                     >
-                      <div className="w-16 h-10 bg-muted rounded mb-1 flex items-center justify-center">
-                        <Play className="w-4 h-4 text-muted-foreground" />
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          片段 {segment.id}（{segment.startTime}s - {segment.endTime}s）
+                        </span>
+                        {segment.newPrompt && (
+                          <Check className="w-3 h-3 text-green-500" />
+                        )}
                       </div>
-                      <p className="text-xs text-center">{segment.startTime}s-{segment.endTime}s</p>
+                      <p className="text-xs text-muted-foreground mb-1">原始: {segment.originalPrompt}</p>
                       {segment.newPrompt && (
-                        <Check className="w-3 h-3 text-green-500 mx-auto mt-1" />
+                        <p className="text-xs text-foreground">新版: {segment.newPrompt}</p>
                       )}
                     </div>
                   ))}
