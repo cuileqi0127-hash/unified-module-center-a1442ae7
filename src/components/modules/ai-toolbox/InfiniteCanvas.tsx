@@ -12,6 +12,8 @@ interface CanvasImage {
   width: number;
   height: number;
   prompt?: string;
+  type?: 'image' | 'video';
+  name?: string;
 }
 
 interface InfiniteCanvasProps {
@@ -405,12 +407,23 @@ export function InfiniteCanvas({
                 onImageDoubleClick?.(image);
               }}
             >
-              <img
-                src={image.url}
-                alt={image.prompt || 'Generated image'}
-                className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
-                draggable={false}
-              />
+              {image.type === 'video' ? (
+                <video
+                  src={image.url}
+                  className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
+                  muted
+                  loop
+                  autoPlay
+                  playsInline
+                />
+              ) : (
+                <img
+                  src={image.url}
+                  alt={image.prompt || image.name || 'Generated image'}
+                  className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
+                  draggable={false}
+                />
+              )}
               {/* Drag handle overlay for HTML5 drag (to input area) */}
               <div 
                 className="no-drag absolute bottom-2 right-2 p-1.5 rounded bg-background/80 backdrop-blur-sm cursor-grab opacity-0 hover:opacity-100 transition-opacity"
