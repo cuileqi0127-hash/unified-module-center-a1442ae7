@@ -3,7 +3,6 @@ import {
   Send, 
   Upload, 
   Play, 
-  Pause, 
   X, 
   ChevronDown,
   Video,
@@ -12,10 +11,6 @@ import {
   Sparkles,
   Edit3,
   Check,
-  RotateCcw,
-  ZoomIn,
-  ZoomOut,
-  Maximize
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,11 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
+import { InfiniteCanvas } from './InfiniteCanvas';
 
 interface VideoReplicationProps {
   onNavigate?: (itemId: string) => void;
@@ -72,6 +63,7 @@ interface CanvasItem {
   y: number;
   width: number;
   height: number;
+  prompt?: string;
 }
 
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
@@ -93,8 +85,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   
   // Canvas state
   const [canvasItems, setCanvasItems] = useState<CanvasItem[]>([]);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [selectedCanvasItem, setSelectedCanvasItem] = useState<string | null>(null);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   
   // Panel resize
@@ -751,93 +742,16 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
 
       {/* Right Panel - Canvas */}
       <div className="flex-1 flex flex-col bg-muted/30">
-        {/* Canvas Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background shrink-0">
-          <span className="text-sm font-medium">画布预览</span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setZoom(z => Math.max(0.25, z - 0.1))}
-            >
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <span className="text-xs w-12 text-center">{Math.round(zoom * 100)}%</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setZoom(z => Math.min(2, z + 0.1))}
-            >
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
-            >
-              <Maximize className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Canvas Area */}
-        <div className="flex-1 overflow-hidden relative">
-          <div 
-            className="absolute inset-0"
-            style={{
-              backgroundImage: 'radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)',
-              backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
-              backgroundPosition: `${pan.x}px ${pan.y}px`,
-            }}
-          >
-            <div
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                transformOrigin: '0 0',
-              }}
-            >
-              {canvasItems.length === 0 ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-muted-foreground text-sm">上传视频和参考图后将在此显示</p>
-                </div>
-              ) : (
-                canvasItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="absolute bg-background rounded-lg shadow-lg overflow-hidden border border-border"
-                    style={{
-                      left: item.x,
-                      top: item.y,
-                      width: item.width,
-                      height: item.height,
-                    }}
-                  >
-                    {item.type === 'video' ? (
-                      <video
-                        src={item.url}
-                        className="w-full h-full object-cover"
-                        controls
-                        muted
-                      />
-                    ) : (
-                      <img
-                        src={item.url}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                      <p className="text-white text-xs truncate">{item.name}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+        <InfiniteCanvas
+          images={canvasItems}
+          onImageMove={(id, x, y) => {
+            setCanvasItems(prev => prev.map(item => 
+              item.id === id ? { ...item, x, y } : item
+            ));
+          }}
+          onImageSelect={setSelectedCanvasItem}
+          selectedImageId={selectedCanvasItem}
+        />
       </div>
     </div>
   );
