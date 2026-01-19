@@ -723,6 +723,33 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           }}
           onImageSelect={setSelectedCanvasItem}
           selectedImageId={selectedCanvasItem}
+          onImageDelete={(id) => {
+            setCanvasItems(prev => prev.filter(item => item.id !== id));
+            setSelectedCanvasItem(null);
+            toast.success('已删除');
+          }}
+          onImageReplace={(id) => {
+            const item = canvasItems.find(i => i.id === id);
+            if (item?.type === 'video') {
+              fileInputRef.current?.click();
+            } else {
+              imageInputRef.current?.click();
+            }
+          }}
+          onImageCopy={(image) => {
+            const newItem: CanvasItem = {
+              id: crypto.randomUUID(),
+              type: (image.type as 'video' | 'image') || 'image',
+              url: image.url,
+              name: image.name || '',
+              x: image.x + 30,
+              y: image.y + 30,
+              width: image.width,
+              height: image.height,
+            };
+            setCanvasItems(prev => [...prev, newItem]);
+            toast.success('已复制');
+          }}
         />
       </div>
     </div>
