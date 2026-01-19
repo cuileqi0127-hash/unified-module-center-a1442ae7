@@ -428,6 +428,12 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     }
   }, [segments]);
 
+  // Quick entry for prompt editing view
+  const handleModifyPrompts = useCallback(() => {
+    if (!segments.length) return;
+    setViewState('chat');
+  }, [segments.length]);
+
   // Handle dialog send - save and enter chat view
   const handleDialogSend = useCallback(() => {
     if (dialogSegmentId && dialogPromptText.trim()) {
@@ -933,9 +939,20 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               ))}
             </div>
             
+            {/* Modify Prompt Button */}
+            <Button 
+              variant="outline"
+              className="w-full mt-4"
+              onClick={handleModifyPrompts}
+              disabled={isGenerating}
+            >
+              <Edit3 className="w-4 h-4 mr-2" />
+              修改prompt
+            </Button>
+            
             {/* Direct Generate Button */}
             <Button 
-              className="w-full mt-4"
+              className="w-full mt-2"
               onClick={handleGenerateVideo}
               disabled={isGenerating}
             >
