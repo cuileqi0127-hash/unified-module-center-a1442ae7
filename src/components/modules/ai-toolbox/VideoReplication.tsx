@@ -12,6 +12,8 @@ import {
   Edit3,
   Check,
   Loader2,
+  Plus,
+  History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -537,9 +539,45 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         style={{ width: `${chatPanelWidth}%` }}
       >
         {/* Header */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
-          <Video className="w-5 h-5 text-primary" />
-          <span className="font-medium">复刻视频</span>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <Video className="w-5 h-5 text-primary" />
+            <span className="font-medium">复刻视频</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => {
+                // Reset all state for new project
+                setViewState('upload');
+                setOriginalVideo(null);
+                setReferenceImage(null);
+                setSellingPoints('');
+                setSegments([]);
+                setSelectedSegments(new Set());
+                setMessages([]);
+                setCanvasItems([]);
+                setGeneratedVideo(null);
+                toast.success('已创建新项目');
+              }}
+              title="新建项目"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => {
+                toast.info('历史记录功能即将上线');
+              }}
+              title="历史记录"
+            >
+              <History className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Upload Section */}
