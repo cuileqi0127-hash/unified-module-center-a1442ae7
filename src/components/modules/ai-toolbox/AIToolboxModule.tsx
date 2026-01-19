@@ -1,6 +1,7 @@
 import { TextToImage } from './TextToImage';
 import { AppPlaza } from './AppPlaza';
 import { BrandHealth } from './BrandHealth';
+import { VideoReplication } from './VideoReplication';
 
 interface AIToolboxModuleProps {
   activeItem: string;
@@ -46,7 +47,7 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
     case 'text-to-video':
       return <PlaceholderPage title="Text-to-Video 文生视频" description="Generate videos from text descriptions." />;
     case 'reference-to-video':
-      return <PlaceholderPage title="Reference-to-Video 素材库对标生视频" description="Generate videos based on reference materials." />;
+      return <VideoReplication onNavigate={onNavigate} />;
     
     // Digital Human
     case 'digital-human':
