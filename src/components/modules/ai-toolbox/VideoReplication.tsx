@@ -699,18 +699,20 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             {/* Direct Generate Button */}
             <Button 
               className="w-full mt-4"
-              onClick={() => {
-                setViewState('chat');
-                setMessages([{
-                  id: crypto.randomUUID(),
-                  role: 'assistant',
-                  content: '已进入编辑模式。您可以在时间轴选择片段进行修改，或直接生成视频。',
-                  timestamp: new Date(),
-                }]);
-              }}
+              onClick={handleGenerateVideo}
+              disabled={isGenerating}
             >
-              <Play className="w-4 h-4 mr-2" />
-              直接生成视频
+              {isGenerating ? (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
+                  生成中...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  直接生成视频
+                </>
+              )}
             </Button>
           </div>
         )}
