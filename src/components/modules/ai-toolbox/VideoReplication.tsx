@@ -403,26 +403,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         style={{ width: `${chatPanelWidth}%` }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-          <div className="flex items-center gap-2">
-            <Video className="w-5 h-5 text-primary" />
-            <span className="font-medium">复刻视频</span>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 px-2">
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onNavigate?.('text-to-video')}>
-                文生视频
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onNavigate?.('text-to-image')}>
-                文生图
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
+          <Video className="w-5 h-5 text-primary" />
+          <span className="font-medium">复刻视频</span>
         </div>
 
         {/* Upload Section (show until all uploads are complete and user clicks analyze) */}
