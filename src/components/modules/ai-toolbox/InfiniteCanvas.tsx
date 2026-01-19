@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import Draggable, { DraggableEvent, DraggableData } from 'react-draggable';
-import { ZoomIn, ZoomOut, Maximize, Move } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Move, Trash2, RefreshCw, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +24,9 @@ interface InfiniteCanvasProps {
   onImageDragStart?: (image: CanvasImage) => void;
   onImageDoubleClick?: (image: CanvasImage) => void;
   highlightedImageId?: string | null;
+  onImageDelete?: (id: string) => void;
+  onImageReplace?: (id: string) => void;
+  onImageCopy?: (image: CanvasImage) => void;
 }
 
 const MIN_ZOOM = 0.25;
@@ -38,6 +41,9 @@ export function InfiniteCanvas({
   onImageDragStart,
   onImageDoubleClick,
   highlightedImageId,
+  onImageDelete,
+  onImageReplace,
+  onImageCopy,
 }: InfiniteCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -447,6 +453,50 @@ export function InfiniteCanvas({
                   <div className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
                   <div className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
                   <div className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                  
+                  {/* Action Toolbar */}
+                  <div 
+                    className="no-drag absolute -bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-lg backdrop-blur-sm"
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onImageDelete?.(image.id);
+                      }}
+                      title="删除"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onImageReplace?.(image.id);
+                      }}
+                      title="替换"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onImageCopy?.(image);
+                      }}
+                      title="复制"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
