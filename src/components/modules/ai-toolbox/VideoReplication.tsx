@@ -586,20 +586,36 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           <div className="flex-1 flex flex-col min-h-0">
             {/* Uploaded Files Summary */}
             <div className="px-4 py-3 border-b border-border space-y-2 shrink-0">
-              {originalVideo && (
+              {originalVideo ? (
                 <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Video className="w-4 h-4 text-primary" />
                     <span className="text-sm truncate max-w-[150px]">{originalVideo.name}</span>
                   </div>
                 </div>
+              ) : (
+                <div 
+                  className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">点击上传原视频</span>
+                </div>
               )}
-              {referenceImage && (
+              {referenceImage ? (
                 <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-primary" />
                     <span className="text-sm truncate max-w-[150px]">{referenceImage.name}</span>
                   </div>
+                </div>
+              ) : (
+                <div 
+                  className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">点击上传参考图</span>
                 </div>
               )}
               
