@@ -374,7 +374,7 @@ export function InfiniteCanvas({
 
       {/* Canvas Layer - No transform here, we apply it to individual images */}
       <div
-        className="absolute inset-0"
+        className="canvas-background absolute inset-0"
       >
         {images.map((image, index) => {
           // Convert canvas coordinates to screen coordinates (with zoom/pan)
