@@ -445,42 +445,90 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           </div>
         </div>
 
-        {/* Upload Section (when nothing uploaded) */}
-        {!originalVideo && !referenceImage && segments.length === 0 && (
+        {/* Upload Section (show until all uploads are complete and user clicks analyze) */}
+        {segments.length === 0 && (
           <div className="flex-1 p-4 space-y-4 overflow-y-auto">
             {/* Video Upload */}
-            <div 
-              className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Video className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-              <p className="font-medium mb-1">上传原视频</p>
-              <p className="text-sm text-muted-foreground">点击或拖拽上传需要复刻的视频</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                className="hidden"
-                onChange={handleVideoUpload}
-              />
-            </div>
+            {!originalVideo ? (
+              <div 
+                className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Video className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                <p className="font-medium mb-1">上传原视频</p>
+                <p className="text-sm text-muted-foreground">点击或拖拽上传需要复刻的视频</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={handleVideoUpload}
+                />
+              </div>
+            ) : (
+              <div className="border border-primary/50 rounded-lg p-3 bg-primary/5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Video className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium truncate max-w-[180px]">{originalVideo.name}</span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6"
+                    onClick={() => setOriginalVideo(null)}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+                <video 
+                  src={originalVideo.url} 
+                  className="w-full h-32 object-cover rounded-md bg-black"
+                  controls
+                />
+              </div>
+            )}
 
             {/* Reference Image Upload */}
-            <div 
-              className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => imageInputRef.current?.click()}
-            >
-              <ImageIcon className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-              <p className="font-medium mb-1">上传参考图（商品图）</p>
-              <p className="text-sm text-muted-foreground">上传您的商品图片作为风格参考</p>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageUpload}
-              />
-            </div>
+            {!referenceImage ? (
+              <div 
+                className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => imageInputRef.current?.click()}
+              >
+                <ImageIcon className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                <p className="font-medium mb-1">上传参考图（商品图）</p>
+                <p className="text-sm text-muted-foreground">上传您的商品图片作为风格参考</p>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </div>
+            ) : (
+              <div className="border border-primary/50 rounded-lg p-3 bg-primary/5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium truncate max-w-[180px]">{referenceImage.name}</span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6"
+                    onClick={() => setReferenceImage(null)}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+                <img 
+                  src={referenceImage.url} 
+                  alt="参考图预览"
+                  className="w-full h-32 object-cover rounded-md"
+                />
+              </div>
+            )}
 
             {/* Selling Points Input */}
             <div className="border border-border rounded-lg p-4">
@@ -495,11 +543,32 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 className="min-h-[100px] resize-none"
               />
             </div>
+
+            {/* Analyze Button - only show when all uploads are complete */}
+            {originalVideo && referenceImage && sellingPoints.trim() && (
+              <Button 
+                className="w-full"
+                onClick={handleAnalyzeVideo}
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
+                    分析中...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    开始分析视频
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         )}
 
-        {/* Uploaded Files & Segments View */}
-        {(originalVideo || referenceImage || segments.length > 0) && (
+        {/* Segments View (after analysis) */}
+        {segments.length > 0 && (
           <div className="flex-1 flex flex-col min-h-0">
             {/* Uploaded Files Summary */}
             <div className="px-4 py-3 border-b border-border space-y-2 shrink-0">
@@ -509,14 +578,6 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                     <Video className="w-4 h-4 text-primary" />
                     <span className="text-sm truncate max-w-[150px]">{originalVideo.name}</span>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6"
-                    onClick={() => setOriginalVideo(null)}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
                 </div>
               )}
               {referenceImage && (
@@ -525,39 +586,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                     <ImageIcon className="w-4 h-4 text-primary" />
                     <span className="text-sm truncate max-w-[150px]">{referenceImage.name}</span>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6"
-                    onClick={() => setReferenceImage(null)}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
                 </div>
               )}
               
               {/* Action Buttons */}
               <div className="flex gap-2">
-                {!segments.length && (
-                  <Button 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={handleAnalyzeVideo}
-                    disabled={!canAnalyze}
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-1 animate-pulse" />
-                        分析中...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-1" />
-                        分析视频
-                      </>
-                    )}
-                  </Button>
-                )}
                 {segments.length > 0 && !segments.some(s => s.newPrompt) && (
                   <Button 
                     size="sm" 
@@ -587,32 +620,6 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                         生成视频
                       </>
                     )}
-                  </Button>
-                )}
-              </div>
-
-              {/* Upload more */}
-              <div className="flex gap-2">
-                {!originalVideo && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="w-3 h-3 mr-1" />
-                    上传视频
-                  </Button>
-                )}
-                {!referenceImage && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    <Upload className="w-3 h-3 mr-1" />
-                    上传参考图
                   </Button>
                 )}
               </div>
