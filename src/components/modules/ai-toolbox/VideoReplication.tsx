@@ -34,12 +34,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InfiniteCanvas } from './InfiniteCanvas';
 
@@ -686,10 +680,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               <Plus className="w-4 h-4" />
             </Button>
             <Button
-              variant="ghost"
+              variant={historyOpen ? "secondary" : "ghost"}
               size="icon"
               className="h-8 w-8"
-              onClick={() => setHistoryOpen(true)}
+              onClick={() => setHistoryOpen(!historyOpen)}
               title="历史记录"
             >
               <History className="w-4 h-4" />
@@ -697,8 +691,96 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           </div>
         </div>
 
+        {/* History View */}
+        {historyOpen && (
+          <div className="flex-1 flex flex-col min-h-0 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium flex items-center gap-2">
+                <History className="w-4 h-4" />
+                历史记录
+              </h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setHistoryOpen(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <ScrollArea className="flex-1">
+              {projectHistory.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>暂无历史记录</p>
+                  <p className="text-sm mt-1">开始复刻视频后会自动保存</p>
+                </div>
+              ) : (
+                <div className="space-y-3 pr-2">
+                  {projectHistory.map((item) => (
+                    <div 
+                      key={item.id} 
+                      className="border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-sm" title={item.name}>
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {item.createdAt.toLocaleString('zh-CN')}
+                          </p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {item.originalVideoName && (
+                              <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                <Video className="w-3 h-3" />
+                                视频
+                              </span>
+                            )}
+                            {item.referenceImageName && (
+                              <span className="inline-flex items-center gap-1 text-xs bg-secondary/50 text-secondary-foreground px-2 py-0.5 rounded">
+                                <ImageIcon className="w-3 h-3" />
+                                参考图
+                              </span>
+                            )}
+                            {item.segmentsCount > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                                {item.segmentsCount} 个片段
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => restoreFromHistory(item)}
+                            title="恢复项目"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => deleteFromHistory(item.id)}
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        )}
+
         {/* Upload Section */}
-        {viewState === 'upload' && (
+        {!historyOpen && viewState === 'upload' && (
           <div className="flex-1 p-4 space-y-4 overflow-y-auto">
             {/* Video Upload */}
             {!originalVideo ? (
@@ -810,7 +892,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         )}
 
         {/* Analyzing Animation */}
-        {viewState === 'analyzing' && (
+        {!historyOpen && viewState === 'analyzing' && (
           <div className="flex-1 flex flex-col items-center justify-center p-8">
             <div className="relative w-24 h-24 mb-6">
               <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
@@ -825,7 +907,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         )}
 
         {/* Prompts List View (after analysis, before chat) */}
-        {viewState === 'prompts' && (
+        {!historyOpen && viewState === 'prompts' && (
           <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4 overflow-y-auto">
             <div className="text-center mb-2">
               <h3 className="font-medium">生成的Prompt列表</h3>
@@ -901,7 +983,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         </Dialog>
 
         {/* Chat View with Timeline */}
-        {viewState === 'chat' && (
+        {!historyOpen && viewState === 'chat' && (
           <div className="flex-1 flex flex-col min-h-0">
 
             {/* Timeline Segments */}
@@ -1173,85 +1255,6 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         />
       </div>
 
-      {/* History Sheet */}
-      <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
-        <SheetContent side="left" className="w-[400px] sm:w-[450px]">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <History className="w-5 h-5" />
-              历史记录
-            </SheetTitle>
-          </SheetHeader>
-          <ScrollArea className="h-[calc(100vh-100px)] mt-4">
-            {projectHistory.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>暂无历史记录</p>
-                <p className="text-sm mt-1">开始复刻视频后会自动保存</p>
-              </div>
-            ) : (
-              <div className="space-y-3 pr-4">
-                {projectHistory.map((item) => (
-                  <div 
-                    key={item.id} 
-                    className="border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate" title={item.name}>
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {item.createdAt.toLocaleString('zh-CN')}
-                        </p>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {item.originalVideoName && (
-                            <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                              <Video className="w-3 h-3" />
-                              视频
-                            </span>
-                          )}
-                          {item.referenceImageName && (
-                            <span className="inline-flex items-center gap-1 text-xs bg-secondary/50 text-secondary-foreground px-2 py-0.5 rounded">
-                              <ImageIcon className="w-3 h-3" />
-                              参考图
-                            </span>
-                          )}
-                          {item.segmentsCount > 0 && (
-                            <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
-                              {item.segmentsCount} 个片段
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => restoreFromHistory(item)}
-                          title="恢复项目"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteFromHistory(item.id)}
-                          title="删除"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
