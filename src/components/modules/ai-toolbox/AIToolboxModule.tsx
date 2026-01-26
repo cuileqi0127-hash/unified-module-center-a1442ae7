@@ -1,4 +1,5 @@
 import { TextToImage } from './TextToImage';
+import { TextToVideo } from './TextToVideo';
 import { AppPlaza } from './AppPlaza';
 import { BrandHealth } from './BrandHealth';
 
@@ -44,7 +45,7 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
     
     // Video Generation
     case 'text-to-video':
-      return <PlaceholderPage title="Text-to-Video 文生视频" description="Generate videos from text descriptions." />;
+      return <TextToVideo onNavigate={onNavigate} />;
     case 'reference-to-video':
       return <PlaceholderPage title="Reference-to-Video 素材库对标生视频" description="Generate videos based on reference materials." />;
     

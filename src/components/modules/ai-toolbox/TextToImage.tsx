@@ -13,7 +13,8 @@ import {
   X,
   Copy,
   Clipboard,
-  Trash2
+  Trash2,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { InfiniteCanvas } from './InfiniteCanvas';
+import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToImage, type CanvasImage } from './useTextToImage';
 
@@ -87,6 +88,8 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     handleBatchDownloadImages,
     handleCopyImageToClipboard,
     handleResizeStart,
+    handleUploadImage,
+    handleTransferToVideo,
     // Utils
     cleanMessageContent,
     isZh,
@@ -437,15 +440,33 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Add Button */}
+                {/* Add Button - Upload Image */}
+                <label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleUploadImage(file);
+                        // Reset input to allow selecting the same file again
+                        e.target.value = '';
+                      }
+                    }}
+                  />
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    asChild
                 >
+                    <span>
                   <Plus className="h-3.5 w-3.5" />
                   {isZh ? '添加' : 'Add'}
+                    </span>
                 </Button>
+                </label>
               </div>
               
               {/* Send Button */}
@@ -497,18 +518,18 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           </p>
         </div>
 
-        <InfiniteCanvas
-          images={canvasImages}
-          onImageMove={handleImageMove}
-          onImageSelect={setSelectedImageId}
-          onImageMultiSelect={setSelectedImageIds}
-          selectedImageId={selectedImageId}
-          selectedImageIds={selectedImageIds}
-          onImageDragStart={(image) => {
+        <UniversalCanvas
+          items={canvasImages.map(img => ({ ...img, type: img.type || 'image' } as CanvasMediaItem))}
+          onItemMove={handleImageMove}
+          onItemSelect={setSelectedImageId}
+          onItemMultiSelect={setSelectedImageIds}
+          selectedItemId={selectedImageId}
+          selectedItemIds={selectedImageIds}
+          onItemDragStart={() => {
             // Optional: could show visual feedback when drag starts
           }}
-          onImageDoubleClick={handleImageDoubleClick}
-          highlightedImageId={highlightedImageId}
+          onItemDoubleClick={handleImageDoubleClick}
+          highlightedItemId={highlightedImageId}
         />
 
         {/* Selected Image(s) Floating Toolbar */}
@@ -546,6 +567,15 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               title={isZh ? (selectedImageIds.length > 1 ? '批量删除' : '删除') : (selectedImageIds.length > 1 ? 'Delete All' : 'Delete')}
             >
               <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-full"
+              onClick={() => handleTransferToVideo(onNavigate)}
+              title={isZh ? (selectedImageIds.length > 1 ? '批量转移' : '转移') : (selectedImageIds.length > 1 ? 'Transfer All' : 'Transfer')}
+            >
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         )}

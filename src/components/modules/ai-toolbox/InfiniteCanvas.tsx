@@ -27,7 +27,7 @@ interface InfiniteCanvasProps {
 }
 
 const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 2;
+const MAX_ZOOM = 1;
 const ZOOM_STEP = 0.1;
 
 export function InfiniteCanvas({

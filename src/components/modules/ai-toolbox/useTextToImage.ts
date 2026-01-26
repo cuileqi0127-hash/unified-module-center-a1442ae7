@@ -14,6 +14,7 @@ import {
   extractRevisedPrompt,
   type ImageModel 
 } from '@/services/imageGenerationApi';
+import { findNonOverlappingPosition } from './canvasUtils';
 import {
   getModelList,
   getModelSizes,
@@ -36,6 +37,7 @@ export interface ChatMessage {
   resultSummary?: string;
 }
 
+// 使用统一的媒体项类型（支持图片和视频）
 export interface CanvasImage {
   id: string;
   url: string;
@@ -44,6 +46,7 @@ export interface CanvasImage {
   width: number;
   height: number;
   prompt?: string;
+  type?: 'image' | 'video'; // 媒体类型
 }
 
 const mockHistory: ChatMessage[] = [];
@@ -208,6 +211,7 @@ export function useTextToImage() {
         y: 100 + Math.random() * 100,
         width: dimensions.width,
         height: dimensions.height,
+        type: 'image',
       };
       setCanvasImages(prev => [...prev, newImage]);
       setSelectedImageId(newImage.id);
@@ -215,6 +219,33 @@ export function useTextToImage() {
       toast.success(isZh ? '已粘贴图片到画布' : 'Image pasted to canvas');
     }
   }, [copiedImage, isZh, getImageDimensions]);
+
+  // 处理上传图片到画布
+  const handleUploadImage = useCallback(async (file: File) => {
+    try {
+      // 创建本地URL用于预览
+      const imageUrl = URL.createObjectURL(file);
+      const dimensions = await getImageDimensions(imageUrl);
+      
+      const newImage: CanvasImage = {
+        id: `img-${Date.now()}`,
+        url: imageUrl,
+        x: 300 + Math.random() * 100,
+        y: 200 + Math.random() * 100,
+        width: dimensions.width,
+        height: dimensions.height,
+        prompt: file.name,
+        type: 'image',
+      };
+      
+      setCanvasImages(prev => [...prev, newImage]);
+      setSelectedImageId(newImage.id);
+      toast.success(isZh ? '图片已添加到画布' : 'Image added to canvas');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(isZh ? '图片上传失败' : 'Image upload failed');
+    }
+  }, [isZh, getImageDimensions]);
 
   // 处理键盘快捷键
   useEffect(() => {
@@ -353,14 +384,33 @@ export function useTextToImage() {
         )
       );
       
+      // 计算不重叠的位置
+      const existingRects = canvasImages.map(img => ({
+        x: img.x,
+        y: img.y,
+        width: img.width,
+        height: img.height,
+      }));
+      const position = findNonOverlappingPosition(
+        { width: dimensions.width, height: dimensions.height },
+        existingRects,
+        300,
+        200,
+        50,
+        50,
+        100,
+        30 // 图片之间的间隔 30 像素
+      );
+
       const newImage: CanvasImage = {
         id: `img-${Date.now()}`,
         url: imageUrl,
-        x: 300,
-        y: 200,
+        x: position.x,
+        y: position.y,
         width: dimensions.width,
         height: dimensions.height,
         prompt: revisedPrompt,
+        type: 'image',
       };
       setCanvasImages(prev => [...prev, newImage]);
       setSelectedImageId(newImage.id);
@@ -421,6 +471,26 @@ export function useTextToImage() {
       setSelectedImageIds([]);
     }
   }, [selectedImageIds, selectedImageId]);
+
+  // 处理转移图片到文生视频页面
+  const handleTransferToVideo = useCallback((onNavigate?: (itemId: string) => void) => {
+    if (selectedImageIds.length > 0 || selectedImageId) {
+      // 获取选中的图片
+      const imagesToTransfer = selectedImageIds.length > 0
+        ? canvasImages.filter(img => selectedImageIds.includes(img.id))
+        : selectedImageId
+          ? canvasImages.filter(img => img.id === selectedImageId)
+          : [];
+      
+      if (imagesToTransfer.length > 0) {
+        // 将图片数据存储到sessionStorage，供文生视频页面使用
+        sessionStorage.setItem('transferredImages', JSON.stringify(imagesToTransfer));
+        // 跳转到文生视频页面
+        onNavigate?.('text-to-video');
+        toast.success(isZh ? `已转移 ${imagesToTransfer.length} 张图片到文生视频页面` : `Transferred ${imagesToTransfer.length} images to video page`);
+      }
+    }
+  }, [selectedImageIds, selectedImageId, canvasImages, isZh]);
 
   // 处理批量复制图片
   const handleBatchCopyImages = useCallback(async () => {
@@ -587,6 +657,8 @@ export function useTextToImage() {
     handleBatchDownloadImages,
     handleCopyImageToClipboard,
     handleResizeStart,
+    handleUploadImage,
+    handleTransferToVideo,
     
     // Utils
     cleanMessageContent,
