@@ -31,6 +31,34 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     defaultSeconds: '15',
     defaultSize: '1280x720',
   },
+  'veo3.1': {
+    label: 'Veo 3.1',
+    seconds: ['8'],
+    sizes: ['1280x720', '720x1280'],
+    defaultSeconds: '8',
+    defaultSize: '1280x720',
+  },
+  'veo3.1-pro': {
+    label: 'Veo 3.1 Pro',
+    seconds: ['8'],
+    sizes: ['1280x720', '720x1280'],
+    defaultSeconds: '8',
+    defaultSize: '1280x720',
+  },
+  'veo3.1-4k': {
+    label: 'Veo 3.1 4K',
+    seconds: ['8'],
+    sizes: ['1280x720', '720x1280'],
+    defaultSeconds: '8',
+    defaultSize: '1280x720',
+  },
+  'veo3.1-pro-4k': {
+    label: 'Veo 3.1 Pro 4K',
+    seconds: ['8'],
+    sizes: ['1280x720', '720x1280'],
+    defaultSeconds: '8',
+    defaultSize: '1280x720',
+  },
 };
 
 // 获取模型列表

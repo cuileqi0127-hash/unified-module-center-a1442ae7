@@ -23,6 +23,10 @@ export interface CanvasMediaItem {
 interface UniversalCanvasProps {
   items: CanvasMediaItem[];
   onItemMove?: (id: string, x: number, y: number) => void;
+  onItemResize?: (id: string, width: number, height: number) => void;
+  onViewChange?: (zoom: number, pan: { x: number; y: number }) => void;
+  initialZoom?: number;
+  initialPan?: { x: number; y: number };
   onItemSelect?: (id: string | null) => void;
   onItemMultiSelect?: (ids: string[]) => void;
   selectedItemId?: string | null;
@@ -30,6 +34,8 @@ interface UniversalCanvasProps {
   onItemDragStart?: (item: CanvasMediaItem) => void;
   onItemDoubleClick?: (item: CanvasMediaItem) => void;
   highlightedItemId?: string | null;
+  deletingItemIds?: string[]; // 正在删除的图层ID列表
+  addingItemIds?: string[]; // 正在新增的图层ID列表
 }
 
 const MIN_ZOOM = 0.25;
@@ -50,6 +56,10 @@ const getMediaType = (item: CanvasMediaItem): 'image' | 'video' | 'placeholder' 
 export function UniversalCanvas({
   items,
   onItemMove,
+  onItemResize,
+  onViewChange,
+  initialZoom = 1,
+  initialPan = { x: 0, y: 0 },
   onItemSelect,
   onItemMultiSelect,
   selectedItemId,
@@ -57,10 +67,37 @@ export function UniversalCanvas({
   onItemDragStart,
   onItemDoubleClick,
   highlightedItemId,
+  deletingItemIds = [],
+  addingItemIds = [],
 }: UniversalCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(initialZoom);
+  const [pan, setPan] = useState(initialPan);
+  const isInitializingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
+  
+  // 当 initialZoom 或 initialPan 变化时，更新内部状态（用于加载历史会话）
+  useEffect(() => {
+    // 只有在值真正改变时才标记为初始化（避免首次渲染时的问题）
+    const zoomChanged = zoom !== initialZoom;
+    const panChanged = pan.x !== initialPan.x || pan.y !== initialPan.y;
+    
+    if (zoomChanged || panChanged) {
+      isInitializingRef.current = true;
+      setZoom(initialZoom);
+      setPan(initialPan);
+      // 使用 requestAnimationFrame 确保在下一个渲染周期中重置标志
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isInitializingRef.current = false;
+        });
+      });
+    } else if (!hasInitializedRef.current) {
+      // 首次渲染时，确保标志为 false
+      hasInitializedRef.current = true;
+      isInitializingRef.current = false;
+    }
+  }, [initialZoom, initialPan.x, initialPan.y, zoom, pan.x, pan.y]);
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -110,6 +147,11 @@ export function UniversalCanvas({
   const zoomTowardsPoint = useCallback((pointX: number, pointY: number, deltaZoom: number) => {
     if (!containerRef.current) return;
     
+    // 用户交互时，确保初始化标志为 false
+    if (isInitializingRef.current) {
+      isInitializingRef.current = false;
+    }
+    
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
     
@@ -126,12 +168,17 @@ export function UniversalCanvas({
         const newPanX = mouseX - canvasX * newZoom;
         const newPanY = mouseY - canvasY * newZoom;
         
-        return { x: newPanX, y: newPanY };
+        const newPan = { x: newPanX, y: newPanY };
+        
+        // 用户交互时总是通知视图变化
+        onViewChange?.(newZoom, newPan);
+        
+        return newPan;
       });
       
       return newZoom;
     });
-  }, []);
+  }, [onViewChange]);
 
   // Prevent browser zoom when wheel in canvas area and handle zoom
   useEffect(() => {
@@ -255,9 +302,19 @@ export function UniversalCanvas({
   // Handle panning/box selection move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
+      // 用户交互时，确保初始化标志为 false
+      if (isInitializingRef.current) {
+        isInitializingRef.current = false;
+      }
+      
       const dx = e.clientX - lastMousePos.current.x;
       const dy = e.clientY - lastMousePos.current.y;
-      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      setPan(prev => {
+        const newPan = { x: prev.x + dx, y: prev.y + dy };
+        // 用户交互时总是通知视图变化
+        onViewChange?.(zoom, newPan);
+        return newPan;
+      });
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     } else if (isBoxSelecting && selectionStartPos.current && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
@@ -274,7 +331,7 @@ export function UniversalCanvas({
         height: Math.abs(height),
       });
     }
-  }, [isPanning, isBoxSelecting]);
+  }, [isPanning, isBoxSelecting, zoom, onViewChange]);
 
   // Handle context menu (right-click) - prevent when panning with Ctrl
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -384,6 +441,11 @@ export function UniversalCanvas({
   const handleZoomIn = useCallback(() => {
     if (!containerRef.current) return;
     
+    // 用户交互时，确保初始化标志为 false
+    if (isInitializingRef.current) {
+      isInitializingRef.current = false;
+    }
+    
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
     const centerX = rect.width / 2;
@@ -395,12 +457,22 @@ export function UniversalCanvas({
     const newPanX = centerX - canvasX * newZoom;
     const newPanY = centerY - canvasY * newZoom;
     
+    const newPan = { x: newPanX, y: newPanY };
+    
     setZoom(newZoom);
-    setPan({ x: newPanX, y: newPanY });
-  }, [zoom, pan]);
+    setPan(newPan);
+    
+    // 用户交互时总是通知视图变化
+    onViewChange?.(newZoom, newPan);
+  }, [zoom, pan, onViewChange]);
   
   const handleZoomOut = useCallback(() => {
     if (!containerRef.current) return;
+    
+    // 用户交互时，确保初始化标志为 false
+    if (isInitializingRef.current) {
+      isInitializingRef.current = false;
+    }
     
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
@@ -413,14 +485,29 @@ export function UniversalCanvas({
     const newPanX = centerX - canvasX * newZoom;
     const newPanY = centerY - canvasY * newZoom;
     
+    const newPan = { x: newPanX, y: newPanY };
+    
     setZoom(newZoom);
-    setPan({ x: newPanX, y: newPanY });
-  }, [zoom, pan]);
+    setPan(newPan);
+    
+    // 用户交互时总是通知视图变化
+    onViewChange?.(newZoom, newPan);
+  }, [zoom, pan, onViewChange]);
   
-  const handleFitToScreen = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  };
+  const handleFitToScreen = useCallback(() => {
+    // 用户交互时，确保初始化标志为 false
+    if (isInitializingRef.current) {
+      isInitializingRef.current = false;
+    }
+    
+    const newZoom = 1;
+    const newPan = { x: 0, y: 0 };
+    setZoom(newZoom);
+    setPan(newPan);
+    
+    // 用户交互时总是通知视图变化
+    onViewChange?.(newZoom, newPan);
+  }, [onViewChange]);
 
   return (
     <div
@@ -484,6 +571,8 @@ export function UniversalCanvas({
                 data-is-placeholder={isPlaceholder ? 'true' : undefined}
                 className={cn(
                   'absolute rounded-lg bg-background shadow-lg overflow-hidden',
+                  // 只在删除和新增时应用过渡动画，不影响拖拽和缩放
+                  (deletingItemIds.includes(item.id) || addingItemIds.includes(item.id)) && 'transition-[opacity,transform] duration-300 ease-in-out',
                   isPlaceholderDisabled 
                     ? 'cursor-default pointer-events-none' 
                     : 'cursor-move',
@@ -491,7 +580,9 @@ export function UniversalCanvas({
                     ? 'ring-2 ring-primary shadow-xl z-50'
                     : 'ring-1 ring-border hover:shadow-xl',
                   highlightedItemId === item.id && 'ring-2 ring-green-500 shadow-xl animate-pulse',
-                  isPlaceholder && 'bg-muted/50'
+                  isPlaceholder && 'bg-muted/50',
+                  deletingItemIds.includes(item.id) && 'opacity-0 scale-75 pointer-events-none',
+                  addingItemIds.includes(item.id) && 'opacity-0 scale-90'
                 )}
                 style={{ 
                   width: item.width * zoom, 

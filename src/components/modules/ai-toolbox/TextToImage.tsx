@@ -3,6 +3,7 @@ import {
   Send,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Sparkles,
   Plus,
   Clock,
@@ -64,6 +65,12 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     highlightedImageId,
     chatPanelWidth,
     isResizing,
+    isChatPanelCollapsed,
+    handleToggleChatPanel,
+    canvasView,
+    currentSessionId,
+    deletingImageIds,
+    addingImageIds,
     // Config
     workModes,
     models,
@@ -73,6 +80,8 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     handleNewConversation,
     handleLoadSession,
     handleImageMove,
+    handleImageResize,
+    handleViewChange,
     handleAddSelectedImage,
     handleRemoveSelectedImage,
     handleCopyImage,
@@ -114,8 +123,11 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     <div ref={containerRef} className="flex h-[calc(100vh-3.5rem)] gap-0 animate-fade-in overflow-hidden bg-background">
       {/* Left Panel - Chat Interface - Fixed height with flex layout */}
       <div 
-        className="h-full flex flex-col border-r border-border bg-background overflow-hidden"
-        style={{ width: `${chatPanelWidth}%` }}
+        className={cn(
+          "h-full flex flex-col border-r border-border bg-background overflow-hidden transition-all duration-300",
+          isChatPanelCollapsed && "w-0 border-r-0 overflow-hidden pointer-events-none"
+        )}
+        style={{ width: isChatPanelCollapsed ? '0%' : `${chatPanelWidth}%` }}
       >
         {/* Header Bar - Fixed at top */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
@@ -153,9 +165,17 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               <Clock className="h-3.5 w-3.5" />
               {isZh ? '历史' : 'History'}
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={handleToggleChatPanel}
+            >
+              {isChatPanelCollapsed ? (
+                <ChevronRight className="h-3.5 w-3.5" />
+              ) : (
               <PanelRightClose className="h-3.5 w-3.5" />
-              {isZh ? '收起' : 'Collapse'}
+              )}
             </Button>
           </div>
         </div>
@@ -373,6 +393,29 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               );
             })()}
             
+            {!currentSessionId ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 rounded-full bg-primary/5 blur-xl" />
+                  <MessageSquare className="relative h-12 w-12 text-muted-foreground/30" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  {isZh ? '请先创建新会话' : 'Please create a new session first'}
+                </p>
+                <p className="text-xs text-muted-foreground/70 mb-6">
+                  {isZh ? '创建会话后即可开始生成图片' : 'Create a session to start generating images'}
+                </p>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleNewConversation}
+                  className="gap-2 shadow-sm hover:shadow transition-shadow"
+                >
+                  <Plus className="h-4 w-4" />
+                  {isZh ? '新建会话' : 'New Session'}
+                </Button>
+              </div>
+            ) : (
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -381,9 +424,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               rows={2}
               className={cn(
                 "w-full resize-none border-0 bg-transparent px-4 text-sm placeholder:text-muted-foreground focus:outline-none",
-                (selectedImageId || selectedImageIds.length > 0) ? "pt-2 pb-3" : "py-3"
+                  (selectedImageId || selectedImageIds.length > 0) ? "pt-2 pb-3" : "py-3"
               )}
             />
+            )}
             
             {/* Bottom toolbar */}
             <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">
@@ -474,7 +518,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                 size="icon"
                 className="h-8 w-8 shrink-0 rounded-full"
                 onClick={handleGenerate}
-                disabled={!prompt.trim() || isGenerating}
+                disabled={!currentSessionId || !prompt.trim() || isGenerating}
               >
                 {isGenerating ? (
                   <Sparkles className="h-4 w-4 animate-spin" />
@@ -493,21 +537,36 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
       </div>
 
       {/* Resize Handle */}
-      <div
-        ref={resizeRef}
-        onMouseDown={handleResizeStart}
-        className={cn(
-          "w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
-          isResizing && "bg-primary"
-        )}
-        style={{ touchAction: 'none' }}
-      />
+      {!isChatPanelCollapsed && (
+        <div
+          ref={resizeRef}
+          onMouseDown={handleResizeStart}
+          className={cn(
+            "w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
+            isResizing && "bg-primary"
+          )}
+          style={{ touchAction: 'none' }}
+        />
+      )}
 
       {/* Right Panel - Infinite Canvas */}
       <div 
-        className="relative flex flex-col bg-muted/20"
-        style={{ width: `${100 - chatPanelWidth}%` }}
+        className="relative flex flex-col bg-muted/20 transition-all duration-300"
+        style={{ width: isChatPanelCollapsed ? '100%' : `${100 - chatPanelWidth}%` }}
       >
+        {/* Expand Button - Show when chat panel is collapsed */}
+        {isChatPanelCollapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute left-4 top-4 z-20 h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground bg-background/90 backdrop-blur-sm shadow-sm"
+            onClick={handleToggleChatPanel}
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+            {isZh ? '展开' : 'Expand'}
+          </Button>
+        )}
+        
         {/* Workspace Header - Fixed Position */}
         <div className="pointer-events-none absolute left-10 top-10 z-10">
           <h1 className="text-2xl font-bold text-foreground/90">
@@ -521,6 +580,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
         <UniversalCanvas
           items={canvasImages.map(img => ({ ...img, type: img.type || 'image' } as CanvasMediaItem))}
           onItemMove={handleImageMove}
+          onItemResize={handleImageResize}
+          onViewChange={handleViewChange}
+          initialZoom={canvasView.zoom}
+          initialPan={canvasView.pan}
           onItemSelect={setSelectedImageId}
           onItemMultiSelect={setSelectedImageIds}
           selectedItemId={selectedImageId}
@@ -530,6 +593,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           }}
           onItemDoubleClick={handleImageDoubleClick}
           highlightedItemId={highlightedImageId}
+          deletingItemIds={Array.from(deletingImageIds)}
         />
 
         {/* Selected Image(s) Floating Toolbar */}

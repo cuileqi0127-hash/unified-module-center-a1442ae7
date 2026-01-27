@@ -129,11 +129,11 @@ export async function getTokenByCode(code: string): Promise<TokenResponse> {
  */
 export async function initOAuth(): Promise<boolean> {
 
-  // =======
-  // 測試
-  setCachedToken('1234567890')
-  return true;
-  // =======
+  // // =======
+  // // 測試
+  // setCachedToken('1234567890')
+  // return true;
+  // // =======
   // 1. 先判断缓存有没有 oauth_token
   const cachedToken = getCachedToken();
   if (cachedToken) {

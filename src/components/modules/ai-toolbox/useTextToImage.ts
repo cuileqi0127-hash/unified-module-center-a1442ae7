@@ -14,6 +14,18 @@ import {
   extractRevisedPrompt,
   type ImageModel 
 } from '@/services/imageGenerationApi';
+import {
+  getSessions,
+  createSession,
+  saveGenerationResult,
+  updateSession,
+  updateCanvasItem,
+  batchDeleteCanvasItems,
+  getSessionDetail,
+  type Session,
+  type SessionDetail,
+} from '@/services/generationSessionApi';
+import { debounce } from '@/utils/debounce';
 import { findNonOverlappingPosition } from './canvasUtils';
 import {
   getModelList,
@@ -77,25 +89,28 @@ export function useTextToImage() {
   const [canvasImages, setCanvasImages] = useState<CanvasImage[]>(initialCanvasImages);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
+  const [deletingImageIds, setDeletingImageIds] = useState<Set<string>>(new Set());
+  const [addingImageIds, setAddingImageIds] = useState<Set<string>>(new Set());
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedImage, setCopiedImage] = useState<CanvasImage | null>(null);
   const [highlightedImageId, setHighlightedImageId] = useState<string | null>(null);
   const [chatPanelWidth, setChatPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
+  const [isChatPanelCollapsed, setIsChatPanelCollapsed] = useState(false);
+  
+  // 会话管理状态
+  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  const [historySessions, setHistorySessions] = useState<Array<{ id: string; title: string; timestamp: Date; messageCount: number }>>([]);
+  const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
+  
+  // 画布元素ID映射（用于更新数据库）
+  const canvasItemIdMap = useRef<Map<string, number>>(new Map());
 
   // 配置数据
   const workModes = getWorkModes(isZh);
   const models = getModelList();
   const aspectRatios = getModelSizes(model);
-
-  // Mock history sessions
-  const historySessions = [
-    { id: 'session-1', title: '橘猫阳光场景生成', timestamp: new Date(Date.now() - 3600000), messageCount: 4 },
-    { id: 'session-2', title: '山脉日落风景图', timestamp: new Date(Date.now() - 86400000), messageCount: 6 },
-    { id: 'session-3', title: '新年贺卡设计', timestamp: new Date(Date.now() - 172800000), messageCount: 3 },
-    { id: 'session-4', title: '抽象数字艺术', timestamp: new Date(Date.now() - 259200000), messageCount: 5 },
-  ];
 
   // 工具函数：获取图片尺寸
   const getImageDimensions = useCallback(async (url: string): Promise<{ width: number; height: number }> => {
@@ -141,29 +156,234 @@ export function useTextToImage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // 查询会话列表（历史记录列表）
+  const loadSessions = useCallback(async () => {
+    try {
+      const response = await getSessions('image', 1, 20);
+      if (response.success && response.data) {
+        // 为每个会话获取消息数量
+        const sessionsWithMessageCount = await Promise.all(
+          response.data.list.map(async (session: Session) => {
+            let messageCount = 0;
+            try {
+              // 获取会话详情以获取消息数量
+              const detailResponse = await getSessionDetail(session.id.toString());
+              if (detailResponse.success && detailResponse.data?.messages) {
+                messageCount = detailResponse.data.messages.length;
+              }
+            } catch (error) {
+              // 如果获取详情失败，消息数量保持为 0
+              console.error(`Failed to get message count for session ${session.id}:`, error);
+            }
+            
+            return {
+              id: session.id.toString(),
+              title: session.title || (isZh ? '未命名会话' : 'Untitled Session'),
+              timestamp: new Date(session.createTime || Date.now()),
+              messageCount,
+            };
+          })
+        );
+        
+        setHistorySessions(sessionsWithMessageCount);
+      }
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+    }
+  }, [isZh]);
+
+  // 初始化时加载会话列表
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
+  // 防抖更新会话视图
+  const debouncedUpdateSession = useRef(
+    debounce(async (sessionId: number, zoom: number, pan: { x: number; y: number }) => {
+      try {
+        await updateSession(sessionId, {
+          canvasView: { zoom, pan },
+        });
+      } catch (error) {
+        console.error('Failed to update session view:', error);
+      }
+    }, 500)
+  ).current;
+
+  // 防抖更新画布元素
+  const debouncedUpdateCanvasItem = useRef(
+    debounce(async (canvasItemId: number, x: number, y: number, width?: number, height?: number) => {
+      try {
+        await updateCanvasItem(canvasItemId, {
+          x,
+          y,
+          ...(width !== undefined && { width }),
+          ...(height !== undefined && { height }),
+        });
+      } catch (error) {
+        console.error('Failed to update canvas item:', error);
+      }
+    }, 500)
+  ).current;
+
+  // 处理画布视图变化
+  const handleViewChange = useCallback((zoom: number, pan: { x: number; y: number }) => {
+    setCanvasView({ zoom, pan });
+    if (currentSessionId) {
+      debouncedUpdateSession(currentSessionId, zoom, pan);
+    }
+  }, [currentSessionId, debouncedUpdateSession]);
+
   // 处理新对话
-  const handleNewConversation = useCallback(() => {
+  const handleNewConversation = useCallback(async () => {
+    // 先清空聊天栏和画布数据
     setMessages([]);
     setSelectedImages([]);
     setPrompt('');
     setCanvasImages([]);
     setSelectedImageId(null);
     setSelectedImageIds([]);
-  }, []);
+    setCanvasView({ zoom: 1, pan: { x: 0, y: 0 } });
+    canvasItemIdMap.current.clear();
+    
+    try {
+      // 创建新会话
+      const response = await createSession({
+        title: isZh ? '新会话' : 'New Session',
+        taskType: 'image',
+        settings: {
+          model,
+          size: aspectRatio,
+        },
+        canvasView: {
+          zoom: 1,
+          pan: { x: 0, y: 0 },
+        },
+      });
 
-  // 处理加载历史会话
-  const handleLoadSession = useCallback((sessionId: string) => {
-    setMessages([]);
-    setSelectedImages([]);
-    setShowHistory(false);
-  }, []);
+      if (response.success && response.data) {
+        setCurrentSessionId(response.data.id);
+        // 刷新历史记录
+        await loadSessions();
+      }
+    } catch (error) {
+      console.error('Failed to create session:', error);
+      toast.error(isZh ? '创建会话失败' : 'Failed to create session');
+    }
+  }, [model, aspectRatio, isZh, loadSessions]);
+
+  // 处理加载历史会话（获取指定会话的聊天内容和画布内容）
+  const handleLoadSession = useCallback(async (sessionId: string) => {
+    try {
+      // 使用 getSessionDetail 获取指定会话的完整内容（聊天内容和画布内容）
+      const response = await getSessionDetail(sessionId);
+      
+      if (response.success && response.data) {
+        const session = response.data;
+        setCurrentSessionId(session.id);
+        
+        // 恢复画布视图（缩放和平移）
+        setCanvasView(session.canvasView || { zoom: 1, pan: { x: 0, y: 0 } });
+        
+        // 恢复画布元素（图片/视频）
+        if (session.canvasItems && session.assets) {
+          const assetsMap = new Map(session.assets.map(asset => [asset.id, asset]));
+          
+          const restoredImages: CanvasImage[] = session.canvasItems
+            .map(item => {
+              const asset = assetsMap.get(item.assetId);
+              if (!asset || asset.type !== 'image') return null;
+              
+              // 保存画布元素ID映射，用于后续更新
+              canvasItemIdMap.current.set(`item-${item.id}`, item.id);
+              
+              const imageItem: CanvasImage = {
+                id: `item-${item.id}`,
+                url: asset.downloadUrl || asset.ossKey || '',
+                x: item.x,
+                y: item.y,
+                width: item.width,
+                height: item.height,
+                type: 'image',
+              };
+              
+              return imageItem;
+            })
+            .filter((item): item is CanvasImage => item !== null);
+          
+          setCanvasImages(restoredImages);
+        }
+        
+        // 恢复聊天内容（用户消息和系统消息）
+        if (session.messages) {
+          const assetsMap = new Map(session.assets?.map(asset => [asset.id, asset]) || []);
+          
+          const restoredMessages: ChatMessage[] = session.messages.map(msg => {
+            const message: ChatMessage = {
+              id: msg.id.toString(),
+              type: msg.type === 'user' ? 'user' : 'system',
+              content: msg.content,
+              timestamp: new Date(msg.createTime || Date.now()),
+              status: msg.status === 'complete' ? 'complete' : undefined,
+              resultSummary: msg.resultSummary,
+            };
+            
+            // 如果有关联的资产，恢复图片URL
+            if (msg.assetId && assetsMap.has(msg.assetId)) {
+              const asset = assetsMap.get(msg.assetId)!;
+              if (asset.type === 'image') {
+                message.image = asset.downloadUrl || asset.ossKey || '';
+              }
+            }
+            
+            return message;
+          });
+          
+          setMessages(restoredMessages);
+        }
+        
+        setShowHistory(false);
+        toast.success(isZh ? '会话加载成功' : 'Session loaded');
+      }
+    } catch (error) {
+      console.error('Failed to load session:', error);
+      toast.error(isZh ? '加载会话失败' : 'Failed to load session');
+    }
+  }, [isZh]);
 
   // 处理图片移动
   const handleImageMove = useCallback((id: string, x: number, y: number) => {
     setCanvasImages(prev =>
-      prev.map(img => (img.id === id ? { ...img, x, y } : img))
+      prev.map(img => {
+        if (img.id === id) {
+          // 更新数据库
+          const canvasItemId = canvasItemIdMap.current.get(id);
+          if (canvasItemId) {
+            debouncedUpdateCanvasItem(canvasItemId, x, y);
+          }
+          return { ...img, x, y };
+        }
+        return img;
+      })
     );
-  }, []);
+  }, [debouncedUpdateCanvasItem]);
+  
+  // 处理图片尺寸变化
+  const handleImageResize = useCallback((id: string, width: number, height: number) => {
+    setCanvasImages(prev =>
+      prev.map(img => {
+        if (img.id === id) {
+          // 更新数据库
+          const canvasItemId = canvasItemIdMap.current.get(id);
+          if (canvasItemId) {
+            debouncedUpdateCanvasItem(canvasItemId, img.x, img.y, width, height);
+          }
+          return { ...img, width, height };
+        }
+        return img;
+      })
+    );
+  }, [debouncedUpdateCanvasItem]);
 
   // 处理添加选中图片到输入框
   const handleAddSelectedImage = useCallback((image: SelectedImage) => {
@@ -213,9 +433,22 @@ export function useTextToImage() {
         height: dimensions.height,
         type: 'image',
       };
+      
+      // 先标记为新增中，触发动画
+      setAddingImageIds(new Set([newImage.id]));
       setCanvasImages(prev => [...prev, newImage]);
       setSelectedImageId(newImage.id);
       setCopiedImage(null);
+      
+      // 动画完成后清除新增状态
+      setTimeout(() => {
+        setAddingImageIds(prev => {
+          const next = new Set(prev);
+          next.delete(newImage.id);
+          return next;
+        });
+      }, 300);
+      
       toast.success(isZh ? '已粘贴图片到画布' : 'Image pasted to canvas');
     }
   }, [copiedImage, isZh, getImageDimensions]);
@@ -238,8 +471,20 @@ export function useTextToImage() {
         type: 'image',
       };
       
+      // 先标记为新增中，触发动画
+      setAddingImageIds(new Set([newImage.id]));
       setCanvasImages(prev => [...prev, newImage]);
       setSelectedImageId(newImage.id);
+      
+      // 动画完成后清除新增状态
+      setTimeout(() => {
+        setAddingImageIds(prev => {
+          const next = new Set(prev);
+          next.delete(newImage.id);
+          return next;
+        });
+      }, 300);
+      
       toast.success(isZh ? '图片已添加到画布' : 'Image added to canvas');
     } catch (error) {
       console.error('Upload error:', error);
@@ -247,7 +492,7 @@ export function useTextToImage() {
     }
   }, [isZh, getImageDimensions]);
 
-  // 处理键盘快捷键
+  // 处理键盘快捷键（复制粘贴）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedImageId) {
@@ -291,7 +536,7 @@ export function useTextToImage() {
 
   // 处理生成图片
   const handleGenerate = useCallback(async () => {
-    if (!prompt.trim() || isGenerating) return;
+    if (!currentSessionId || !prompt.trim() || isGenerating) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -421,6 +666,67 @@ export function useTextToImage() {
         prompt: newImage.prompt,
       });
       
+      // 保存生成结果到数据库
+      if (currentSessionId) {
+        try {
+          const saveResponse = await saveGenerationResult(currentSessionId, {
+            generation: {
+              model,
+              size: aspectRatio,
+              prompt: currentPrompt,
+              status: 'success',
+            },
+            asset: {
+              type: 'image',
+              sourceUrl: imageUrl,
+              seq: 1,
+              width: dimensions.width,
+              height: dimensions.height,
+            },
+            message: {
+              type: 'system',
+              content: isZh ? '生成完成' : 'Generation complete',
+              status: 'complete',
+              resultSummary: isZh 
+                ? `已完成图片生成，${model === 'doubao-seedream-4-0-250828' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
+                : `Image generation complete, output ${model === 'doubao-seedream-4-0-250828' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
+            },
+            canvasItem: {
+              x: position.x,
+              y: position.y,
+              width: dimensions.width,
+              height: dimensions.height,
+              rotate: 0,
+              visible: true,
+              zindex: canvasImages.length,
+            },
+            references: selectedImages.map(img => ({
+              type: 'image' as const,
+              sourceUrl: img.url,
+              canvasItem: {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                rotate: 0,
+                visible: false,
+                zindex: 0,
+              },
+            })),
+          });
+
+          if (saveResponse.success && saveResponse.data) {
+            // 保存画布元素ID映射
+            canvasItemIdMap.current.set(newImage.id, saveResponse.data.canvasItemId);
+            // 刷新历史记录
+            await loadSessions();
+          }
+        } catch (error) {
+          console.error('Failed to save generation result:', error);
+          // 不阻止用户继续使用，只记录错误
+        }
+      }
+      
       setIsGenerating(false);
     } catch (error) {
       console.error('Generation error:', error);
@@ -440,7 +746,7 @@ export function useTextToImage() {
         )
       );
     }
-  }, [prompt, isGenerating, model, aspectRatio, selectedImages, selectedImageIds, selectedImageId, canvasImages, isZh, getImageDimensions, handleAddSelectedImage]);
+  }, [prompt, isGenerating, model, aspectRatio, selectedImages, selectedImageIds, selectedImageId, canvasImages, isZh, getImageDimensions, handleAddSelectedImage, currentSessionId, loadSessions]);
 
   // 处理键盘事件
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -460,17 +766,83 @@ export function useTextToImage() {
   }, [handleAddSelectedImage]);
 
   // 处理删除图片
-  const handleDeleteImage = useCallback(() => {
+  const handleDeleteImage = useCallback(async () => {
+    // 获取要删除的图片ID列表
+    const idsToDelete = selectedImageIds.length > 0 
+      ? selectedImageIds 
+      : selectedImageId 
+        ? [selectedImageId] 
+        : [];
+    
+    if (idsToDelete.length === 0) return;
+    
+    // 先标记为删除中，触发动画
+    setDeletingImageIds(new Set(idsToDelete));
+    
+    // 等待动画完成（300ms）
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // 获取对应的画布元素ID列表
+    const canvasItemIds: number[] = idsToDelete
+      .map(id => canvasItemIdMap.current.get(id))
+      .filter((id): id is number => id !== undefined);
+    
+    // 如果有画布元素ID，调用批量删除接口
+    if (canvasItemIds.length > 0) {
+      try {
+        await batchDeleteCanvasItems(canvasItemIds);
+        // 刷新历史记录
+        await loadSessions();
+      } catch (error) {
+        console.error('Failed to delete canvas items:', error);
+        toast.error(isZh ? '删除失败' : 'Delete failed');
+        // 删除失败时，取消删除状态
+        setDeletingImageIds(new Set());
+        return;
+      }
+    }
+    
+    // 从本地状态中移除
     if (selectedImageIds.length > 1) {
       setCanvasImages(prev => prev.filter(img => !selectedImageIds.includes(img.id)));
+      // 清除ID映射
+      selectedImageIds.forEach(id => canvasItemIdMap.current.delete(id));
       setSelectedImageIds([]);
       setSelectedImageId(null);
     } else if (selectedImageId) {
       setCanvasImages(prev => prev.filter(img => img.id !== selectedImageId));
+      // 清除ID映射
+      canvasItemIdMap.current.delete(selectedImageId);
       setSelectedImageId(null);
       setSelectedImageIds([]);
     }
-  }, [selectedImageIds, selectedImageId]);
+    
+    // 清除删除状态
+    setDeletingImageIds(new Set());
+    
+    toast.success(isZh ? `已删除 ${idsToDelete.length} 个图层` : `Deleted ${idsToDelete.length} items`);
+  }, [selectedImageIds, selectedImageId, isZh, loadSessions]);
+
+  // 处理键盘删除快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检查是否在输入框中，如果是则不处理删除
+      const target = e.target as HTMLElement;
+      const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      
+      // 处理删除键（Delete 或 Backspace）
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !isInputFocused) {
+        const hasSelection = selectedImageIds.length > 0 || selectedImageId;
+        if (hasSelection) {
+          e.preventDefault();
+          handleDeleteImage();
+          return;
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImageId, selectedImageIds, handleDeleteImage]);
 
   // 处理转移图片到文生视频页面
   const handleTransferToVideo = useCallback((onNavigate?: (itemId: string) => void) => {
@@ -601,6 +973,20 @@ export function useTextToImage() {
     document.body.style.userSelect = 'none';
   }, [chatPanelWidth]);
 
+  // 切换聊天栏收起/展开
+  const handleToggleChatPanel = useCallback(() => {
+    setIsChatPanelCollapsed(prev => {
+      if (prev) {
+        // 展开：恢复到之前的宽度（如果之前没有宽度，使用默认30%）
+        setChatPanelWidth(30);
+      } else {
+        // 收起：保存当前宽度并设置为0
+        setChatPanelWidth(0);
+      }
+      return !prev;
+    });
+  }, []);
+
   return {
     // Refs
     chatEndRef,
@@ -631,6 +1017,12 @@ export function useTextToImage() {
     highlightedImageId,
     chatPanelWidth,
     isResizing,
+    isChatPanelCollapsed,
+    handleToggleChatPanel,
+    canvasView,
+    currentSessionId,
+    deletingImageIds,
+    addingImageIds,
     
     // Config
     workModes,
@@ -642,6 +1034,8 @@ export function useTextToImage() {
     handleNewConversation,
     handleLoadSession,
     handleImageMove,
+    handleImageResize,
+    handleViewChange,
     handleAddSelectedImage,
     handleRemoveSelectedImage,
     handleCopyImage,

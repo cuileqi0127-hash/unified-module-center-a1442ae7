@@ -11,7 +11,7 @@ const API_BASE_URL = 'https://api.tu-zi.com/v1';
 const API_KEY = 'sk-5ZmMmOyDZ8uyPjCHe8yFlrhwQwYUpGb8M0wrTOdonYe8GpMr';
 
 // 支持的模型类型
-export type VideoModel = 'sora-2' | 'sora-2-pro';
+export type VideoModel = 'sora-2' | 'sora-2-pro' | 'veo3.1' | 'veo3.1-pro' | 'veo3.1-4k' | 'veo3.1-pro-4k';
 
 // 支持的视频时长
 export type VideoSeconds = '4' | '8' | '10' | '12' | '15' | '25';
@@ -24,8 +24,9 @@ export interface VideoGenerationRequest {
   model: VideoModel;
   prompt: string;
   seconds?: VideoSeconds;
-  input_reference?: File | string; // 图片文件或URL
+  input_reference?: File | string | string[]; // 图片文件、URL或URL数组
   size?: VideoSize;
+  watermark?: boolean; // 水印选项
 }
 
 // 视频生成任务响应
@@ -56,16 +57,23 @@ export async function createVideoTask(request: VideoGenerationRequest): Promise<
   if (request.input_reference) {
     if (request.input_reference instanceof File) {
       formData.append('input_reference', request.input_reference);
+    } else if (Array.isArray(request.input_reference)) {
+      // 如果是数组，将每个URL添加到FormData
+      request.input_reference.forEach((url, index) => {
+        formData.append(`input_reference[${index}]`, url);
+      });
     } else {
-      // 如果是URL字符串，需要特殊处理
-      // 根据API文档，支持URL上传，但FormData可能需要特殊处理
-      // 这里先假设可以直接append字符串
+      // 如果是单个URL字符串
       formData.append('input_reference', request.input_reference);
     }
   }
   
   if (request.size) {
     formData.append('size', request.size);
+  }
+  
+  if (request.watermark !== undefined) {
+    formData.append('watermark', request.watermark.toString());
   }
 
   const response = await fetch(`${API_BASE_URL}/videos`, {

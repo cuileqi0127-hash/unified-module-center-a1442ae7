@@ -3,6 +3,7 @@ import {
   Send,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Sparkles,
   Plus,
   Clock,
@@ -65,6 +66,12 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     highlightedVideoId,
     chatPanelWidth,
     isResizing,
+    isChatPanelCollapsed,
+    handleToggleChatPanel,
+    canvasView,
+    currentSessionId,
+    deletingVideoIds,
+    addingVideoIds,
     // Config
     models,
     secondsOptions,
@@ -74,6 +81,8 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     handleNewConversation,
     handleLoadSession,
     handleVideoMove,
+    handleVideoResize,
+    handleViewChange,
     handleAddSelectedVideo,
     handleRemoveSelectedVideo,
     handleCopyVideo,
@@ -112,8 +121,11 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     <div ref={containerRef} className="flex h-[calc(100vh-3.5rem)] gap-0 animate-fade-in overflow-hidden bg-background">
       {/* Left Panel - Chat Interface */}
       <div 
-        className="h-full flex flex-col border-r border-border bg-background overflow-hidden"
-        style={{ width: `${chatPanelWidth}%` }}
+        className={cn(
+          "h-full flex flex-col border-r border-border bg-background overflow-hidden transition-all duration-300",
+          isChatPanelCollapsed && "w-0 border-r-0 overflow-hidden pointer-events-none"
+        )}
+        style={{ width: isChatPanelCollapsed ? '0%' : `${chatPanelWidth}%` }}
       >
         {/* Header Bar */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
@@ -153,150 +165,163 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
               variant="ghost" 
               size="sm" 
               className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                // Toggle chat panel
-                setShowHistory(false);
-              }}
+              onClick={handleToggleChatPanel}
             >
-              <PanelRightClose className="h-3.5 w-3.5" />
+              {isChatPanelCollapsed ? (
+                <ChevronRight className="h-3.5 w-3.5" />
+              ) : (
+                <PanelRightClose className="h-3.5 w-3.5" />
+              )}
             </Button>
           </div>
         </div>
 
-        {/* History Sidebar */}
-        {showHistory && (
-          <div className="absolute left-0 top-14 bottom-0 w-64 border-r border-border bg-background z-50 shadow-lg">
-            <div className="p-4 border-b border-border">
-              <h3 className="text-sm font-semibold">{isZh ? '历史会话' : 'History'}</h3>
-            </div>
-            <div className="overflow-y-auto p-2">
-              {historySessions.map((session) => (
-                <button
-                  key={session.id}
-                  onClick={() => handleLoadSession(session.id)}
-                  className="w-full text-left p-3 rounded-lg hover:bg-muted transition-colors mb-1"
+        {/* Chat Content Area - Scrollable middle section */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {showHistory ? (
+            <div className="h-full flex flex-col overflow-hidden">
+              {/* History Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+                <h3 className="text-sm font-medium">{isZh ? '历史记录' : 'History'}</h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setShowHistory(false)}
                 >
-                  <p className="text-sm font-medium truncate">{session.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {session.timestamp.toLocaleDateString()} • {session.messageCount} {isZh ? '条消息' : 'messages'}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Chat Messages Area - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          {messages.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center space-y-2">
-                <VideoIcon className="h-12 w-12 mx-auto text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">
-                  {isZh ? '开始一个新的对话' : 'Start a new conversation'}
-                </p>
-                <p className="text-xs text-muted-foreground/70 mt-1">
-                  {isZh ? '输入描述来生成视频' : 'Enter a description to generate videos'}
-                </p>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-2 py-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30">
+                <div className="space-y-1">
+                  {historySessions.map((session) => (
+                    <button
+                      key={session.id}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted transition-colors group"
+                      onClick={() => handleLoadSession(session.id)}
+                    >
+                      <p className="text-sm font-medium truncate group-hover:text-foreground">
+                        {session.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {session.timestamp.toLocaleDateString(isZh ? 'zh-CN' : 'en-US')} · {session.messageCount} {isZh ? '条消息' : 'messages'}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
-            <div className="space-y-5">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    'flex flex-col gap-2',
-                    message.type === 'user' ? 'items-start' : 'items-start'
-                  )}
-                >
-                  {message.type === 'user' ? (
-                    <div className="flex items-start gap-2">
-                      <span className="mt-0.5 text-lg">•</span>
-                      <p className="text-sm leading-relaxed text-foreground">{cleanMessageContent(message.content)}</p>
-                    </div>
-                  ) : (
-                    <div className="w-full space-y-3">
-                      {/* Design Thoughts */}
-                      {message.designThoughts && message.designThoughts.length > 0 && (
-                        <div className="space-y-2">
-                          {message.designThoughts.map((thought, idx) => {
-                            const cleanedThought = cleanMessageContent(thought);
-                            if (!cleanedThought) return null;
-                            return (
-                            <div key={idx} className="flex items-start gap-2">
-                              <span className="mt-0.5 text-primary">•</span>
-                              <p className="text-sm leading-relaxed text-muted-foreground">
-                                <span className="font-medium text-foreground">
-                                    {cleanedThought.split('：')[0]}：
-                                </span>
-                                  {cleanedThought.split('：').slice(1).join('：')}
-                              </p>
-                            </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      
-                      {/* Status indicator when still processing */}
-                      {message.status && message.status !== 'completed' && (
-                        <div className="flex items-center gap-2 py-1">
-                          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                          <span className="text-sm text-muted-foreground">
-                            {getStatusText(message.status)}
-                            {message.progress !== undefined && ` (${message.progress}%)`}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {/* Generated Video */}
-                      {message.video && message.status === 'completed' && (
-                        <div className="relative mt-2">
-                          <div 
-                            className="relative w-56 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md"
-                            onClick={() => {
-                              const video = canvasVideos.find(v => v.url === message.video);
-                              if (video) setSelectedVideoId(video.id);
-                            }}
-                          >
-                            <video
-                              src={message.video}
-                              className="aspect-video w-full object-cover"
-                              controls
-                            />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                              {isZh ? '反馈' : 'Feedback'}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Result Summary */}
-                      {message.resultSummary && message.status === 'completed' && (
-                        <p className="text-sm leading-relaxed text-muted-foreground">
-                          {cleanMessageContent(message.resultSummary)}
-                        </p>
-                      )}
-                      
-                      {/* Task Complete indicator */}
-                      {message.status === 'completed' && (
-                        <div className="flex items-center gap-1.5 pt-1">
-                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
-                            {getStatusText('completed')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+            <div className="h-full overflow-y-auto px-4 py-3 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <VideoIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                  <p className="text-sm text-muted-foreground">
+                    {isZh ? '开始一个新的对话' : 'Start a new conversation'}
+                  </p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    {isZh ? '输入描述来生成视频' : 'Enter a description to generate videos'}
+                  </p>
                 </div>
-              ))}
-              <div ref={chatEndRef} />
+              ) : (
+                <div className="space-y-5">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        'flex flex-col gap-2',
+                        message.type === 'user' ? 'items-start' : 'items-start'
+                      )}
+                    >
+                      {message.type === 'user' ? (
+                        <div className="flex items-start gap-2">
+                          <span className="mt-0.5 text-lg">•</span>
+                          <p className="text-sm leading-relaxed text-foreground">{cleanMessageContent(message.content)}</p>
+                        </div>
+                      ) : (
+                        <div className="w-full space-y-3">
+                          {/* Design Thoughts */}
+                          {message.designThoughts && message.designThoughts.length > 0 && (
+                            <div className="space-y-2">
+                              {message.designThoughts.map((thought, idx) => {
+                                const cleanedThought = cleanMessageContent(thought);
+                                if (!cleanedThought) return null;
+                                return (
+                                <div key={idx} className="flex items-start gap-2">
+                                  <span className="mt-0.5 text-primary">•</span>
+                                  <p className="text-sm leading-relaxed text-muted-foreground">
+                                    <span className="font-medium text-foreground">
+                                        {cleanedThought.split('：')[0]}：
+                                    </span>
+                                      {cleanedThought.split('：').slice(1).join('：')}
+                                  </p>
+                                </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          
+                          {/* Status indicator when still processing */}
+                          {message.status && message.status !== 'completed' && (
+                            <div className="flex items-center gap-2 py-1">
+                              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                              <span className="text-sm text-muted-foreground">
+                                {getStatusText(message.status)}
+                                {message.progress !== undefined && ` (${message.progress}%)`}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Generated Video */}
+                          {message.video && message.status === 'completed' && (
+                            <div className="relative mt-2">
+                              <div 
+                                className="relative w-56 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md"
+                                onClick={() => {
+                                  const video = canvasVideos.find(v => v.url === message.video);
+                                  if (video) setSelectedVideoId(video.id);
+                                }}
+                              >
+                                <video
+                                  src={message.video}
+                                  className="aspect-video w-full object-cover"
+                                  controls
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
+                                >
+                                  <MessageSquare className="h-3 w-3" />
+                                  {isZh ? '反馈' : 'Feedback'}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Result Summary */}
+                          {message.resultSummary && message.status === 'completed' && (
+                            <p className="text-sm leading-relaxed text-muted-foreground">
+                              {cleanMessageContent(message.resultSummary)}
+                            </p>
+                          )}
+                          
+                          {/* Task Complete indicator */}
+                          {message.status === 'completed' && (
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">
+                                {getStatusText('completed')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -359,17 +384,41 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
               );
             })()}
             
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isZh ? '描述您想要生成的视频...' : 'Describe the video you want to generate...'}
-              rows={2}
-              className={cn(
-                "w-full resize-none border-0 bg-transparent px-4 text-sm placeholder:text-muted-foreground focus:outline-none",
-                (selectedVideoId || selectedVideoIds.length > 0) ? "pt-2 pb-3" : "py-3"
-              )}
-            />
+            {!currentSessionId ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 rounded-full bg-primary/5 blur-xl" />
+                  <MessageSquare className="relative h-12 w-12 text-muted-foreground/30" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  {isZh ? '请先创建新会话' : 'Please create a new session first'}
+                </p>
+                <p className="text-xs text-muted-foreground/70 mb-6">
+                  {isZh ? '创建会话后即可开始生成视频' : 'Create a session to start generating videos'}
+                </p>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleNewConversation}
+                  className="gap-2 shadow-sm hover:shadow transition-shadow"
+                >
+                  <Plus className="h-4 w-4" />
+                  {isZh ? '新建会话' : 'New Session'}
+                </Button>
+              </div>
+            ) : (
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isZh ? '描述您想要生成的视频...' : 'Describe the video you want to generate...'}
+                rows={2}
+                className={cn(
+                  "w-full resize-none border-0 bg-transparent px-4 text-sm placeholder:text-muted-foreground focus:outline-none",
+                  (selectedVideoId || selectedVideoIds.length > 0) ? "pt-2 pb-3" : "py-3"
+                )}
+              />
+            )}
             
             {/* Bottom toolbar */}
             <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">
@@ -486,7 +535,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                 size="icon"
                 className="h-8 w-8 shrink-0 rounded-full"
                 onClick={handleGenerate}
-                disabled={!prompt.trim() || isGenerating}
+                disabled={!currentSessionId || !prompt.trim() || isGenerating}
               >
                 {isGenerating ? (
                   <Sparkles className="h-4 w-4 animate-spin" />
@@ -505,21 +554,36 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
       </div>
 
       {/* Resize Handle */}
-      <div
-        ref={resizeRef}
-        onMouseDown={handleResizeStart}
-        className={cn(
-          "w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
-          isResizing && "bg-primary"
-        )}
-        style={{ touchAction: 'none' }}
-      />
+      {!isChatPanelCollapsed && (
+        <div
+          ref={resizeRef}
+          onMouseDown={handleResizeStart}
+          className={cn(
+            "w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
+            isResizing && "bg-primary"
+          )}
+          style={{ touchAction: 'none' }}
+        />
+      )}
 
       {/* Right Panel - Video Canvas */}
       <div 
-        className="relative flex flex-col bg-muted/20"
-        style={{ width: `${100 - chatPanelWidth}%` }}
+        className="relative flex flex-col bg-muted/20 transition-all duration-300"
+        style={{ width: isChatPanelCollapsed ? '100%' : `${100 - chatPanelWidth}%` }}
       >
+        {/* Expand Button - Show when chat panel is collapsed */}
+        {isChatPanelCollapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute left-4 top-4 z-20 h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground bg-background/90 backdrop-blur-sm shadow-sm"
+            onClick={handleToggleChatPanel}
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+            {isZh ? '展开' : 'Expand'}
+          </Button>
+        )}
+        
         {/* Workspace Header */}
         <div className="pointer-events-none absolute left-10 top-10 z-10">
           <h1 className="text-2xl font-bold text-foreground/90">
@@ -536,6 +600,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
             ...taskPlaceholders.map(p => ({ ...p } as CanvasMediaItem)),
           ]}
           onItemMove={handleVideoMove}
+          onItemResize={handleVideoResize}
+          onViewChange={handleViewChange}
+          initialZoom={canvasView.zoom}
+          initialPan={canvasView.pan}
           onItemSelect={setSelectedVideoId}
           onItemMultiSelect={setSelectedVideoIds}
           selectedItemId={selectedVideoId}
@@ -543,6 +611,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           onItemDragStart={() => {}}
           onItemDoubleClick={handleVideoDoubleClick}
           highlightedItemId={highlightedVideoId}
+          deletingItemIds={Array.from(deletingVideoIds)}
         />
 
         {/* Selected Video(s) Floating Toolbar */}

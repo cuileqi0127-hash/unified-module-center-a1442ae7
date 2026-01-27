@@ -1,0 +1,496 @@
+/**
+ * Generation Session API Service
+ * 生成会话数据存储 API 服务
+ * 
+ * 提供文生图、文生视频的统一数据存储接口封装
+ */
+
+import { authenticatedFetch, handleApiResponse } from './apiInterceptor';
+
+// 根据环境变量判断使用代理还是直接访问
+const API_BASE_URL = import.meta.env.DEV 
+  ? '/api'  // 开发环境使用代理
+  : 'http://192.168.112.253:8000';  // 生产环境使用完整 URL
+
+// ==================== 类型定义 ====================
+
+// 任务类型
+export type TaskType = 'image' | 'video';
+
+// 会话设置
+export interface SessionSettings {
+  model: string;
+  size?: string;
+  [key: string]: any; // 允许其他设置字段
+}
+
+// 画布视图
+export interface CanvasView {
+  zoom: number;
+  pan: {
+    x: number;
+    y: number;
+  };
+}
+
+// 画布元素
+export interface CanvasItem {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotate?: number;
+  visible?: boolean;
+  zindex?: number;
+}
+
+// 参考图
+export interface Reference {
+  type: 'image' | 'video';
+  sourceUrl: string;
+  ossKey?: string;
+  canvasItem: CanvasItem;
+}
+
+// 资产
+export interface Asset {
+  type: 'image' | 'video';
+  sourceUrl: string;
+  seq?: number;
+  ossKey?: string;
+  width?: number;
+  height?: number;
+  duration?: number;
+  fps?: number;
+}
+
+// 生成信息
+export interface Generation {
+  model: string;
+  size?: string;
+  prompt: string;
+  status: 'success' | 'failed' | 'processing';
+  [key: string]: any; // 允许其他字段
+}
+
+// 消息
+export interface Message {
+  type: 'system' | 'user' | 'assistant';
+  content: string;
+  status?: 'complete' | 'processing' | 'failed';
+  resultSummary?: string;
+}
+
+// 统一 API 响应格式
+export interface ApiResponse<T = any> {
+  code: number;
+  msg: string;
+  success: boolean;
+  timestamp: number;
+  data: T;
+}
+
+// 分页响应
+export interface PaginatedResponse<T> {
+  list: T[];
+  total: number;
+}
+
+// 会话信息
+export interface Session {
+  id: number;
+  createUserString?: string;
+  createTime?: string;
+  disabled?: boolean;
+  updateUserString?: string;
+  updateTime?: string;
+  title: string;
+  taskType: TaskType;
+  settings: SessionSettings;
+  canvasView: CanvasView;
+}
+
+// 会话详情（包含关联数据）
+export interface SessionDetail extends Session {
+  messages?: MessageDetail[];
+  generations?: GenerationDetail[];
+  assets?: AssetDetail[];
+  canvasItems?: CanvasItemDetail[];
+}
+
+// 消息详情
+export interface MessageDetail {
+  id: number;
+  createUserString?: string;
+  createTime?: string;
+  disabled?: boolean;
+  updateUserString?: string;
+  updateTime?: string;
+  sessionId: number;
+  type: 'system' | 'user' | 'assistant';
+  content: string;
+  status?: 'complete' | 'processing' | 'failed';
+  resultSummary?: string;
+  generationId?: number;
+  assetId?: number;
+}
+
+// 生成详情
+export interface GenerationDetail {
+  id: number;
+  createUserString?: string;
+  createTime?: string;
+  disabled?: boolean;
+  updateUserString?: string;
+  updateTime?: string;
+  sessionId: number;
+  model: string;
+  size?: string;
+  prompt: string;
+  refOssKeys?: string[];
+  status: 'success' | 'failed' | 'processing';
+}
+
+// 资产详情
+export interface AssetDetail {
+  id: number;
+  createUserString?: string;
+  createTime?: string;
+  disabled?: boolean;
+  updateUserString?: string;
+  updateTime?: string;
+  sessionId: number;
+  generationId?: number;
+  type: 'image' | 'video';
+  role: 'result' | 'reference';
+  ossKey: string;
+  downloadUrl?: string;
+  width?: number;
+  height?: number;
+  duration?: number;
+  fps?: number;
+  seq?: number;
+}
+
+// 画布元素详情
+export interface CanvasItemDetail {
+  id: number;
+  createUserString?: string;
+  createTime?: string;
+  disabled?: boolean;
+  updateUserString?: string;
+  updateTime?: string;
+  sessionId: number;
+  assetId: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotate?: number;
+  visible?: boolean;
+  zindex?: number;
+}
+
+// 创建会话请求
+export interface CreateSessionRequest {
+  title: string;
+  taskType: TaskType;
+  settings: SessionSettings;
+  canvasView: CanvasView;
+}
+
+// 更新会话请求
+export interface UpdateSessionRequest {
+  title?: string;
+  taskType?: TaskType;
+  settings?: SessionSettings;
+  canvasView?: CanvasView;
+}
+
+// 保存参考图请求
+export interface SaveReferenceRequest {
+  reference: Reference;
+}
+
+// 保存参考图响应
+export interface SaveReferenceResponse {
+  assetId: number;
+  canvasItemId: number;
+  ossKey: string;
+  downloadUrl: string;
+}
+
+// 生成结果落库请求
+export interface SaveGenerationResultRequest {
+  generation: Generation;
+  asset: Asset;
+  message: Message;
+  canvasItem: CanvasItem;
+  references?: Reference[];
+}
+
+// 生成结果落库响应
+export interface SaveGenerationResultResponse {
+  generationId: number;
+  assetId: number;
+  messageId: number;
+  canvasItemId: number;
+  ossKey: string;
+  downloadUrl: string;
+}
+
+// 更新画布元素请求
+export interface UpdateCanvasItemRequest {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  rotate?: number;
+  visible?: boolean;
+  zindex?: number;
+}
+
+// ==================== API 函数 ====================
+
+/**
+ * 1. 分页查询会话
+ * 分页查询当前用户的生成会话
+ */
+export async function getSessions(
+  taskType: TaskType,
+  page: number = 1,
+  size: number = 10
+): Promise<ApiResponse<PaginatedResponse<Session>>> {
+  const params = new URLSearchParams({
+    taskType,
+    page: page.toString(),
+    size: size.toString(),
+  });
+
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/sessions?${params.toString()}`,
+    {
+      method: 'GET',
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to get sessions: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<PaginatedResponse<Session>> = await handledResponse.json();
+  return data;
+}
+
+/**
+ * 2. 创建会话
+ * 创建生成会话
+ */
+export async function createSession(
+  request: CreateSessionRequest
+): Promise<ApiResponse<Session>> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/sessions`,
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to create session: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<Session> = await handledResponse.json();
+  return data;
+}
+
+/**
+ * 3. 保存参考图画布
+ * 保存参考图资产与画布元素
+ */
+export async function saveReference(
+  sessionId: number,
+  request: SaveReferenceRequest
+): Promise<ApiResponse<SaveReferenceResponse>> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/sessions/${sessionId}/references`,
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to save reference: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<SaveReferenceResponse> = await handledResponse.json();
+  return data;
+}
+
+/**
+ * 4. 生成结果落库
+ * 生成成功后新增消息并保存生成结果
+ */
+export async function saveGenerationResult(
+  sessionId: number,
+  request: SaveGenerationResultRequest
+): Promise<ApiResponse<SaveGenerationResultResponse>> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/sessions/${sessionId}/messages`,
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to save generation result: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<SaveGenerationResultResponse> = await handledResponse.json();
+  return data;
+}
+
+/**
+ * 5. 查询会话详情
+ * 查询会话内全部内容
+ */
+export async function getSessionDetail(
+  sessionId: string
+): Promise<ApiResponse<SessionDetail>> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/sessions/${sessionId}`,
+    {
+      method: 'GET',
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to get session detail: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<SessionDetail> = await handledResponse.json();
+  return data;
+}
+
+/**
+ * 6. 更新会话
+ * 更新会话标题/设置/视图
+ */
+export async function updateSession(
+  sessionId: number,
+  request: UpdateSessionRequest
+): Promise<ApiResponse<null>> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/sessions/${sessionId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(request),
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to update session: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<null> = await handledResponse.json();
+  return data;
+}
+
+/**
+ * 7. 删除画布元素
+ * 删除画布元素并级联删除结果
+ */
+export async function deleteCanvasItem(
+  canvasItemId: number
+): Promise<ApiResponse<null>> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/canvas-items/${canvasItemId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to delete canvas item: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<null> = await handledResponse.json();
+  return data;
+}
+
+/**
+ * 9. 批量删除画布元素
+ * 批量删除画布元素并级联删除结果
+ */
+export async function batchDeleteCanvasItems(
+  canvasItemIds: number[]
+): Promise<ApiResponse<null>> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/canvas-items`,
+    {
+      method: 'DELETE',
+      body: JSON.stringify(canvasItemIds),
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to batch delete canvas items: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<null> = await handledResponse.json();
+  return data;
+}
+
+/**
+ * 8. 更新画布元素
+ * 移动/缩放画布元素
+ */
+export async function updateCanvasItem(
+  canvasItemId: number,
+  request: UpdateCanvasItemRequest
+): Promise<ApiResponse<null>> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/tools/gen/canvas-items/${canvasItemId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(request),
+    }
+  );
+
+  const handledResponse = await handleApiResponse(response);
+  
+  if (!handledResponse.ok) {
+    const errorText = await handledResponse.text();
+    throw new Error(`Failed to update canvas item: ${handledResponse.status} - ${errorText}`);
+  }
+
+  const data: ApiResponse<null> = await handledResponse.json();
+  return data;
+}
