@@ -133,6 +133,7 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
       isGroupHeader: true,
       items: [
         { id: 'campaign-planner', labelKey: 'sidebar.campaignPlanner', icon: <Megaphone className="w-4 h-4" /> },
+        { id: 'reference-to-video', labelKey: 'sidebar.videoReplication', icon: <Copy className="w-4 h-4" /> },
       ],
     },
     {
@@ -150,7 +151,6 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
           titleKey: 'sidebar.videoGeneration',
           items: [
             { id: 'text-to-video', labelKey: 'sidebar.textToVideo', icon: <Video className="w-4 h-4" /> },
-            { id: 'reference-to-video', labelKey: 'sidebar.videoReplication', icon: <Copy className="w-4 h-4" /> },
           ],
         },
         {
