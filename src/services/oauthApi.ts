@@ -6,9 +6,8 @@
 import { getCookie, setCookie, deleteCookie } from '@/utils/cookies';
 
 // 根据环境变量判断使用代理还是直接访问
-const OAUTH_API_BASE_URL = import.meta.env.DEV 
-  ? '/api'  // 开发环境使用代理
-  : 'http://94.74.101.163:28080';  // 生产环境使用完整 URL
+// 生产环境也使用相对路径，通过 Nginx 代理转发
+const OAUTH_API_BASE_URL = '/api';
 const OAUTH_CODE_KEY = 'oauth_code';
 const OAUTH_TOKEN_KEY = 'auth_token'; // 改为使用 cookies 中的 auth_token
 

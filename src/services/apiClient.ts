@@ -12,9 +12,8 @@
 import { authenticatedFetch, getAuthHeaders } from './apiInterceptor';
 
 // 根据环境变量判断使用代理还是直接访问
-const API_BASE_URL = import.meta.env.DEV 
-  ? '/api'  // 开发环境使用代理
-  : 'http://94.74.101.163:28080';  // 生产环境使用完整 URL
+// 生产环境也使用相对路径，通过 Nginx 代理转发
+const API_BASE_URL = '/api';
 
 // 统一 API 响应格式
 export interface ApiResponse<T = any> {

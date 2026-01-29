@@ -5,10 +5,8 @@
  * 提供高可用、可维护、可扩展的图片生成接口封装
  */
 
-// 根据环境选择 API 地址：开发环境使用本地代理，生产环境使用原始地址
-const API_BASE_URL = import.meta.env.DEV 
-  ? '/api/tu-zi/v1' 
-  : 'https://api.tu-zi.com/v1';
+// 根据环境选择 API 地址：开发环境和生产环境都使用相对路径，通过 Nginx 代理
+const API_BASE_URL = '/api/tu-zi/v1';
 const API_KEY = 'sk-5ZmMmOyDZ8uyPjCHe8yFlrhwQwYUpGb8M0wrTOdonYe8GpMr';
 
 // 支持的模型类型

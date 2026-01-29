@@ -9,13 +9,9 @@ import { handleApiResponse } from './apiInterceptor';
 
 // 根据环境变量判断使用代理还是直接访问
 // 注意：vod/upload 使用端口 8000，aigc 接口使用端口 8001
-const VOD_BASE_URL = import.meta.env.DEV 
-  ? ''  // 开发环境使用代理（通过 vite proxy）
-  : 'http://94.74.98.20:8000';  // 生产环境使用完整 URL（端口 8000）
-
-const AIGC_BASE_URL = import.meta.env.DEV 
-  ? ''  // 开发环境使用代理（通过 vite proxy）
-  : 'http://94.74.98.20:8001';  // 生产环境使用完整 URL（端口 8001）
+// 生产环境也使用相对路径，通过 Nginx 代理转发
+const VOD_BASE_URL = '';  // 使用相对路径，通过 Nginx 代理到 /vod
+const AIGC_BASE_URL = '';  // 使用相对路径，通过 Nginx 代理到 /aigc
 
 const VOD_UPLOAD_URL = `${VOD_BASE_URL}/vod/upload`;
 const AIGC_CREATE_URL = `${AIGC_BASE_URL}/aigc/create`;
