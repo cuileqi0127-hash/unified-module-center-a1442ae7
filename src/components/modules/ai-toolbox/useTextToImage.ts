@@ -102,6 +102,10 @@ export function useTextToImage() {
   // 会话管理状态
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
   const [historySessions, setHistorySessions] = useState<Array<{ id: string; title: string; timestamp: Date; messageCount: number }>>([]);
+  const [historyPage, setHistoryPage] = useState(1); // 当前页码
+  const [hasMoreHistory, setHasMoreHistory] = useState(true); // 是否还有更多历史记录
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false); // 是否正在加载历史记录
+  const [isInitializing, setIsInitializing] = useState(true); // 是否正在初始化（首次加载历史记录）
   const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   
   // 画布元素ID映射（用于更新数据库）
@@ -157,23 +161,35 @@ export function useTextToImage() {
   }, [messages]);
 
   // 查询会话列表（历史记录列表）
-  const loadSessions = useCallback(async () => {
+  // @param page 页码，从1开始，默认1
+  // @param append 是否追加到现有列表（用于分页加载），默认false
+  const loadSessions = useCallback(async (page: number = 1, append: boolean = false): Promise<Session[]> => {
+    if (isLoadingHistory) return []; // 防止重复加载
+    
+    setIsLoadingHistory(true);
     try {
-      const response = await getSessions('image', 1, 20);
+      const response = await getSessions('image', page, 10); // 每页10条
       if (response.success && response.data) {
+        const sessions = response.data.list;
+        const total = response.data.total || 0;
+        
         // 为每个会话获取消息数量
+        // 优化：如果后端已经返回 messageCount，直接使用；否则获取详情
         const sessionsWithMessageCount = await Promise.all(
-          response.data.list.map(async (session: Session) => {
-            let messageCount = 0;
-            try {
-              // 获取会话详情以获取消息数量
-              const detailResponse = await getSessionDetail(session.id.toString());
-              if (detailResponse.success && detailResponse.data?.messages) {
-                messageCount = detailResponse.data.messages.length;
+          sessions.map(async (session: Session) => {
+            let messageCount = session.messageCount ?? 0;
+            
+            // 如果后端没有返回 messageCount，则获取详情
+            if (messageCount === 0 && session.messageCount === undefined) {
+              try {
+                const detailResponse = await getSessionDetail(session.id.toString());
+                if (detailResponse.success && detailResponse.data?.messages) {
+                  messageCount = detailResponse.data.messages.length;
+                }
+              } catch (error) {
+                // 如果获取详情失败，消息数量保持为 0
+                console.error(`Failed to get message count for session ${session.id}:`, error);
               }
-            } catch (error) {
-              // 如果获取详情失败，消息数量保持为 0
-              console.error(`Failed to get message count for session ${session.id}:`, error);
             }
             
             return {
@@ -185,17 +201,221 @@ export function useTextToImage() {
           })
         );
         
-        setHistorySessions(sessionsWithMessageCount);
+        if (append) {
+          // 追加模式：追加到现有列表
+          setHistorySessions(prev => {
+            const newList = [...prev, ...sessionsWithMessageCount];
+            // 判断是否还有更多数据
+            setHasMoreHistory(newList.length < total);
+            return newList;
+          });
+        } else {
+          // 替换模式：替换整个列表
+          setHistorySessions(sessionsWithMessageCount);
+          // 判断是否还有更多数据
+          setHasMoreHistory(sessions.length < total);
+        }
+        
+        setHistoryPage(page);
+        
+        return sessions;
       }
     } catch (error) {
       console.error('Failed to load sessions:', error);
+    } finally {
+      setIsLoadingHistory(false);
     }
-  }, [isZh]);
+    return [];
+  }, [isZh, isLoadingHistory]);
+  
+  // 加载更多历史记录
+  const loadMoreHistory = useCallback(() => {
+    if (!isLoadingHistory && hasMoreHistory) {
+      loadSessions(historyPage + 1, true);
+    }
+  }, [isLoadingHistory, hasMoreHistory, historyPage, loadSessions]);
 
-  // 初始化时加载会话列表
+  // 初始化时加载会话列表，并根据情况加载第一个会话或创建新会话
   useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
+    const initializeSession = async () => {
+      setIsInitializing(true); // 开始初始化
+      try {
+        // 1. 查看历史记录列表
+        const sessions = await loadSessions(1, false);
+      
+      // 2. 如果历史记录列表数组长度 > 0，获取数组第0个会话
+      if (sessions && sessions.length > 0) {
+        const firstSession = sessions[0];
+        try {
+          // 使用 getSessionDetail 获取指定会话的完整内容
+          const response = await getSessionDetail(firstSession.id.toString());
+          
+          if (response.success && response.data) {
+            const session = response.data;
+            setCurrentSessionId(session.id);
+            
+            // 恢复画布视图（缩放和平移）
+            setCanvasView(session.canvasView || { zoom: 1, pan: { x: 0, y: 0 } });
+            
+            // 恢复画布元素（图片）
+            if (session.canvasItems && session.assets && session.generations) {
+              const assetsMap = new Map(session.assets.map(asset => [asset.id, asset]));
+              const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
+              
+              const restoredImages: CanvasImage[] = session.canvasItems
+                .map(item => {
+                  const asset = assetsMap.get(item.assetId);
+                  if (!asset || asset.type !== 'image') return null;
+                  
+                  // 保存画布元素ID映射，用于后续更新
+                  canvasItemIdMap.current.set(`item-${item.id}`, item.id);
+                  
+                  // 通过 asset.generationId 获取 prompt
+                  let prompt: string | undefined;
+                  if (asset.generationId) {
+                    const generation = generationsMap.get(asset.generationId.toString());
+                    if (generation && generation.prompt) {
+                      prompt = generation.prompt;
+                    }
+                  }
+                  
+                  const imageItem: CanvasImage = {
+                    id: `item-${item.id}`,
+                    url: asset.downloadUrl || asset.ossKey || '',
+                    x: item.x,
+                    y: item.y,
+                    width: item.width,
+                    height: item.height,
+                    type: 'image',
+                    prompt,
+                  };
+                  
+                  return imageItem;
+                })
+                .filter((item): item is CanvasImage => item !== null);
+              
+              setCanvasImages(restoredImages);
+            }
+            
+            // 恢复聊天内容（用户消息和系统消息）
+            if (session.messages && session.generations) {
+              const assetsMap = new Map(session.assets?.map(asset => [asset.id, asset]) || []);
+              const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
+              
+              const restoredMessages: ChatMessage[] = [];
+              
+              session.messages.forEach(msg => {
+                // 如果消息有 generationId，说明这是系统消息，需要先创建用户消息（包含 prompt）
+                if (msg.generationId) {
+                  const generation = generationsMap.get(msg.generationId.toString());
+                  if (generation && generation.prompt) {
+                    // 创建用户消息（包含 prompt）
+                    const userMessage: ChatMessage = {
+                      id: `user-${msg.id}`,
+                      type: 'user',
+                      content: generation.prompt,
+                      timestamp: new Date(generation.createTime || msg.createTime || Date.now()),
+                    };
+                    restoredMessages.push(userMessage);
+                  }
+                }
+                
+                // 创建系统消息
+                const systemMessage: ChatMessage = {
+                  id: msg.id.toString(),
+                  type: msg.type === 'user' ? 'user' : 'system',
+                  content: msg.content,
+                  timestamp: new Date(msg.createTime || Date.now()),
+                  status: msg.status === 'complete' ? 'complete' : undefined,
+                  resultSummary: msg.resultSummary,
+                };
+                
+                // 如果消息有 generationId，从 generations 中获取详细信息
+                if (msg.generationId) {
+                  const generation = generationsMap.get(msg.generationId.toString());
+                  if (generation) {
+                    // 构建 designThoughts 数组
+                    const designThoughts: string[] = [];
+                    
+                    // 添加图片理解（使用 generation.prompt，这是 revised prompt）
+                    if (generation.prompt) {
+                      designThoughts.push(
+                        isZh ? `图片理解：${generation.prompt}` : `Image Understanding: ${generation.prompt}`
+                      );
+                    }
+                    
+                    // 添加尺寸信息
+                    if (generation.size) {
+                      const model = session.settings?.model || 'gpt-image-1.5';
+                      const isSeedreamModel = model === 'doubao-seedream-4-0-250828';
+                      designThoughts.push(
+                        isSeedreamModel
+                          ? (isZh ? `尺寸：${generation.size}` : `Size: ${generation.size}`)
+                          : (isZh ? `画面比例：${generation.size}` : `Aspect Ratio: ${generation.size}`)
+                      );
+                    }
+                    
+                    if (designThoughts.length > 0) {
+                      systemMessage.designThoughts = designThoughts;
+                    }
+                  }
+                }
+                
+                // 如果有关联的资产，恢复图片URL
+                if (msg.assetId && assetsMap.has(msg.assetId)) {
+                  const asset = assetsMap.get(msg.assetId)!;
+                  if (asset.type === 'image') {
+                    systemMessage.image = asset.downloadUrl || asset.ossKey || '';
+                  }
+                }
+                
+                restoredMessages.push(systemMessage);
+              });
+              
+              // 按时间戳排序
+              restoredMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+              
+              setMessages(restoredMessages);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load first session:', error);
+        }
+      } else {
+        // 3. 如果历史记录列表数组长度 == 0，自动创建新会话
+        try {
+          const response = await createSession({
+            title: isZh ? '新会话' : 'New Session',
+            taskType: 'image',
+            settings: {
+              model,
+              size: aspectRatio,
+            },
+            canvasView: {
+              zoom: 1,
+              pan: { x: 0, y: 0 },
+            },
+          });
+
+          if (response.success && response.data) {
+            setCurrentSessionId(response.data.id);
+            // 刷新历史记录
+            await loadSessions(1, false);
+          }
+        } catch (error) {
+          console.error('Failed to create session:', error);
+          toast.error(isZh ? '创建会话失败' : 'Failed to create session');
+        }
+      }
+      } finally {
+        // 无论成功或失败，都要关闭初始化 loading
+        setIsInitializing(false);
+      }
+    };
+    
+    initializeSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 只在组件挂载时执行一次
 
   // 防抖更新会话视图
   const debouncedUpdateSession = useRef(
@@ -286,8 +506,9 @@ export function useTextToImage() {
         setCanvasView(session.canvasView || { zoom: 1, pan: { x: 0, y: 0 } });
         
         // 恢复画布元素（图片/视频）
-        if (session.canvasItems && session.assets) {
+        if (session.canvasItems && session.assets && session.generations) {
           const assetsMap = new Map(session.assets.map(asset => [asset.id, asset]));
+          const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
           
           const restoredImages: CanvasImage[] = session.canvasItems
             .map(item => {
@@ -297,6 +518,15 @@ export function useTextToImage() {
               // 保存画布元素ID映射，用于后续更新
               canvasItemIdMap.current.set(`item-${item.id}`, item.id);
               
+              // 通过 asset.generationId 获取 prompt
+              let prompt: string | undefined;
+              if (asset.generationId) {
+                const generation = generationsMap.get(asset.generationId.toString());
+                if (generation && generation.prompt) {
+                  prompt = generation.prompt;
+                }
+              }
+              
               const imageItem: CanvasImage = {
                 id: `item-${item.id}`,
                 url: asset.downloadUrl || asset.ossKey || '',
@@ -305,6 +535,7 @@ export function useTextToImage() {
                 width: item.width,
                 height: item.height,
                 type: 'image',
+                prompt,
               };
               
               return imageItem;
@@ -315,29 +546,82 @@ export function useTextToImage() {
         }
         
         // 恢复聊天内容（用户消息和系统消息）
-        if (session.messages) {
+        if (session.messages && session.generations) {
           const assetsMap = new Map(session.assets?.map(asset => [asset.id, asset]) || []);
+          const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
           
-          const restoredMessages: ChatMessage[] = session.messages.map(msg => {
-            const message: ChatMessage = {
-              id: msg.id.toString(),
-              type: msg.type === 'user' ? 'user' : 'system',
-              content: msg.content,
-              timestamp: new Date(msg.createTime || Date.now()),
-              status: msg.status === 'complete' ? 'complete' : undefined,
-              resultSummary: msg.resultSummary,
-            };
-            
-            // 如果有关联的资产，恢复图片URL
-            if (msg.assetId && assetsMap.has(msg.assetId)) {
-              const asset = assetsMap.get(msg.assetId)!;
-              if (asset.type === 'image') {
-                message.image = asset.downloadUrl || asset.ossKey || '';
+          const restoredMessages: ChatMessage[] = [];
+          
+          session.messages.forEach(msg => {
+            // 如果消息有 generationId，说明这是系统消息，需要先创建用户消息（包含 prompt）
+            if (msg.generationId) {
+              const generation = generationsMap.get(msg.generationId.toString());
+              if (generation && generation.prompt) {
+                // 创建用户消息（包含 prompt）
+                const userMessage: ChatMessage = {
+                  id: `user-${msg.id}`,
+                  type: 'user',
+                  content: generation.prompt,
+                  timestamp: new Date(generation.createTime || msg.createTime || Date.now()),
+                };
+                restoredMessages.push(userMessage);
               }
             }
             
-            return message;
+                // 创建系统消息
+                const systemMessage: ChatMessage = {
+                  id: msg.id.toString(),
+                  type: msg.type === 'user' ? 'user' : 'system',
+                  content: msg.content,
+                  timestamp: new Date(msg.createTime || Date.now()),
+                  status: msg.status === 'complete' ? 'complete' : undefined,
+                  resultSummary: msg.resultSummary,
+                };
+                
+                // 如果消息有 generationId，从 generations 中获取详细信息
+                if (msg.generationId) {
+                  const generation = generationsMap.get(msg.generationId.toString());
+                  if (generation) {
+                    // 构建 designThoughts 数组
+                    const designThoughts: string[] = [];
+                    
+                    // 添加图片理解（使用 generation.prompt，这是 revised prompt）
+                    if (generation.prompt) {
+                      designThoughts.push(
+                        isZh ? `图片理解：${generation.prompt}` : `Image Understanding: ${generation.prompt}`
+                      );
+                    }
+                    
+                    // 添加尺寸信息
+                    if (generation.size) {
+                      const model = session.settings?.model || 'gpt-image-1.5';
+                      const isSeedreamModel = model === 'doubao-seedream-4-0-250828';
+                      designThoughts.push(
+                        isSeedreamModel
+                          ? (isZh ? `尺寸：${generation.size}` : `Size: ${generation.size}`)
+                          : (isZh ? `画面比例：${generation.size}` : `Aspect Ratio: ${generation.size}`)
+                      );
+                    }
+                    
+                    if (designThoughts.length > 0) {
+                      systemMessage.designThoughts = designThoughts;
+                    }
+                  }
+                }
+                
+                // 如果有关联的资产，恢复图片URL
+                if (msg.assetId && assetsMap.has(msg.assetId)) {
+                  const asset = assetsMap.get(msg.assetId)!;
+                  if (asset.type === 'image') {
+                    systemMessage.image = asset.downloadUrl || asset.ossKey || '';
+                  }
+                }
+                
+                restoredMessages.push(systemMessage);
           });
+          
+          // 按时间戳排序
+          restoredMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
           
           setMessages(restoredMessages);
         }
@@ -719,7 +1003,7 @@ export function useTextToImage() {
             // 保存画布元素ID映射
             canvasItemIdMap.current.set(newImage.id, saveResponse.data.canvasItemId);
             // 刷新历史记录
-            await loadSessions();
+            await loadSessions(1, false);
           }
         } catch (error) {
           console.error('Failed to save generation result:', error);
@@ -1029,6 +1313,10 @@ export function useTextToImage() {
     models,
     aspectRatios,
     historySessions,
+    hasMoreHistory,
+    isLoadingHistory,
+    loadMoreHistory,
+    isInitializing,
     
     // Handlers
     handleNewConversation,

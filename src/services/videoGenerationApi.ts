@@ -7,82 +7,177 @@
 
 import { handleApiResponse } from './apiInterceptor';
 
-const API_BASE_URL = 'https://api.tu-zi.com/v1';
-const API_KEY = 'sk-5ZmMmOyDZ8uyPjCHe8yFlrhwQwYUpGb8M0wrTOdonYe8GpMr';
+// 根据环境变量判断使用代理还是直接访问
+// 注意：vod/upload 使用端口 8000，aigc 接口使用端口 8001
+const VOD_BASE_URL = import.meta.env.DEV 
+  ? ''  // 开发环境使用代理（通过 vite proxy）
+  : 'http://94.74.98.20:8000';  // 生产环境使用完整 URL（端口 8000）
+
+const AIGC_BASE_URL = import.meta.env.DEV 
+  ? ''  // 开发环境使用代理（通过 vite proxy）
+  : 'http://94.74.98.20:8001';  // 生产环境使用完整 URL（端口 8001）
+
+const VOD_UPLOAD_URL = `${VOD_BASE_URL}/vod/upload`;
+const AIGC_CREATE_URL = `${AIGC_BASE_URL}/aigc/create`;
+const AIGC_TASK_URL = `${AIGC_BASE_URL}/aigc/task`;
 
 // 支持的模型类型
-export type VideoModel = 'sora-2' | 'sora-2-pro' | 'veo3.1' | 'veo3.1-pro' | 'veo3.1-4k' | 'veo3.1-pro-4k';
+export type VideoModel = 'sora-2';
 
 // 支持的视频时长
-export type VideoSeconds = '4' | '8' | '10' | '12' | '15' | '25';
+export type VideoSeconds = '4' | '8' | '12';
 
-// 支持的视频尺寸
-export type VideoSize = '1280x720' | '720x1280' | '1024x1792' | '1792x1024';
+// 支持的视频尺寸（16:9 对应 1280x720，9:16 对应 720x1280）
+export type VideoSize = '16:9' | '9:16';
+
+/**
+ * 将尺寸比例转换为 API 需要的像素格式
+ * @param size 尺寸比例 '16:9' 或 '9:16'
+ * @returns 像素格式 '1280x720' 或 '720x1280'
+ */
+export function mapSizeToApiFormat(size: VideoSize): string {
+  const sizeMap: Record<VideoSize, string> = {
+    '16:9': '1280x720', // 720p
+    '9:16': '720x1280', // 竖屏 720p
+  };
+  return sizeMap[size] || '1280x720';
+}
 
 // 视频生成请求参数
 export interface VideoGenerationRequest {
   model: VideoModel;
   prompt: string;
   seconds?: VideoSeconds;
-  input_reference?: File | string | string[]; // 图片文件、URL或URL数组
+  fileId?: string; // 上传图片后返回的 fileId
   size?: VideoSize;
   watermark?: boolean; // 水印选项
 }
 
-// 视频生成任务响应
+// /aigc/create 接口返回格式
+export interface AigcCreateResponse {
+  Response: {
+    TaskId: string;
+    RequestId: string;
+  };
+}
+
+// /aigc/task 接口返回格式
+export interface AigcTaskResponse {
+  TaskType: string;
+  Status: string;
+  CreateTime: string;
+  BeginProcessTime: string;
+  FinishTime: string;
+  AigcVideoTask: {
+    TaskId: string;
+    Status: string; // PROCESSING, SUCCESS, FAILED 等
+    ErrCode: number;
+    Message: string;
+    Progress: number; // 0-100
+    Input: {
+      ModelName: string;
+      ModelVersion: string;
+      Prompt: string;
+      [key: string]: any;
+    };
+    Output: {
+      FileInfos: Array<{
+        FileId?: string;
+        Url?: string;
+        FileUrl?: string; // 视频文件的完整 URL（完成时使用）
+        StorageMode?: string;
+        MediaName?: string;
+        ExpireTime?: string;
+        [key: string]: any;
+      }>;
+    };
+    [key: string]: any;
+  } | null;
+  [key: string]: any;
+}
+
+// 视频生成任务响应（统一格式）
 export interface VideoTaskResponse {
-  id: string;
-  object: 'video';
-  model: VideoModel;
+  task_id: string;
   status: 'queued' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  created_at: number;
-  seconds?: string;
+  progress?: number;
   video_url?: string;
-  size?: string;
+  error_message?: string; // 错误信息（如果有）
+  error_code?: number; // 错误码（如果有）
+  [key: string]: any; // 允许其他字段
+}
+
+// 图片上传响应
+export interface MediaUploadResponse {
+  fileId: string; // 上传后返回的 fileId
+  mediaUrl?: string; // 媒体文件 URL
+  coverUrl?: string; // 封面 URL
+  [key: string]: any; // 允许其他字段
+}
+
+/**
+ * 上传媒体文件（图片）
+ * @param file 图片文件
+ * @param region 区域，默认 'ap-guangzhou'
+ * @param subAppId 子应用ID，默认 '1320866336'
+ */
+export async function uploadMediaFile(
+  file: File,
+  region: string = 'ap-guangzhou',
+  subAppId: string = '1320866336'
+): Promise<MediaUploadResponse> {
+  const formData = new FormData();
+  formData.append('region', region);
+  formData.append('sub_app_id', subAppId);
+  formData.append('media', file);
+  formData.append('cover', '');
+
+  const response = await fetch(VOD_UPLOAD_URL, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Media upload failed: ${response.status} - ${errorText}`);
+  }
+
+  const data: MediaUploadResponse = await response.json();
+  return data;
 }
 
 /**
  * 创建视频生成任务
  */
 export async function createVideoTask(request: VideoGenerationRequest): Promise<VideoTaskResponse> {
-  const formData = new FormData();
-  formData.append('model', request.model);
-  formData.append('prompt', request.prompt);
-  
-  if (request.seconds) {
-    formData.append('seconds', request.seconds);
-  }
-  
-  if (request.input_reference) {
-    if (request.input_reference instanceof File) {
-      formData.append('input_reference', request.input_reference);
-    } else if (Array.isArray(request.input_reference)) {
-      // 如果是数组，将每个URL添加到FormData
-      request.input_reference.forEach((url, index) => {
-        formData.append(`input_reference[${index}]`, url);
-      });
-    } else {
-      // 如果是单个URL字符串
-      formData.append('input_reference', request.input_reference);
-    }
-  }
-  
-  if (request.size) {
-    formData.append('size', request.size);
-  }
-  
-  if (request.watermark !== undefined) {
-    formData.append('watermark', request.watermark.toString());
+  const requestBody: any = {
+    // model: request.model,
+    prompt: request.prompt,
+  };
+
+  // if (request.seconds) {
+  //   requestBody.seconds = request.seconds;
+  // }
+
+  if (request.fileId) {
+    requestBody.file_id = request.fileId;
   }
 
-  const response = await fetch(`${API_BASE_URL}/videos`, {
+  // if (request.size) {
+  //   // 将比例格式转换为像素格式（16:9 -> 1280x720, 9:16 -> 720x1280）
+  //   requestBody.size = mapSizeToApiFormat(request.size);
+  // }
+
+  // if (request.watermark !== undefined) {
+  //   requestBody.watermark = request.watermark;
+  // }
+
+  const response = await fetch(AIGC_CREATE_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${API_KEY}`,
-      // 不要设置 Content-Type，让浏览器自动设置 multipart/form-data 边界
+      'Content-Type': 'application/json',
     },
-    body: formData,
+    body: JSON.stringify(requestBody),
   });
 
   const handledResponse = await handleApiResponse(response);
@@ -92,19 +187,48 @@ export async function createVideoTask(request: VideoGenerationRequest): Promise<
     throw new Error(`Video generation failed: ${handledResponse.status} - ${errorText}`);
   }
 
-  const data: VideoTaskResponse = await handledResponse.json();
-  return data;
+  // 解析返回数据
+  const data: AigcCreateResponse = await handledResponse.json();
+  
+  // 转换为统一格式
+  const taskResponse: VideoTaskResponse = {
+    task_id: data.Response.TaskId,
+    status: 'queued', // 创建任务时默认为排队状态
+  };
+  
+  return taskResponse;
+}
+
+/**
+ * 将 API 状态映射到统一状态格式
+ */
+function mapStatusToUnifiedStatus(apiStatus: string): 'queued' | 'processing' | 'completed' | 'failed' {
+  const statusUpper = apiStatus.toUpperCase();
+  if (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED' || statusUpper === 'FINISH') {
+    return 'completed';
+  }
+  if (statusUpper === 'FAILED' || statusUpper === 'ERROR') {
+    return 'failed';
+  }
+  if (statusUpper === 'PROCESSING' || statusUpper === 'RUNNING') {
+    return 'processing';
+  }
+  // 默认返回排队状态
+  return 'queued';
 }
 
 /**
  * 轮询任务状态
  */
 export async function pollTaskStatus(taskId: string): Promise<VideoTaskResponse> {
-  const response = await fetch(`${API_BASE_URL}/videos/${taskId}`, {
-    method: 'GET',
+  const response = await fetch(AIGC_TASK_URL, {
+    method: 'POST',
     headers: {
-      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      task_id: taskId,
+    }),
   });
 
   const handledResponse = await handleApiResponse(response);
@@ -114,8 +238,50 @@ export async function pollTaskStatus(taskId: string): Promise<VideoTaskResponse>
     throw new Error(`Task status check failed: ${handledResponse.status} - ${errorText}`);
   }
 
-  const data: VideoTaskResponse = await handledResponse.json();
-  return data;
+  // 解析返回数据
+  const data: AigcTaskResponse = await handledResponse.json();
+  
+  // 提取 AigcVideoTask 信息
+  const aigcTask = data.AigcVideoTask;
+  if (!aigcTask) {
+    // 如果 AigcVideoTask 为 null，可能任务还未开始或已过期
+    // 根据顶层 Status 判断
+    const topLevelStatus = mapStatusToUnifiedStatus(data.Status);
+    return {
+      task_id: taskId,
+      status: topLevelStatus,
+      progress: 0,
+    };
+  }
+  
+  // 检查错误码
+  if (aigcTask.ErrCode !== 0 && aigcTask.ErrCode !== undefined) {
+    const errorMessage = aigcTask.Message || `Task failed with error code: ${aigcTask.ErrCode}`;
+    throw new Error(errorMessage);
+  }
+  
+  // 获取视频 URL（从 Output.FileInfos 中提取第一个文件的 URL）
+  // 当进度为 100% 时，优先使用 FileUrl（完成时的视频地址）
+  let videoUrl: string | undefined;
+  if (aigcTask.Output?.FileInfos && aigcTask.Output.FileInfos.length > 0) {
+    const firstFile = aigcTask.Output.FileInfos[0];
+    // 优先级：FileUrl > Url > FileId
+    // FileUrl 是任务完成时的视频文件完整 URL
+    videoUrl = firstFile.FileUrl || firstFile.Url || (firstFile.FileId ? `file://${firstFile.FileId}` : undefined);
+  }
+  
+  // 转换为统一格式
+  const taskResponse: VideoTaskResponse = {
+    task_id: aigcTask.TaskId || taskId,
+    status: mapStatusToUnifiedStatus(aigcTask.Status),
+    progress: aigcTask.Progress ?? 0, // 如果 Progress 为 undefined，默认为 0
+    video_url: videoUrl,
+    // 保存原始错误信息（如果有）
+    error_message: aigcTask.Message,
+    error_code: aigcTask.ErrCode,
+  };
+  
+  return taskResponse;
 }
 
 /**
@@ -126,7 +292,7 @@ export async function pollTaskStatus(taskId: string): Promise<VideoTaskResponse>
  * @param maxAttempts 最大尝试次数，默认300次（10分钟）
  */
 export async function pollTaskUntilComplete(
-  taskId: string,
+  TaskId: string,
   onProgress?: (status: VideoTaskResponse) => void,
   interval: number = 2000,
   maxAttempts: number = 300
@@ -134,7 +300,7 @@ export async function pollTaskUntilComplete(
   let attempts = 0;
   
   while (attempts < maxAttempts) {
-    const status = await pollTaskStatus(taskId);
+    const status = await pollTaskStatus(TaskId);
     
     if (onProgress) {
       onProgress(status);

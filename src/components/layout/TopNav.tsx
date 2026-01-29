@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 const moduleIcons: Record<ModuleType, React.ReactNode> = {
   'geo-insights': <BarChart3 className="w-4 h-4" />,
@@ -24,13 +25,29 @@ const moduleKeys: Record<ModuleType, string> = {
   'ai-toolbox': 'aiToolbox',
 };
 
+// 模块默认页面映射
+const moduleDefaultPages: Record<ModuleType, string> = {
+  'ai-toolbox': 'app-plaza',
+  'llm-console': 'playground',
+  'geo-insights': 'dashboard',
+};
+
 export function TopNav() {
   const { activeModule, setActiveModule } = useModule();
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'zh' ? 'en' : 'zh';
     i18n.changeLanguage(newLang);
+  };
+
+  const handleModuleSwitch = (moduleId: ModuleType) => {
+    // 导航到对应模块的默认页面
+    const defaultPage = moduleDefaultPages[moduleId];
+    navigate(`/${moduleId}/${defaultPage}`);
+    // 更新模块状态（导航后会自动更新，但这里确保同步）
+    setActiveModule(moduleId);
   };
 
   return (
@@ -48,7 +65,7 @@ export function TopNav() {
         {MODULES.map((module) => (
           <button
             key={module.id}
-            onClick={() => setActiveModule(module.id)}
+            onClick={() => handleModuleSwitch(module.id)}
             className={`module-nav-item flex items-center gap-2 ${
               activeModule === module.id ? 'active' : ''
             }`}

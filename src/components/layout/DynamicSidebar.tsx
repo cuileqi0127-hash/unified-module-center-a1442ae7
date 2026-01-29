@@ -1,5 +1,6 @@
 import { useModule } from '@/contexts/ModuleContext';
 import { ModuleType } from '@/types/modules';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   PenTool,
@@ -169,6 +170,8 @@ interface DynamicSidebarProps {
 
 export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps) {
   const { activeModule, sidebarCollapsed, setSidebarCollapsed } = useModule();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const sections = sidebarConfig[activeModule];
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
@@ -181,6 +184,28 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     return initial;
   });
 
+  // 根据模块类型和页面ID生成路由路径
+  const getRoutePath = (itemId: string) => {
+    switch (activeModule) {
+      case 'ai-toolbox':
+        return `/ai-toolbox/${itemId}`;
+      case 'llm-console':
+        return `/llm-console/${itemId}`;
+      case 'geo-insights':
+        return `/geo-insights/${itemId}`;
+      default:
+        return `/ai-toolbox/${itemId}`;
+    }
+  };
+
+  // 处理侧边栏项点击，使用路由导航
+  const handleItemClick = (itemId: string) => {
+    const routePath = getRoutePath(itemId);
+    navigate(routePath);
+    // 同时调用原有的回调函数以保持兼容性
+    onItemClick(itemId);
+  };
+
   const toggleSection = (titleKey: string) => {
     setOpenSections((prev) => ({ ...prev, [titleKey]: !prev[titleKey] }));
   };
@@ -189,7 +214,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     const button = (
       <button
         key={item.id}
-        onClick={() => onItemClick(item.id)}
+        onClick={() => handleItemClick(item.id)}
         className={cn(
           'sidebar-menu-item w-full',
           activeItem === item.id && 'active',

@@ -3,13 +3,19 @@
  * OAuth 认证 API 服务
  */
 
+import { getCookie, setCookie, deleteCookie } from '@/utils/cookies';
+
 // 根据环境变量判断使用代理还是直接访问
 const OAUTH_API_BASE_URL = import.meta.env.DEV 
   ? '/api'  // 开发环境使用代理
   : 'http://192.168.112.253:8000';  // 生产环境使用完整 URL
 const OAUTH_CODE_KEY = 'oauth_code';
-const OAUTH_TOKEN_KEY = 'oauth_token';
-const LOGIN_REDIRECT_URL = 'https://home.photog.art/';
+const OAUTH_TOKEN_KEY = 'auth_token'; // 改为使用 cookies 中的 auth_token
+
+// 根据环境变量判断登录跳转地址
+const LOGIN_REDIRECT_URL = import.meta.env.DEV 
+  ? 'http://localhost:8080'  // 开发环境使用本地地址
+  : 'https://home.photog.art/';  // 生产环境使用线上地址
 
 // Token 数据接口
 export interface TokenData {
@@ -50,17 +56,17 @@ export function setCachedOAuthCode(code: string): void {
 }
 
 /**
- * 获取缓存的 Token
+ * 获取缓存的 Token（从 cookies 中读取）
  */
 export function getCachedToken(): string | null {
-  return localStorage.getItem(OAUTH_TOKEN_KEY);
+  return getCookie(OAUTH_TOKEN_KEY);
 }
 
 /**
- * 保存 Token 到缓存
+ * 保存 Token 到 cookies
  */
 export function setCachedToken(token: string): void {
-  localStorage.setItem(OAUTH_TOKEN_KEY, token);
+  setCookie(OAUTH_TOKEN_KEY, token);
 }
 
 /**
@@ -68,7 +74,7 @@ export function setCachedToken(token: string): void {
  */
 export function clearOAuthCache(): void {
   localStorage.removeItem(OAUTH_CODE_KEY);
-  localStorage.removeItem(OAUTH_TOKEN_KEY);
+  deleteCookie(OAUTH_TOKEN_KEY);
 }
 
 /**
@@ -121,20 +127,14 @@ export async function getTokenByCode(code: string): Promise<TokenResponse> {
 
 /**
  * 初始化 OAuth 认证流程
- * 1. 先判断缓存有没有 oauth_token，如果有就不需要调接口，正常展示首页
+ * 1. 先判断 cookies 有没有 auth_token，如果有就直接进入首页
  * 2. 如果没有就判断 url 上有没有 oauth_code，如果有就调 /oauth2/token 接口
- * 3. 如果 url 上也没有 oauth_code，就跳转回 https://home.photog.art/
+ * 3. 如果 url 上也没有 oauth_code，返回 false，由调用方弹出登录弹窗
  * 
- * @returns Promise<boolean> 返回是否成功初始化（true: 成功，false: 需要跳转登录）
+ * @returns Promise<boolean> 返回是否成功初始化（true: 成功，false: 需要弹出登录弹窗）
  */
 export async function initOAuth(): Promise<boolean> {
-
-  // // =======
-  // // 測試
-  // setCachedToken('1234567890')
-  // return true;
-  // // =======
-  // 1. 先判断缓存有没有 oauth_token
+  // 1. 先判断 cookies 有没有 auth_token
   const cachedToken = getCachedToken();
   if (cachedToken) {
     // 清除 URL 中的 oauth_code 参数（避免刷新时重复处理）
@@ -145,11 +145,11 @@ export async function initOAuth(): Promise<boolean> {
     return true;
   }
 
-  // 2. 缓存中没有 token，判断 url 上有没有 oauth_code
+  // 2. cookies 中没有 token，判断 url 上有没有 oauth_code
   const urlCode = getOAuthCodeFromUrl();
   
   if (!urlCode) {
-    // URL 上也没有 oauth_code，需要跳转登录
+    // URL 上也没有 oauth_code，需要弹出登录弹窗
     return false;
   }
 
@@ -182,8 +182,7 @@ export async function initOAuth(): Promise<boolean> {
 
 /**
  * 检查 token 是否有效
- * 可以通过调用一个需要认证的接口来验证
- * 这里暂时返回 true，实际使用时需要根据业务需求实现
+ * 检查 cookies 中是否有 auth_token
  */
 export function isTokenValid(): boolean {
   const token = getCachedToken();

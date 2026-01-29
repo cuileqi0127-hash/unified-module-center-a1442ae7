@@ -16,6 +16,7 @@ import {
   Clipboard,
   Trash2
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,6 +35,7 @@ interface TextToVideoProps {
 }
 
 export function TextToVideo({ onNavigate }: TextToVideoProps) {
+  const navigate = useNavigate();
   const {
     // Refs
     chatEndRef,
@@ -77,6 +79,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     secondsOptions,
     sizesOptions,
     historySessions,
+    hasMoreHistory,
+    isLoadingHistory,
+    loadMoreHistory,
+    isInitializing,
     // Handlers
     handleNewConversation,
     handleLoadSession,
@@ -118,11 +124,24 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
   const selectedVideo = canvasVideos.find(v => v.id === selectedVideoId);
 
   return (
-    <div ref={containerRef} className="flex h-[calc(100vh-3.5rem)] gap-0 animate-fade-in overflow-hidden bg-background">
+    <div ref={containerRef} className="flex h-[calc(100vh-3.5rem)] gap-0 animate-fade-in overflow-hidden bg-background relative">
+      {/* 初始化 Loading 遮罩 */}
+      {isInitializing && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100 mx-auto"></div>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              {isZh ? '正在加载历史记录...' : 'Loading history...'}
+            </p>
+          </div>
+        </div>
+      )}
       {/* Left Panel - Chat Interface */}
       <div 
         className={cn(
-          "h-full flex flex-col border-r border-border bg-background overflow-hidden transition-all duration-300",
+          "h-full flex flex-col border-r border-border bg-background overflow-hidden",
+          // 只有在非拖动状态下才应用过渡动画
+          !isResizing && "transition-all duration-300",
           isChatPanelCollapsed && "w-0 border-r-0 overflow-hidden pointer-events-none"
         )}
         style={{ width: isChatPanelCollapsed ? '0%' : `${chatPanelWidth}%` }}
@@ -131,7 +150,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
           <button 
             className="flex items-center gap-1 hover:text-primary transition-colors group"
-            onClick={() => onNavigate?.('app-plaza')}
+            onClick={() => {
+              onNavigate?.('app-plaza');
+              navigate('/');
+            }}
           >
             <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
             <span className="text-base font-medium">
@@ -192,7 +214,18 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex-1 overflow-y-auto px-2 py-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30">
+              <div 
+                className="flex-1 overflow-y-auto px-2 py-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30"
+                onScroll={(e) => {
+                  const target = e.currentTarget;
+                  // 检查是否滚动到底部（距离底部50px内）
+                  if (target.scrollHeight - target.scrollTop - target.clientHeight < 50) {
+                    if (hasMoreHistory && !isLoadingHistory) {
+                      loadMoreHistory();
+                    }
+                  }
+                }}
+              >
                 <div className="space-y-1">
                   {historySessions.map((session) => (
                     <button
@@ -208,6 +241,20 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                       </p>
                     </button>
                   ))}
+                  {isLoadingHistory && (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="text-sm text-muted-foreground">
+                        {isZh ? '加载中...' : 'Loading...'}
+                      </div>
+                    </div>
+                  )}
+                  {!hasMoreHistory && historySessions.length > 0 && (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="text-xs text-muted-foreground">
+                        {isZh ? '已加载全部记录' : 'All records loaded'}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -568,7 +615,11 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
 
       {/* Right Panel - Video Canvas */}
       <div 
-        className="relative flex flex-col bg-muted/20 transition-all duration-300"
+        className={cn(
+          "relative flex flex-col bg-muted/20",
+          // 只有在非拖动状态下才应用过渡动画
+          !isResizing && "transition-all duration-300"
+        )}
         style={{ width: isChatPanelCollapsed ? '100%' : `${100 - chatPanelWidth}%` }}
       >
         {/* Expand Button - Show when chat panel is collapsed */}

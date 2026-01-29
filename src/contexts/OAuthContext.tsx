@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { initOAuth, isTokenValid, redirectToLogin } from '@/services/oauthApi';
+import { initOAuth, isTokenValid } from '@/services/oauthApi';
 import { setShowLoginDialog } from '@/services/apiInterceptor';
 import { LoginDialog } from '@/components/LoginDialog';
 
@@ -37,13 +37,15 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
           // 初始化成功，正常展示首页
           setIsAuthenticated(true);
         } else {
-          // 初始化失败（没有 token 且没有 oauth_code），跳转到登录页面
-          redirectToLogin();
+          // 初始化失败（没有 token 且没有 oauth_code），弹出登录弹窗
+          setShowLoginDialog(true);
+          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('OAuth initialization error:', error);
-        // 发生错误，跳转到登录页面
-        redirectToLogin();
+        // 发生错误，弹出登录弹窗
+        setShowLoginDialog(true);
+        setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }
@@ -90,11 +92,7 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
     );
   }
 
-  // 如果未认证且不在加载中，说明已经跳转到登录页面，不渲染内容
-  if (!isAuthenticated && !isLoading) {
-    return null;
-  }
-
+  // 如果未认证且不在加载中，显示登录弹窗，但仍然渲染内容（弹窗会覆盖）
   return (
     <OAuthContext.Provider
       value={{

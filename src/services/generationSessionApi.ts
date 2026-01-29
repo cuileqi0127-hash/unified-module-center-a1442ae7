@@ -5,7 +5,7 @@
  * 提供文生图、文生视频的统一数据存储接口封装
  */
 
-import { authenticatedFetch, handleApiResponse } from './apiInterceptor';
+import { apiGet, apiPost, apiPatch, apiDelete, type ApiResponse, type PaginatedResponse } from './apiClient';
 
 // 根据环境变量判断使用代理还是直接访问
 const API_BASE_URL = import.meta.env.DEV 
@@ -81,20 +81,8 @@ export interface Message {
   resultSummary?: string;
 }
 
-// 统一 API 响应格式
-export interface ApiResponse<T = any> {
-  code: number;
-  msg: string;
-  success: boolean;
-  timestamp: number;
-  data: T;
-}
-
-// 分页响应
-export interface PaginatedResponse<T> {
-  list: T[];
-  total: number;
-}
+// 导出统一的 API 响应格式和分页响应类型
+export type { ApiResponse, PaginatedResponse };
 
 // 会话信息
 export interface Session {
@@ -108,6 +96,7 @@ export interface Session {
   taskType: TaskType;
   settings: SessionSettings;
   canvasView: CanvasView;
+  messageCount?: number; // 消息数量（如果后端返回）
 }
 
 // 会话详情（包含关联数据）
@@ -267,22 +256,9 @@ export async function getSessions(
     size: size.toString(),
   });
 
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/sessions?${params.toString()}`,
-    {
-      method: 'GET',
-    }
+  return await apiGet<PaginatedResponse<Session>>(
+    `/tools/gen/sessions?${params.toString()}`
   );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to get sessions: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<PaginatedResponse<Session>> = await handledResponse.json();
-  return data;
 }
 
 /**
@@ -292,23 +268,7 @@ export async function getSessions(
 export async function createSession(
   request: CreateSessionRequest
 ): Promise<ApiResponse<Session>> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/sessions`,
-    {
-      method: 'POST',
-      body: JSON.stringify(request),
-    }
-  );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to create session: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<Session> = await handledResponse.json();
-  return data;
+  return await apiPost<Session>('/tools/gen/sessions', request);
 }
 
 /**
@@ -319,23 +279,10 @@ export async function saveReference(
   sessionId: number,
   request: SaveReferenceRequest
 ): Promise<ApiResponse<SaveReferenceResponse>> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/sessions/${sessionId}/references`,
-    {
-      method: 'POST',
-      body: JSON.stringify(request),
-    }
+  return await apiPost<SaveReferenceResponse>(
+    `/tools/gen/sessions/${sessionId}/references`,
+    request
   );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to save reference: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<SaveReferenceResponse> = await handledResponse.json();
-  return data;
 }
 
 /**
@@ -346,23 +293,10 @@ export async function saveGenerationResult(
   sessionId: number,
   request: SaveGenerationResultRequest
 ): Promise<ApiResponse<SaveGenerationResultResponse>> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/sessions/${sessionId}/messages`,
-    {
-      method: 'POST',
-      body: JSON.stringify(request),
-    }
+  return await apiPost<SaveGenerationResultResponse>(
+    `/tools/gen/sessions/${sessionId}/messages`,
+    request
   );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to save generation result: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<SaveGenerationResultResponse> = await handledResponse.json();
-  return data;
 }
 
 /**
@@ -372,22 +306,7 @@ export async function saveGenerationResult(
 export async function getSessionDetail(
   sessionId: string
 ): Promise<ApiResponse<SessionDetail>> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/sessions/${sessionId}`,
-    {
-      method: 'GET',
-    }
-  );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to get session detail: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<SessionDetail> = await handledResponse.json();
-  return data;
+  return await apiGet<SessionDetail>(`/tools/gen/sessions/${sessionId}`);
 }
 
 /**
@@ -398,23 +317,7 @@ export async function updateSession(
   sessionId: number,
   request: UpdateSessionRequest
 ): Promise<ApiResponse<null>> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/sessions/${sessionId}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(request),
-    }
-  );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to update session: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<null> = await handledResponse.json();
-  return data;
+  return await apiPatch<null>(`/tools/gen/sessions/${sessionId}`, request);
 }
 
 /**
@@ -424,48 +327,18 @@ export async function updateSession(
 export async function deleteCanvasItem(
   canvasItemId: number
 ): Promise<ApiResponse<null>> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/canvas-items/${canvasItemId}`,
-    {
-      method: 'DELETE',
-    }
-  );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to delete canvas item: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<null> = await handledResponse.json();
-  return data;
+  return await apiDelete<null>(`/tools/gen/canvas-items/${canvasItemId}`);
 }
 
 /**
  * 9. 批量删除画布元素
  * 批量删除画布元素并级联删除结果
+ * 注意：根据 API 文档，此接口使用 DELETE 方法，body 为数组
  */
 export async function batchDeleteCanvasItems(
   canvasItemIds: number[]
 ): Promise<ApiResponse<null>> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/canvas-items`,
-    {
-      method: 'DELETE',
-      body: JSON.stringify(canvasItemIds),
-    }
-  );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to batch delete canvas items: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<null> = await handledResponse.json();
-  return data;
+  return await apiDelete<null>('/tools/gen/canvas-items', canvasItemIds);
 }
 
 /**
@@ -476,21 +349,5 @@ export async function updateCanvasItem(
   canvasItemId: number,
   request: UpdateCanvasItemRequest
 ): Promise<ApiResponse<null>> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/tools/gen/canvas-items/${canvasItemId}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(request),
-    }
-  );
-
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Failed to update canvas item: ${handledResponse.status} - ${errorText}`);
-  }
-
-  const data: ApiResponse<null> = await handledResponse.json();
-  return data;
+  return await apiPatch<null>(`/tools/gen/canvas-items/${canvasItemId}`, request);
 }

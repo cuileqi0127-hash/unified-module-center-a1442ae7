@@ -19,45 +19,10 @@ export interface VideoModelConfig {
 export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'>> = {
   'sora-2': {
     label: 'Sora 2',
-    seconds: ['10', '15'],
-    sizes: ['1280x720', '720x1280'],
-    defaultSeconds: '15',
-    defaultSize: '1280x720',
-  },
-  'sora-2-pro': {
-    label: 'Sora 2 Pro',
-    seconds: ['10', '15', '25'],
-    sizes: ['1280x720', '720x1280', '1024x1792', '1792x1024'],
-    defaultSeconds: '15',
-    defaultSize: '1280x720',
-  },
-  'veo3.1': {
-    label: 'Veo 3.1',
-    seconds: ['8'],
-    sizes: ['1280x720', '720x1280'],
+    seconds: ['4', '8', '12'],
+    sizes: ['16:9', '9:16'],
     defaultSeconds: '8',
-    defaultSize: '1280x720',
-  },
-  'veo3.1-pro': {
-    label: 'Veo 3.1 Pro',
-    seconds: ['8'],
-    sizes: ['1280x720', '720x1280'],
-    defaultSeconds: '8',
-    defaultSize: '1280x720',
-  },
-  'veo3.1-4k': {
-    label: 'Veo 3.1 4K',
-    seconds: ['8'],
-    sizes: ['1280x720', '720x1280'],
-    defaultSeconds: '8',
-    defaultSize: '1280x720',
-  },
-  'veo3.1-pro-4k': {
-    label: 'Veo 3.1 Pro 4K',
-    seconds: ['8'],
-    sizes: ['1280x720', '720x1280'],
-    defaultSeconds: '8',
-    defaultSize: '1280x720',
+    defaultSize: '16:9', // 默认 16:9，对应 720p (1280x720)
   },
 };
 
