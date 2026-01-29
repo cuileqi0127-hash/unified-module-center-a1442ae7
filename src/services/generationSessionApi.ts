@@ -10,7 +10,7 @@ import { apiGet, apiPost, apiPatch, apiDelete, type ApiResponse, type PaginatedR
 // 根据环境变量判断使用代理还是直接访问
 const API_BASE_URL = import.meta.env.DEV 
   ? '/api'  // 开发环境使用代理
-  : 'http://192.168.112.253:8000';  // 生产环境使用完整 URL
+  : 'http://94.74.101.163:28080';  // 生产环境使用完整 URL
 
 // ==================== 类型定义 ====================
 

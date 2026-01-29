@@ -8,14 +8,12 @@ import { getCookie, setCookie, deleteCookie } from '@/utils/cookies';
 // 根据环境变量判断使用代理还是直接访问
 const OAUTH_API_BASE_URL = import.meta.env.DEV 
   ? '/api'  // 开发环境使用代理
-  : 'http://192.168.112.253:8000';  // 生产环境使用完整 URL
+  : 'http://94.74.101.163:28080';  // 生产环境使用完整 URL
 const OAUTH_CODE_KEY = 'oauth_code';
 const OAUTH_TOKEN_KEY = 'auth_token'; // 改为使用 cookies 中的 auth_token
 
 // 根据环境变量判断登录跳转地址
-const LOGIN_REDIRECT_URL = import.meta.env.DEV 
-  ? 'http://localhost:8080'  // 开发环境使用本地地址
-  : 'https://home.photog.art/';  // 生产环境使用线上地址
+const LOGIN_REDIRECT_URL = 'https://www.oran.cn/'
 
 // Token 数据接口
 export interface TokenData {

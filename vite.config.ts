@@ -9,8 +9,14 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
+      // tu-zi API 代理（需要放在 /api 之前，因为更具体）
+      '/api/tu-zi': {
+        target: 'https://api.tu-zi.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/tu-zi/, ''),
+      },
       '/api': {
-        target: 'http://192.168.112.253:8000',
+        target: 'http://94.74.101.163:28080',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

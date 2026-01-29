@@ -2,8 +2,8 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Draggable, { DraggableEvent, DraggableData } from 'react-draggable';
 import { ZoomIn, ZoomOut, Maximize, Move, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { WaterCupProgress } from './WaterCupProgress';
 
 // 统一的画布媒体项类型（支持图片和视频）
 export interface CanvasMediaItem {
@@ -626,18 +626,68 @@ export function UniversalCanvas({
                 }}
               >
                 {isPlaceholder ? (
-                  <div className="h-full w-full relative bg-muted/20 rounded-lg overflow-hidden">
-                    {/* 水填充进度动画 - 整个方块 */}
-                    <WaterCupProgress progress={item.progress || 0} className="absolute inset-0" />
-                    {/* 提示文字 - 覆盖在水面上 */}
-                    <div className="absolute bottom-4 left-0 right-0 text-center z-20 px-4">
-                      <p className="text-sm font-medium text-foreground/90 mb-1 drop-shadow-md">
-                        {item.prompt || 'Generating video...'}
-                      </p>
-                      <p className="text-xs text-foreground/70 drop-shadow-sm">
-                        {item.status === 'queued' ? 'Queued' : item.status === 'processing' ? 'Processing' : 'Waiting...'}
-                      </p>
+                  <div className="h-full w-full relative rounded-lg overflow-hidden border border-border/30 bg-background">
+                    {/* 基础背景 - 淡灰色背景 */}
+                    <div className="absolute inset-0 bg-muted/20" />
+                    
+                    {/* 网格图案 - 更明显的网格效果 */}
+                    <div 
+                      className="absolute inset-0 opacity-30"
+                      style={{
+                        backgroundImage: `
+                          linear-gradient(90deg, rgba(0,0,0,0.08) 1px, transparent 1px),
+                          linear-gradient(rgba(0,0,0,0.08) 1px, transparent 1px)
+                        `,
+                        backgroundSize: '24px 24px',
+                      }}
+                    />
+                    
+                    {/* 脉冲背景层 - 整体呼吸效果 */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 animate-pulse-slow" />
+                    
+                    {/* 主要闪烁动画 - 从左到右的明亮闪烁 */}
+                    <div 
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
+                        width: '70%',
+                        animation: 'shimmer 2s ease-in-out infinite',
+                        transform: 'skewX(-20deg)',
+                      }} 
+                    />
+                    
+                    {/* 次要闪烁动画 - 延迟的闪烁效果 */}
+                    <div 
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)',
+                        width: '50%',
+                        animation: 'shimmer 2.5s ease-in-out infinite',
+                        animationDelay: '1s',
+                        transform: 'skewX(-20deg)',
+                      }} 
+                    />
+                    
+                    {/* 中心加载指示器 - 更美观的加载动画 */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="relative w-12 h-12">
+                        {/* 外圈脉冲 */}
+                        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-primary/20 animate-ping" />
+                        {/* 中圈旋转 */}
+                        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-t-primary/40 animate-spin" style={{ animationDuration: '1s' }} />
+                        {/* 内圈点 */}
+                        {/* <div className="w-6 h-6 rounded-full bg-primary/30 animate-pulse" /> */}
+                      </div>
                     </div>
+                    
+                    {/* 底部提示文字（可选） */}
+                    {item.prompt && (
+                      <div className="absolute bottom-2 left-2 right-2 text-center pointer-events-none">
+                        <p className="text-xs text-muted-foreground truncate px-2">
+                          {item.prompt}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : isVideo ? (
                   <>

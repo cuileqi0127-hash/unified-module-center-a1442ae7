@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToVideo, type CanvasVideo } from './useTextToVideo';
+import { AnimatedText } from './AnimatedText';
 
 interface TextToVideoProps {
   onNavigate?: (itemId: string) => void;
@@ -313,7 +314,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                             <div className="flex items-center gap-2 py-1">
                               <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                               <span className="text-sm text-muted-foreground">
-                                {getStatusText(message.status)}
+                                <AnimatedText 
+                                  text={getStatusText(message.status)}
+                                  isAnimating={message.status === 'processing' || message.status === 'queued'}
+                                />
                                 {message.progress !== undefined && ` (${message.progress}%)`}
                               </span>
                             </div>

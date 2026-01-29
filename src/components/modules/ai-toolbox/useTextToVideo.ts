@@ -72,6 +72,7 @@ export interface CanvasVideo {
 interface VideoTaskQueueItem {
   taskId: string;
   messageId: string;
+  sessionId: number | null; // 保存会话ID，确保任务完成后能正确入库
   prompt: string;
   model: VideoModel;
   seconds: string;
@@ -1033,6 +1034,7 @@ export function useTextToVideo() {
       const queueItem: VideoTaskQueueItem = {
         taskId: taskResponse.task_id,
         messageId: systemMessage.id,
+        sessionId: currentSessionId, // 保存会话ID，确保任务完成后能正确入库
         prompt: currentPrompt,
         model: model,
         seconds: seconds,
@@ -1138,6 +1140,34 @@ export function useTextToVideo() {
     return { promise, cancel };
   }, []);
 
+  // 根据视频尺寸计算占位符尺寸
+  const calculatePlaceholderDimensions = useCallback((size: string): { width: number; height: number } => {
+    // 解析尺寸比例，如 "16:9" 或 "9:16"
+    const [widthRatio, heightRatio] = size.split(':').map(Number);
+    if (!widthRatio || !heightRatio) {
+      // 如果解析失败，使用默认尺寸
+      return { width: 400, height: 300 };
+    }
+    
+    const aspectRatio = widthRatio / heightRatio;
+    const maxSize = 400; // 最大尺寸限制
+    
+    let width: number;
+    let height: number;
+    
+    if (aspectRatio >= 1) {
+      // 横向或方形（16:9, 1:1等）
+      width = maxSize;
+      height = maxSize / aspectRatio;
+    } else {
+      // 纵向（9:16等）
+      height = maxSize;
+      width = maxSize * aspectRatio;
+    }
+    
+    return { width: Math.round(width), height: Math.round(height) };
+  }, []);
+
   // 将任务队列转换为画布占位符
   const updatePlaceholdersFromQueue = useCallback(() => {
     const queue = getTaskQueue();
@@ -1188,6 +1218,9 @@ export function useTextToVideo() {
             return;
           }
           
+          // 根据视频尺寸计算占位符尺寸
+          const placeholderDimensions = calculatePlaceholderDimensions(task.size);
+          
           // 计算不重叠的位置（包括已处理的占位符）
           const allExistingRects = [
             ...existingRects,
@@ -1200,7 +1233,7 @@ export function useTextToVideo() {
           ];
           
           const position = findNonOverlappingPosition(
-            { width: 400, height: 300 },
+            placeholderDimensions,
             allExistingRects,
             300,
             200,
@@ -1215,8 +1248,8 @@ export function useTextToVideo() {
             url: '', // 占位符没有URL
             x: position.x,
             y: position.y,
-            width: 400,
-            height: 300,
+            width: placeholderDimensions.width,
+            height: placeholderDimensions.height,
             prompt: task.prompt,
             taskId: task.taskId,
             type: 'placeholder' as const,
@@ -1232,7 +1265,7 @@ export function useTextToVideo() {
       });
       return currentVideos; // 返回当前值，避免覆盖
     });
-  }, []);
+  }, [calculatePlaceholderDimensions]);
   
   // 将函数保存到 ref
   updatePlaceholdersFromQueueRef.current = updatePlaceholdersFromQueue;
@@ -1397,9 +1430,10 @@ export function useTextToVideo() {
         setSelectedVideoId(newVideo.id);
         handleAddSelectedVideo(newVideo);
         
-        // 保存生成结果到数据库
-        if (currentSessionId) {
-          saveGenerationResult(currentSessionId, {
+        // 保存生成结果到数据库（使用任务中保存的 sessionId）
+        const sessionIdToUse = task.sessionId || currentSessionId;
+        if (sessionIdToUse) {
+          saveGenerationResult(sessionIdToUse, {
             generation: {
               model: task.model,
               size: task.size,
@@ -1485,9 +1519,10 @@ export function useTextToVideo() {
           setSelectedVideoId(newVideo.id);
           handleAddSelectedVideo(newVideo);
           
-          // 保存生成结果到数据库
-          if (currentSessionId) {
-            saveGenerationResult(currentSessionId, {
+          // 保存生成结果到数据库（使用任务中保存的 sessionId）
+          const sessionIdToUse = task.sessionId || currentSessionId;
+          if (sessionIdToUse) {
+            saveGenerationResult(sessionIdToUse, {
               generation: {
                 model: task.model,
                 size: task.size,
