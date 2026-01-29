@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   PanelLeftClose,
   PanelLeft,
+  Copy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -150,6 +151,7 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
           titleKey: 'sidebar.videoGeneration',
           items: [
             { id: 'text-to-video', labelKey: 'sidebar.textToVideo', icon: <Video className="w-4 h-4" /> },
+            { id: 'reference-to-video', labelKey: 'sidebar.videoReplication', icon: <Copy className="w-4 h-4" /> },
           ],
         },
         {

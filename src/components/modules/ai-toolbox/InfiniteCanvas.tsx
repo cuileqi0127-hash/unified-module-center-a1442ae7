@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import Draggable, { DraggableEvent, DraggableData } from 'react-draggable';
-import { ZoomIn, ZoomOut, Maximize, Move } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Move, Trash2, RefreshCw, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,8 @@ interface CanvasImage {
   width: number;
   height: number;
   prompt?: string;
+  type?: 'image' | 'video';
+  name?: string;
 }
 
 interface InfiniteCanvasProps {
@@ -24,6 +26,9 @@ interface InfiniteCanvasProps {
   onImageDragStart?: (image: CanvasImage) => void;
   onImageDoubleClick?: (image: CanvasImage) => void;
   highlightedImageId?: string | null;
+  onImageDelete?: (id: string) => void;
+  onImageReplace?: (id: string) => void;
+  onImageCopy?: (image: CanvasImage) => void;
 }
 
 const MIN_ZOOM = 0.25;
@@ -40,6 +45,9 @@ export function InfiniteCanvas({
   onImageDragStart,
   onImageDoubleClick,
   highlightedImageId,
+  onImageDelete,
+  onImageReplace,
+  onImageCopy,
 }: InfiniteCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -55,7 +63,7 @@ export function InfiniteCanvas({
 
   // Touch gesture state
   const touchState = useRef<{
-    touches: Touch[];
+    touches: React.Touch[];
     initialDistance: number;
     initialZoom: number;
     initialPan: { x: number; y: number };
@@ -356,14 +364,14 @@ export function InfiniteCanvas({
   }, [isBoxSelecting, selectionBox, images, zoom, pan, selectedImageIds, onImageMultiSelect, onImageSelect]);
 
   // Calculate distance between two touches
-  const getTouchDistance = (touch1: Touch, touch2: Touch): number => {
+  const getTouchDistance = (touch1: React.Touch, touch2: React.Touch): number => {
     const dx = touch2.clientX - touch1.clientX;
     const dy = touch2.clientY - touch1.clientY;
     return Math.sqrt(dx * dx + dy * dy);
   };
 
   // Get center point between two touches
-  const getTouchCenter = (touch1: Touch, touch2: Touch): { x: number; y: number } => {
+  const getTouchCenter = (touch1: React.Touch, touch2: React.Touch): { x: number; y: number } => {
     return {
       x: (touch1.clientX + touch2.clientX) / 2,
       y: (touch1.clientY + touch2.clientY) / 2,
@@ -510,7 +518,7 @@ export function InfiniteCanvas({
 
       {/* Canvas Layer - No transform here, we apply it to individual images */}
       <div
-        className="absolute inset-0"
+        className="canvas-background absolute inset-0"
       >
         {images.map((image, index) => {
           // Convert canvas coordinates to screen coordinates (with zoom/pan)
@@ -567,12 +575,23 @@ export function InfiniteCanvas({
                 onImageDoubleClick?.(image);
               }}
             >
-              <img
-                src={image.url}
-                alt={image.prompt || 'Generated image'}
-                className="h-full w-full rounded-lg object-contain pointer-events-none select-none"
-                draggable={false}
-              />
+              {image.type === 'video' ? (
+                <video
+                  src={image.url}
+                  className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
+                  muted
+                  loop
+                  autoPlay
+                  playsInline
+                />
+              ) : (
+                <img
+                  src={image.url}
+                  alt={image.prompt || image.name || 'Generated image'}
+                  className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
+                  draggable={false}
+                />
+              )}
               {/* Drag handle overlay for HTML5 drag (to input area) */}
               <div 
                 className="no-drag absolute bottom-2 right-2 p-1.5 rounded bg-background/80 backdrop-blur-sm cursor-grab opacity-0 hover:opacity-100 transition-opacity"
@@ -596,6 +615,50 @@ export function InfiniteCanvas({
                   <div className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
                   <div className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
                   <div className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                  
+                  {/* Action Toolbar */}
+                  <div 
+                    className="no-drag absolute -bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-lg backdrop-blur-sm"
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onImageDelete?.(image.id);
+                      }}
+                      title="删除"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onImageReplace?.(image.id);
+                      }}
+                      title="替换"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onImageCopy?.(image);
+                      }}
+                      title="复制"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
