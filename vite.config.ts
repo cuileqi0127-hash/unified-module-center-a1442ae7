@@ -38,6 +38,12 @@ export default defineConfig(({ mode }) => ({
         secure: false,
         rewrite: (path) => path.replace(/^\/api\/video-to-prompt/, ''),
       },
+      "/api/process": {
+        target: 'http://183.87.33.181:8001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/process/, ''),
+      },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
@@ -45,11 +51,5 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "./src"),
-      },
-    },
-  };
-});
+  },
+}));
