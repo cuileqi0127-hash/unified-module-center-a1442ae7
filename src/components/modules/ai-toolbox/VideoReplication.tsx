@@ -59,6 +59,7 @@ interface UploadedFile {
   name: string;
   url: string;
   thumbnail?: string;
+  file?: File;
 }
 
 interface Message {
@@ -86,6 +87,25 @@ interface CanvasItem {
   prompt?: string;
 }
 
+// History interface for saving projects
+interface ProjectHistoryItem {
+  id: string;
+  name: string;
+  createdAt: Date;
+  viewState: ViewState;
+  originalVideoName: string | null;
+  referenceImageName: string | null;
+  sellingPoints: string;
+  segmentsCount: number;
+  // We store serializable data only (no blob URLs)
+  segments: VideoSegment[];
+  messages: Message[];
+}
+
+const HISTORY_STORAGE_KEY = 'video-replication-history';
+// Call same-origin endpoint to avoid browser CORS issues (dev uses Vite proxy; prod should use backend/reverse-proxy).
+const VIDEO_TO_PROMPT_API_URL = '/api/video-to-prompt';
+const VIDEO_TO_PROMPT_TIMEOUT_MS = 300_000;
 
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   // View state
@@ -233,6 +253,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           type: 'video',
           name: file.name,
           url,
+          file,
         });
       }
       setReplacingItemId(null);
@@ -243,6 +264,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         type: 'video',
         name: file.name,
         url,
+        file,
       });
       
       // Add to canvas with animation
@@ -294,6 +316,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           type: 'image',
           name: file.name,
           url,
+          file,
         });
       }
       setReplacingItemId(null);
@@ -304,6 +327,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         type: 'image',
         name: file.name,
         url,
+        file,
       });
       
       // Add to canvas with animation
@@ -336,63 +360,74 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     }
     
     setViewState('analyzing');
-    
-    // Mock API call - replace with actual LLM integration
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Generate mock segments with original prompts
-    const mockSegments: VideoSegment[] = [
-      {
-        id: '1',
-        startTime: 0,
-        endTime: 5,
-        originalPrompt: '产品展示镜头，特写产品外观，柔和的灯光环境',
-        newPrompt: '',
-        isEditing: false,
-        isSelected: false,
-      },
-      {
-        id: '2',
-        startTime: 5,
-        endTime: 12,
-        originalPrompt: '产品功能演示，手部操作特写，流畅的动作',
-        newPrompt: '',
-        isEditing: false,
-        isSelected: false,
-      },
-      {
-        id: '3',
-        startTime: 12,
-        endTime: 18,
-        originalPrompt: '使用场景展示，生活化环境，自然光线',
-        newPrompt: '',
-        isEditing: false,
-        isSelected: false,
-      },
-      {
-        id: '4',
-        startTime: 18,
-        endTime: 25,
-        originalPrompt: '品牌logo展示，简洁背景，产品卖点文字叠加',
-        newPrompt: '',
-        isEditing: false,
-        isSelected: false,
-      },
-    ];
-    
-    // Auto-generate new prompts based on product info
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Generate new prompts based on selling points and reference image
-    const segmentsWithNewPrompts = mockSegments.map(segment => ({
-      ...segment,
-      newPrompt: `[新商品] ${segment.originalPrompt}，融入${sellingPoints || '产品特色'}，参考商品图片风格`,
-    }));
-    
-    setSegments(segmentsWithNewPrompts);
-    setViewState('prompts');
-    
-    toast.success('复刻分析完成');
+
+    if (!originalVideo.file) {
+      toast.error('未获取到视频文件，请重新上传');
+      setViewState('upload');
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, VIDEO_TO_PROMPT_TIMEOUT_MS);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', originalVideo.file);
+
+      const response = await fetch(VIDEO_TO_PROMPT_API_URL, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('API KEY 无效或缺失，请检查代理/后端配置');
+        }
+        throw new Error(text || `Request failed: ${response.status}`);
+      }
+
+      const result = (await response.json().catch(() => null)) as
+        | { prompt_text?: unknown }
+        | null;
+
+      const promptText =
+        typeof result?.prompt_text === 'string' ? result.prompt_text : '';
+      if (!promptText.trim()) {
+        throw new Error('接口未返回 prompt_text');
+      }
+
+      const segmentsWithNewPrompts: VideoSegment[] = [
+        {
+          id: '1',
+          startTime: 0,
+          endTime: 0,
+          originalPrompt: promptText,
+          newPrompt: `[新商品] ${promptText}，融合${sellingPoints || '产品特色'}，参考商品图片风格`,
+          isEditing: false,
+          isSelected: false,
+        },
+      ];
+
+      setSegments(segmentsWithNewPrompts);
+      setViewState('prompts');
+      toast.success('复刻分析完成');
+      return;
+    } catch (error) {
+      console.error('Video to prompt failed:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('请求超时，请稍后再试');
+      } else {
+        toast.error(error instanceof Error ? error.message : '分析失败');
+      }
+      setViewState('upload');
+      return;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
   }, [originalVideo, sellingPoints]);
 
   // Handle prompt click - open dialog
@@ -404,6 +439,12 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       setDialogOpen(true);
     }
   }, [segments]);
+
+  // Quick entry for prompt editing view
+  const handleModifyPrompts = useCallback(() => {
+    if (!segments.length) return;
+    setViewState('chat');
+  }, [segments.length]);
 
   // Handle dialog send - save and enter chat view
   const handleDialogSend = useCallback(() => {
@@ -944,9 +985,20 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               ))}
             </div>
             
+            {/* Modify Prompt Button */}
+            <Button 
+              variant="outline"
+              className="w-full mt-4"
+              onClick={handleModifyPrompts}
+              disabled={isGenerating}
+            >
+              <Edit3 className="w-4 h-4 mr-2" />
+              修改prompt
+            </Button>
+            
             {/* Direct Generate Button */}
             <Button 
-              className="w-full mt-4"
+              className="w-full mt-2"
               onClick={handleGenerateVideo}
               disabled={isGenerating}
             >
