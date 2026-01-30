@@ -5,6 +5,8 @@
  * 提供视频复刻相关的接口封装
  */
 
+import { handleApiResponse } from './apiInterceptor';
+
 // 根据环境判断使用代理还是直接访问
 const API_URL = import.meta.env.DEV 
   ? "/api/process/upload"  // 开发环境使用代理
@@ -21,7 +23,7 @@ export async function uploadVideoFile(file: File): Promise<any> {
   formData.append('file', file);
 
   try {
-    const response = await fetch(API_URL, {
+    let response = await fetch(API_URL, {
       method: 'POST',
       headers: {
         'X-API-Key': API_KEY,
@@ -29,8 +31,19 @@ export async function uploadVideoFile(file: File): Promise<any> {
       body: formData,
     });
 
+    // 检查 401 错误
+    response = await handleApiResponse(response);
+
     const res = await response.json();
     console.log('Upload response:', res);
+    
+    // 检查响应 JSON 中的 code 字段是否为 401
+    const code = res?.code;
+    const isCode401 = (typeof code === 'number' && code === 401) || 
+                     (typeof code === 'string' && code === '401');
+    if (isCode401) {
+      throw new Error('Token expired or invalid, please login again');
+    }
     
     if (!response.ok) {
       throw new Error(res.message || `Upload failed with status ${response.status}`);
@@ -53,7 +66,7 @@ export async function uploadImageFile(file: File): Promise<any> {
   formData.append('file', file);
 
   try {
-    const response = await fetch(API_URL, {
+    let response = await fetch(API_URL, {
       method: 'POST',
       headers: {
         'X-API-Key': API_KEY,
@@ -61,8 +74,19 @@ export async function uploadImageFile(file: File): Promise<any> {
       body: formData,
     });
 
+    // 检查 401 错误
+    response = await handleApiResponse(response);
+
     const res = await response.json();
     console.log('Upload response:', res);
+    
+    // 检查响应 JSON 中的 code 字段是否为 401
+    const code = res?.code;
+    const isCode401 = (typeof code === 'number' && code === 401) || 
+                     (typeof code === 'string' && code === '401');
+    if (isCode401) {
+      throw new Error('Token expired or invalid, please login again');
+    }
     
     if (!response.ok) {
       throw new Error(res.message || `Upload failed with status ${response.status}`);

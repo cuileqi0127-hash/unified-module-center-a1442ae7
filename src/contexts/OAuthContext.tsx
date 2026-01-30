@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { initOAuth, isTokenValid } from '@/services/oauthApi';
-import { setShowLoginDialog } from '@/services/apiInterceptor';
+import { setShowLoginDialog, setClearUserState } from '@/services/apiInterceptor';
 import { LoginDialog } from '@/components/LoginDialog';
 
 interface OAuthContextType {
@@ -59,9 +59,15 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
     setShowLoginDialog(true);
   };
 
-  // 注册登录弹窗显示函数到 API 拦截器
+  // 清除用户状态（用于token失效时）
+  const handleClearUserState = () => {
+    setIsAuthenticated(false);
+  };
+
+  // 注册登录弹窗显示函数和清除用户状态函数到 API 拦截器
   useEffect(() => {
     setShowLoginDialog(handleShowLoginDialog);
+    setClearUserState(handleClearUserState);
   }, []);
 
   // 检查token有效性

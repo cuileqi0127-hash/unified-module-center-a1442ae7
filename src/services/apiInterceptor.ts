@@ -7,12 +7,21 @@ import { getCachedToken, clearOAuthCache } from './oauthApi';
 
 // 全局登录弹窗显示函数（由 OAuthContext 提供）
 let showLoginDialogFn: (() => void) | null = null;
+// 全局清除用户状态函数（由 OAuthContext 提供）
+let clearUserStateFn: (() => void) | null = null;
 
 /**
  * 设置登录弹窗显示函数
  */
 export function setShowLoginDialog(fn: () => void) {
   showLoginDialogFn = fn;
+}
+
+/**
+ * 设置清除用户状态函数
+ */
+export function setClearUserState(fn: () => void) {
+  clearUserStateFn = fn;
 }
 
 /**
@@ -37,17 +46,28 @@ export function getAuthHeaders(): HeadersInit {
  * 2. 检查响应 JSON 中的 code 字段（401 表示 token 过期）
  * oauth_token 请求头的接口如果请求失败就弹窗提示请重新登录
  */
+/**
+ * 处理 401 错误：清除用户状态并显示登录弹窗
+ */
+function handle401Error() {
+  // 清除缓存的 token
+  clearOAuthCache();
+  
+  // 清除用户状态
+  if (clearUserStateFn) {
+    clearUserStateFn();
+  }
+  
+  // 显示登录弹窗提示请重新登录
+  if (showLoginDialogFn) {
+    showLoginDialogFn();
+  }
+}
+
 export async function handleApiResponse(response: Response): Promise<Response> {
   // 如果响应状态是 401 未授权或 403 禁止访问，说明 token 失效或无效
   if (response.status === 401 || response.status === 403) {
-    // 清除缓存的 token
-    clearOAuthCache();
-    
-    // 显示登录弹窗提示请重新登录
-    if (showLoginDialogFn) {
-      showLoginDialogFn();
-    }
-    
+    handle401Error();
     throw new Error('Token expired or invalid, please login again');
   }
 
@@ -70,14 +90,7 @@ export async function handleApiResponse(response: Response): Promise<Response> {
                          (typeof code === 'string' && code === '401');
         
         if (data && isCode401) {
-          // 清除缓存的 token
-          clearOAuthCache();
-          
-          // 显示登录弹窗提示请重新登录
-          if (showLoginDialogFn) {
-            showLoginDialogFn();
-          }
-          
+          handle401Error();
           throw new Error('Token expired or invalid, please login again');
         }
       }

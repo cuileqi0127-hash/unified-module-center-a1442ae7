@@ -12,7 +12,9 @@ const OAUTH_CODE_KEY = 'oauth_code';
 const OAUTH_TOKEN_KEY = 'auth_token'; // 改为使用 cookies 中的 auth_token
 
 // 根据环境变量判断登录跳转地址
-const LOGIN_REDIRECT_URL = 'https://www.oran.cn/'
+// const LOGIN_REDIRECT_URL = 'https://www.oran.cn/'
+const LOGIN_REDIRECT_URL = 'http://localhost:8080/'
+
 
 // Token 数据接口
 export interface TokenData {
@@ -78,7 +80,7 @@ export function clearOAuthCache(): void {
  * 跳转到登录页面
  */
 export function redirectToLogin(): void {
-  window.location.href = LOGIN_REDIRECT_URL;
+  window.location.href = `${LOGIN_REDIRECT_URL}?logon=1`;
 }
 
 /**

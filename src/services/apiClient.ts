@@ -9,7 +9,7 @@
  * - Token 过期处理
  */
 
-import { authenticatedFetch, getAuthHeaders } from './apiInterceptor';
+import { authenticatedFetch, getAuthHeaders, handleApiResponse } from './apiInterceptor';
 
 // 根据环境变量判断使用代理还是直接访问
 // 生产环境也使用相对路径，通过 Nginx 代理转发
@@ -50,15 +50,21 @@ export async function apiGet<T = any>(
   const { useAuth = true, parseJson = true, baseURL, ...restConfig } = config;
   const url = baseURL ? `${baseURL}${endpoint}` : `${API_BASE_URL}${endpoint}`;
 
-  const response = useAuth
-    ? await authenticatedFetch(url, {
-        method: 'GET',
-        ...restConfig,
-      })
-    : await fetch(url, {
-        method: 'GET',
-        ...restConfig,
-      });
+  let response: Response;
+  
+  if (useAuth) {
+    response = await authenticatedFetch(url, {
+      method: 'GET',
+      ...restConfig,
+    });
+  } else {
+    response = await fetch(url, {
+      method: 'GET',
+      ...restConfig,
+    });
+    // 即使不使用认证，也要检查 401 错误
+    response = await handleApiResponse(response);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -66,7 +72,15 @@ export async function apiGet<T = any>(
   }
 
   if (parseJson) {
-    return await response.json();
+    const data = await response.json();
+    // 检查 JSON 响应中的 code 字段是否为 401
+    const code = data?.code;
+    const isCode401 = (typeof code === 'number' && code === 401) || 
+                     (typeof code === 'string' && code === '401');
+    if (isCode401) {
+      throw new Error('Token expired or invalid, please login again');
+    }
+    return data;
   }
 
   return response as any;
@@ -105,19 +119,25 @@ export async function apiPost<T = any>(
 
   const body = isFormData ? data : (data ? JSON.stringify(data) : undefined);
 
-  const response = useAuth
-    ? await authenticatedFetch(url, {
-        method: 'POST',
-        headers,
-        body,
-        ...restConfig,
-      })
-    : await fetch(url, {
-        method: 'POST',
-        headers,
-        body,
-        ...restConfig,
-      });
+  let response: Response;
+  
+  if (useAuth) {
+    response = await authenticatedFetch(url, {
+      method: 'POST',
+      headers,
+      body,
+      ...restConfig,
+    });
+  } else {
+    response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body,
+      ...restConfig,
+    });
+    // 即使不使用认证，也要检查 401 错误
+    response = await handleApiResponse(response);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -125,7 +145,15 @@ export async function apiPost<T = any>(
   }
 
   if (parseJson) {
-    return await response.json();
+    const data = await response.json();
+    // 检查 JSON 响应中的 code 字段是否为 401
+    const code = data?.code;
+    const isCode401 = (typeof code === 'number' && code === 401) || 
+                     (typeof code === 'string' && code === '401');
+    if (isCode401) {
+      throw new Error('Token expired or invalid, please login again');
+    }
+    return data;
   }
 
   return response as any;
@@ -157,19 +185,25 @@ export async function apiPatch<T = any>(
     Object.assign(headers, restConfig.headers);
   }
 
-  const response = useAuth
-    ? await authenticatedFetch(url, {
-        method: 'PATCH',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-        ...restConfig,
-      })
-    : await fetch(url, {
-        method: 'PATCH',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-        ...restConfig,
-      });
+  let response: Response;
+  
+  if (useAuth) {
+    response = await authenticatedFetch(url, {
+      method: 'PATCH',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      ...restConfig,
+    });
+  } else {
+    response = await fetch(url, {
+      method: 'PATCH',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      ...restConfig,
+    });
+    // 即使不使用认证，也要检查 401 错误
+    response = await handleApiResponse(response);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -177,7 +211,15 @@ export async function apiPatch<T = any>(
   }
 
   if (parseJson) {
-    return await response.json();
+    const data = await response.json();
+    // 检查 JSON 响应中的 code 字段是否为 401
+    const code = data?.code;
+    const isCode401 = (typeof code === 'number' && code === 401) || 
+                     (typeof code === 'string' && code === '401');
+    if (isCode401) {
+      throw new Error('Token expired or invalid, please login again');
+    }
+    return data;
   }
 
   return response as any;
@@ -213,19 +255,25 @@ export async function apiDelete<T = any>(
     Object.assign(headers, restConfig.headers);
   }
 
-  const response = useAuth
-    ? await authenticatedFetch(url, {
-        method: 'DELETE',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-        ...restConfig,
-      })
-    : await fetch(url, {
-        method: 'DELETE',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-        ...restConfig,
-      });
+  let response: Response;
+  
+  if (useAuth) {
+    response = await authenticatedFetch(url, {
+      method: 'DELETE',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      ...restConfig,
+    });
+  } else {
+    response = await fetch(url, {
+      method: 'DELETE',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      ...restConfig,
+    });
+    // 即使不使用认证，也要检查 401 错误
+    response = await handleApiResponse(response);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -233,7 +281,15 @@ export async function apiDelete<T = any>(
   }
 
   if (parseJson) {
-    return await response.json();
+    const data = await response.json();
+    // 检查 JSON 响应中的 code 字段是否为 401
+    const code = data?.code;
+    const isCode401 = (typeof code === 'number' && code === 401) || 
+                     (typeof code === 'string' && code === '401');
+    if (isCode401) {
+      throw new Error('Token expired or invalid, please login again');
+    }
+    return data;
   }
 
   return response as any;
@@ -265,19 +321,25 @@ export async function apiPut<T = any>(
     Object.assign(headers, restConfig.headers);
   }
 
-  const response = useAuth
-    ? await authenticatedFetch(url, {
-        method: 'PUT',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-        ...restConfig,
-      })
-    : await fetch(url, {
-        method: 'PUT',
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-        ...restConfig,
-      });
+  let response: Response;
+  
+  if (useAuth) {
+    response = await authenticatedFetch(url, {
+      method: 'PUT',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      ...restConfig,
+    });
+  } else {
+    response = await fetch(url, {
+      method: 'PUT',
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      ...restConfig,
+    });
+    // 即使不使用认证，也要检查 401 错误
+    response = await handleApiResponse(response);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -285,7 +347,15 @@ export async function apiPut<T = any>(
   }
 
   if (parseJson) {
-    return await response.json();
+    const data = await response.json();
+    // 检查 JSON 响应中的 code 字段是否为 401
+    const code = data?.code;
+    const isCode401 = (typeof code === 'number' && code === 401) || 
+                     (typeof code === 'string' && code === '401');
+    if (isCode401) {
+      throw new Error('Token expired or invalid, please login again');
+    }
+    return data;
   }
 
   return response as any;
