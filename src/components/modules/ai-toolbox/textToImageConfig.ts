@@ -30,7 +30,7 @@ export interface WorkModeConfig {
 // 模型配置映射
 export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
   'gpt-image-1.5': {
-    label: 'GPT',
+    label: 'GPT-Image',
     sizes: [
       { id: '2:3', label: '2:3' },
       { id: '3:2', label: '3:2' },
@@ -39,7 +39,7 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
     defaultSize: '1:1',
   },
   'gemini-3-pro-image-preview-2k': {
-    label: 'Gemini 3',
+    label: 'Nano Banana Pro',
     sizes: [
       { id: '1x1', label: '1x1' },
       { id: '2x3', label: '2x3' },
@@ -54,7 +54,7 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
     ],
     defaultSize: '1x1',
   },
-  'doubao-seedream-4-0-250828': {
+  'doubao-seedream-4-5-251128': {
     label: '即梦',
     sizes: [
       { id: '1K', label: '1K' },

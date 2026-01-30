@@ -57,11 +57,11 @@ export function TopNav() {
         <div className="w-8 h-8 rounded-lg bg-foreground flex items-center justify-center">
           <span className="text-background font-bold text-sm">S</span>
         </div>
-        <span className="font-semibold text-lg">SuperApp</span>
+        <span className="font-semibold text-lg">Oran Gen</span>
       </div>
 
       {/* Center: Module Switcher */}
-      <nav className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+      {/* <nav className="flex items-center gap-1 bg-muted p-1 rounded-lg">
         {MODULES.map((module) => (
           <button
             key={module.id}
@@ -74,7 +74,7 @@ export function TopNav() {
             <span className="hidden sm:inline">{t(`modules.${moduleKeys[module.id]}`)}</span>
           </button>
         ))}
-      </nav>
+      </nav> */}
 
       {/* Right: User Actions */}
       <div className="flex items-center gap-2">

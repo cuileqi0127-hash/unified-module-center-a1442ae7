@@ -31,6 +31,8 @@ import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToImage, type CanvasImage } from './useTextToImage';
 import { AnimatedText } from './AnimatedText';
+import { MediaViewer } from './MediaViewer';
+import { GenerationChatPanel } from './GenerationChatPanel';
 
 interface TextToImageProps {
   onNavigate?: (itemId: string) => void;
@@ -66,6 +68,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     selectedImages,
     isDragOver,
     copiedImage,
+    copiedImages,
     highlightedImageId,
     chatPanelWidth,
     isResizing,
@@ -110,6 +113,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     // Utils
     cleanMessageContent,
     isZh,
+    // Viewer
+    viewerOpen,
+    setViewerOpen,
+    viewerIndex,
   } = useTextToImage();
 
   // 视图层辅助函数
@@ -277,106 +284,25 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-5">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        'flex flex-col gap-2',
-                        message.type === 'user' ? 'items-start' : 'items-start'
-                      )}
-                    >
-                      {message.type === 'user' ? (
-                        <div className="flex items-start gap-2">
-                          <span className="mt-0.5 text-lg">•</span>
-                          <p className="text-sm leading-relaxed text-foreground">{cleanMessageContent(message.content)}</p>
-                        </div>
-                      ) : (
-                        <div className="w-full space-y-3">
-                          {/* Design Thoughts */}
-                          {message.designThoughts && message.designThoughts.length > 0 && (
-                            <div className="space-y-2">
-                              {message.designThoughts.map((thought, idx) => {
-                                const cleanedThought = cleanMessageContent(thought);
-                                if (!cleanedThought) return null; // 如果清理后为空，不显示
-                                return (
-                                <div key={idx} className="flex items-start gap-2">
-                                  <span className="mt-0.5 text-primary">•</span>
-                                  <p className="text-sm leading-relaxed text-muted-foreground">
-                                    <span className="font-medium text-foreground">
-                                        {cleanedThought.split('：')[0]}：
-                                    </span>
-                                      {cleanedThought.split('：').slice(1).join('：')}
-                                  </p>
-                                </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                          
-                          {/* Status indicator when still processing */}
-                          {message.status && message.status !== 'complete' && (
-                            <div className="flex items-center gap-2 py-1">
-                              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                              <span className="text-sm text-muted-foreground">
-                                <AnimatedText 
-                                  text={getStatusText(message.status)}
-                                  isAnimating={message.status === 'processing' || message.status === 'queued'}
-                                />
-                              </span>
-                            </div>
-                          )}
-                          
-                          {/* Generated Image */}
-                          {message.image && message.status === 'complete' && (
-                            <div className="relative mt-2">
-                              <div 
-                                className="relative w-56 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md"
-                                onClick={() => {
-                                  const img = canvasImages.find(i => i.url === message.image);
+                <GenerationChatPanel
+                  messages={messages}
+                  isZh={isZh}
+                  onImageClick={(url) => {
+                    const img = canvasImages.find(i => i.url === url);
+                    if (img) setSelectedImageId(img.id);
+                  }}
+                  onVideoClick={(url) => {
+                    const img = canvasImages.find(i => i.url === url);
                                   if (img) setSelectedImageId(img.id);
                                 }}
-                              >
-                                <img
-                                  src={message.image}
-                                  alt="Generated"
-                                  className="aspect-square w-full object-cover"
-                                />
-                                {/* Feedback Button */}
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
-                                >
-                                  <MessageSquare className="h-3 w-3" />
-                                  {isZh ? '反馈' : 'Feedback'}
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Result Summary */}
-                          {message.resultSummary && message.status === 'complete' && (
-                            <p className="text-sm leading-relaxed text-muted-foreground">
-                              {cleanMessageContent(message.resultSummary)}
-                            </p>
-                          )}
-                          
-                          {/* Task Complete indicator */}
-                          {message.status === 'complete' && (
-                            <div className="flex items-center gap-1.5 pt-1">
-                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">
-                                {getStatusText('complete')}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
+                  findCanvasItem={(url) => {
+                    const img = canvasImages.find(i => i.url === url);
+                    return img ? { id: img.id } : undefined;
+                  }}
+                  cleanMessageContent={cleanMessageContent}
+                  getStatusText={getStatusText}
+                  chatEndRef={chatEndRef}
+                />
               )}
             </div>
           )}
@@ -622,16 +548,6 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             {isZh ? '展开' : 'Expand'}
           </Button>
         )}
-        
-        {/* Workspace Header - Fixed Position */}
-        <div className="pointer-events-none absolute left-10 top-10 z-10">
-          <h1 className="text-2xl font-bold text-foreground/90">
-            {isZh ? '文生图' : 'Text to Image'}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isZh ? '通过文字描述创建精美视觉图像' : 'Create stunning visuals from text descriptions'}
-          </p>
-        </div>
 
         <UniversalCanvas
           items={canvasImages.map(img => ({ ...img, type: img.type || 'image' } as CanvasMediaItem))}
@@ -654,7 +570,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
 
         {/* Selected Image(s) Floating Toolbar */}
         {(selectedImage || selectedImageIds.length > 0) && (
-          <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm animate-fade-in">
+          <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm" style={{zIndex:999}}>
             <span className="max-w-[200px] truncate text-xs text-muted-foreground">
               {selectedImageIds.length > 1 
                 ? isZh ? `已选择 ${selectedImageIds.length} 张图片` : `${selectedImageIds.length} images selected`
@@ -701,7 +617,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
         )}
 
         {/* Paste Button - Shows when image is copied */}
-        {copiedImage && (
+        {(copiedImage || copiedImages.length > 0) && (
           <Button
             variant="secondary"
             size="sm"
@@ -709,7 +625,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             onClick={handlePasteImage}
           >
             <Clipboard className="h-4 w-4" />
-            {isZh ? '粘贴图片' : 'Paste Image'}
+            {isZh 
+              ? (copiedImages.length > 0 ? `粘贴 ${copiedImages.length} 张图片` : '粘贴图片')
+              : (copiedImages.length > 0 ? `Paste ${copiedImages.length} images` : 'Paste Image')
+            }
           </Button>
         )}
 
@@ -721,6 +640,19 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           {canvasImages.length} {isZh ? '张图片' : 'images'}
         </Badge>
       </div>
+
+      {/* Media Viewer */}
+      <MediaViewer
+        items={canvasImages.map(img => ({
+          id: img.id,
+          url: img.url,
+          type: (img.type === 'video' || img.url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i)) ? 'video' as const : 'image' as const,
+          prompt: img.prompt,
+        }))}
+        initialIndex={viewerIndex}
+        isOpen={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+      />
     </div>
   );
 }

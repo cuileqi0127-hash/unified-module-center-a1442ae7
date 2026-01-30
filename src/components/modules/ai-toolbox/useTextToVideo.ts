@@ -45,6 +45,7 @@ export interface ChatMessage {
   id: string;
   type: 'user' | 'system';
   content: string;
+  image?: string;
   video?: string;
   timestamp: Date;
   status?: 'queued' | 'processing' | 'completed' | 'failed';
@@ -162,7 +163,10 @@ export function useTextToVideo() {
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedVideo, setCopiedVideo] = useState<CanvasVideo | null>(null);
+  const [copiedVideos, setCopiedVideos] = useState<CanvasVideo[]>([]); // 批量复制的视频数组
   const [highlightedVideoId, setHighlightedVideoId] = useState<string | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
   const [chatPanelWidth, setChatPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
   const [isChatPanelCollapsed, setIsChatPanelCollapsed] = useState(false);
@@ -289,17 +293,17 @@ export function useTextToVideo() {
             let messageCount = session.messageCount ?? 0;
             
             // 如果后端没有返回 messageCount，则获取详情
-            if (messageCount === 0 && session.messageCount === undefined) {
-              try {
-                const detailResponse = await getSessionDetail(session.id.toString());
-                if (detailResponse.success && detailResponse.data?.messages) {
-                  messageCount = detailResponse.data.messages.length;
-                }
-              } catch (error) {
-                // 如果获取详情失败，消息数量保持为 0
-                console.error(`Failed to get message count for session ${session.id}:`, error);
-              }
-            }
+            // if (messageCount === 0 && session.messageCount === undefined) {
+            //   try {
+            //     const detailResponse = await getSessionDetail(session.id.toString());
+            //     if (detailResponse.success && detailResponse.data?.messages) {
+            //       messageCount = detailResponse.data.messages.length;
+            //     }
+            //   } catch (error) {
+            //     // 如果获取详情失败，消息数量保持为 0
+            //     console.error(`Failed to get message count for session ${session.id}:`, error);
+            //   }
+            // }
             
             return {
               id: session.id.toString(),
@@ -602,6 +606,66 @@ export function useTextToVideo() {
     }
   }, [isZh, getImageDimensions]);
 
+  // 从 sessionStorage 读取跨页面复制的数据
+  useEffect(() => {
+    const checkCopiedItems = () => {
+      try {
+        const stored = sessionStorage.getItem('canvasCopiedItems');
+        if (stored) {
+          const items = JSON.parse(stored);
+          if (Array.isArray(items) && items.length > 0) {
+            if (items.length === 1) {
+              const item = items[0];
+              setCopiedVideo({
+                id: item.id,
+                url: item.url,
+                type: (item.type === 'video' || isVideoUrl(item.url)) ? 'video' : 'image',
+                prompt: item.prompt,
+                x: 0,
+                y: 0,
+                width: item.width || 400,
+                height: item.height || 300,
+              });
+              setCopiedVideos([]);
+            } else {
+              setCopiedVideos(items.map(item => ({
+                id: item.id,
+                url: item.url,
+                type: (item.type === 'video' || isVideoUrl(item.url)) ? 'video' as const : 'image' as const,
+                prompt: item.prompt,
+                x: 0,
+                y: 0,
+                width: item.width || 400,
+                height: item.height || 300,
+              })));
+              setCopiedVideo(null);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse copied items:', error);
+      }
+    };
+
+    checkCopiedItems();
+    // 监听 storage 事件，实现跨标签页同步
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'canvasCopiedItems') {
+        checkCopiedItems();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    // 也监听同页面内的变化（通过自定义事件）
+    const handleCustomStorageChange = () => {
+      checkCopiedItems();
+    };
+    window.addEventListener('canvasCopiedItemsChanged', handleCustomStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('canvasCopiedItemsChanged', handleCustomStorageChange);
+    };
+  }, [isVideoUrl]);
+
   // 处理新对话
   const handleNewConversation = useCallback(async () => {
     // 先清空聊天栏和画布数据
@@ -855,21 +919,155 @@ export function useTextToVideo() {
   // 处理复制视频
   const handleCopyVideo = useCallback((video: CanvasVideo) => {
     setCopiedVideo(video);
+    // 存储到 sessionStorage，供其他页面使用
+    const isVideo = video.type === 'video' || isVideoUrl(video.url);
+    const item = {
+      id: video.id,
+      url: video.url,
+      type: isVideo ? 'video' as const : 'image' as const,
+      prompt: video.prompt,
+      width: video.width,
+      height: video.height,
+    };
+    sessionStorage.setItem('canvasCopiedItems', JSON.stringify([item]));
+    // 触发自定义事件，通知同页面内的其他组件
+    window.dispatchEvent(new Event('canvasCopiedItemsChanged'));
     toast.success(isZh ? '已复制到剪贴板，可在新画布粘贴' : 'Copied to clipboard, can paste in new canvas');
-  }, [isZh]);
+  }, [isZh, isVideoUrl]);
 
   // 处理粘贴视频
   const handlePasteVideo = useCallback(async () => {
+    // 优先处理批量粘贴
+    if (copiedVideos.length > 0) {
+      const newVideos: CanvasVideo[] = [];
+      const existingRects = canvasVideos.map(v => ({
+        x: v.x,
+        y: v.y,
+        width: v.width,
+        height: v.height,
+      }));
+
+      // 批量粘贴多个视频/图片
+      for (let i = 0; i < copiedVideos.length; i++) {
+        const copiedItem = copiedVideos[i];
+        const isVideo = copiedItem.type === 'video' || isVideoUrl(copiedItem.url);
+        const dimensions = isVideo 
+          ? await getVideoDimensions(copiedItem.url)
+          : await getImageDimensions(copiedItem.url);
+        const position = findNonOverlappingPosition(
+          { width: dimensions.width, height: dimensions.height },
+          [...existingRects, ...newVideos.map(v => ({
+            x: v.x,
+            y: v.y,
+            width: v.width,
+            height: v.height,
+          }))]
+        );
+        
+        const newVideo: CanvasVideo = {
+          ...copiedItem,
+          id: isVideo ? `video-${Date.now()}-${i}` : `img-${Date.now()}-${i}`,
+          x: position.x,
+          y: position.y,
+          width: dimensions.width,
+          height: dimensions.height,
+          type: copiedItem.type || (isVideo ? 'video' : 'image'),
+        };
+        newVideos.push(newVideo);
+        existingRects.push({
+          x: position.x,
+          y: position.y,
+          width: dimensions.width,
+          height: dimensions.height,
+        });
+      }
+
+      // 添加到画布
+      const newIds = newVideos.map(v => v.id);
+      setCanvasVideos(prev => [...prev, ...newVideos]);
+      setSelectedVideoId(newVideos[0]?.id || null);
+      setSelectedVideoIds(newIds);
+      setCopiedVideos([]);
+
+      // 批量保存生成结果到数据库
+      if (currentSessionId) {
+        try {
+          await Promise.all(newVideos.map(async (newVideo, index) => {
+            const isVideo = newVideo.type === 'video' || isVideoUrl(newVideo.url);
+            try {
+              const saveResponse = await saveGenerationResult(currentSessionId, {
+                generation: {
+                  model: model,
+                  size: size,
+                  prompt: newVideo.prompt || (isZh ? (isVideo ? '复制粘贴的视频' : '复制粘贴的图片') : (isVideo ? 'Pasted video' : 'Pasted image')),
+                  status: 'success',
+                  ...(isVideo && seconds ? { seconds } : {}),
+                },
+                asset: {
+                  type: isVideo ? 'video' : 'image',
+                  sourceUrl: newVideo.url,
+                  seq: index + 1,
+                  width: newVideo.width,
+                  height: newVideo.height,
+                  ...(isVideo && seconds ? { duration: parseInt(seconds, 10) } : {}),
+                },
+                message: {
+                  type: 'system',
+                  content: isZh ? '生成完成' : 'Generation complete',
+                  status: 'complete',
+                  resultSummary: isZh 
+                    ? `已粘贴${isVideo ? '视频' : '图片'}到画布`
+                    : `${isVideo ? 'Video' : 'Image'} pasted to canvas`,
+                },
+                canvasItem: {
+                  x: newVideo.x,
+                  y: newVideo.y,
+                  width: newVideo.width,
+                  height: newVideo.height,
+                  rotate: 0,
+                  visible: true,
+                  zindex: canvasVideos.length + index,
+                },
+              });
+
+              if (saveResponse.success && saveResponse.data) {
+                canvasItemIdMap.current.set(newVideo.id, saveResponse.data.canvasItemId);
+              }
+            } catch (error) {
+              console.error(`Failed to save pasted item ${index}:`, error);
+            }
+          }));
+          // 刷新历史记录
+          await loadSessions(1, false);
+        } catch (error) {
+          console.error('Failed to save pasted videos/images:', error);
+        }
+      }
+      
+      toast.success(isZh ? `已粘贴 ${newVideos.length} 个项目到画布` : `Pasted ${newVideos.length} items to canvas`);
+      return;
+    }
+
+    // 单个粘贴
     if (copiedVideo) {
       const isVideo = copiedVideo.type === 'video' || isVideoUrl(copiedVideo.url);
       const dimensions = isVideo 
         ? await getVideoDimensions(copiedVideo.url)
         : await getImageDimensions(copiedVideo.url);
+      const position = findNonOverlappingPosition(
+        { width: dimensions.width, height: dimensions.height },
+        canvasVideos.map(v => ({
+          x: v.x,
+          y: v.y,
+          width: v.width,
+          height: v.height,
+        }))
+      );
       const newVideo: CanvasVideo = {
         ...copiedVideo,
         id: isVideo ? `video-${Date.now()}` : `img-${Date.now()}`,
-        x: 100 + Math.random() * 100,
-        y: 100 + Math.random() * 100,
+        x: position.x,
+        y: position.y,
         width: dimensions.width,
         height: dimensions.height,
         type: copiedVideo.type || (isVideo ? 'video' : 'image'),
@@ -877,9 +1075,59 @@ export function useTextToVideo() {
       setCanvasVideos(prev => [...prev, newVideo]);
       setSelectedVideoId(newVideo.id);
       setCopiedVideo(null);
+      
+      // 保存生成结果到数据库
+      if (currentSessionId) {
+        try {
+          const saveResponse = await saveGenerationResult(currentSessionId, {
+            generation: {
+              model: model,
+              size: size,
+              prompt: copiedVideo.prompt || (isZh ? (isVideo ? '复制粘贴的视频' : '复制粘贴的图片') : (isVideo ? 'Pasted video' : 'Pasted image')),
+              status: 'success',
+              ...(isVideo && seconds ? { seconds } : {}),
+            },
+            asset: {
+              type: isVideo ? 'video' : 'image',
+              sourceUrl: copiedVideo.url,
+              seq: 1,
+              width: dimensions.width,
+              height: dimensions.height,
+              ...(isVideo && seconds ? { duration: parseInt(seconds, 10) } : {}),
+            },
+            message: {
+              type: 'system',
+              content: isZh ? '生成完成' : 'Generation complete',
+              status: 'complete',
+              resultSummary: isZh 
+                ? `已粘贴${isVideo ? '视频' : '图片'}到画布`
+                : `${isVideo ? 'Video' : 'Image'} pasted to canvas`,
+            },
+            canvasItem: {
+              x: position.x,
+              y: position.y,
+              width: dimensions.width,
+              height: dimensions.height,
+              rotate: 0,
+              visible: true,
+              zindex: canvasVideos.length,
+            },
+          });
+
+          if (saveResponse.success && saveResponse.data) {
+            // 保存画布元素ID映射
+            canvasItemIdMap.current.set(newVideo.id, saveResponse.data.canvasItemId);
+            // 刷新历史记录
+            await loadSessions(1, false);
+          }
+        } catch (error) {
+          console.error('Failed to save pasted video/image:', error);
+        }
+      }
+      
       toast.success(isZh ? '已粘贴到画布' : 'Pasted to canvas');
     }
-  }, [copiedVideo, isZh, getVideoDimensions, getImageDimensions, isVideoUrl]);
+  }, [copiedVideo, copiedVideos, isZh, getVideoDimensions, getImageDimensions, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions]);
 
   // 处理上传图片到画布
   const handleUploadImage = useCallback(async (file: File) => {
@@ -1791,16 +2039,17 @@ export function useTextToVideo() {
 
   // 处理视频双击
   const handleVideoDoubleClick = useCallback((video: CanvasVideo) => {
-    handleAddSelectedVideo({
-      id: video.id,
-      url: video.url,
-      x: 0,
-      y: 0,
-      width: video.width,
-      height: video.height,
-      prompt: video.prompt,
-    });
-  }, [handleAddSelectedVideo]);
+    // 占位符不应该打开查看器
+    if (video.type === 'placeholder' || !video.url) {
+      return;
+    }
+    // 找到当前视频/图片在画布中的索引（只计算 canvasVideos，不包括 taskPlaceholders）
+    const index = canvasVideos.findIndex(v => v.id === video.id);
+    if (index !== -1) {
+      setViewerIndex(index);
+      setViewerOpen(true);
+    }
+  }, [canvasVideos]);
 
   // 处理删除视频
   const handleDeleteVideo = useCallback(async () => {
@@ -1888,6 +2137,42 @@ export function useTextToVideo() {
     const videosToCopy = canvasVideos.filter(v => selectedVideoIds.includes(v.id));
     if (videosToCopy.length === 0) return;
     
+    if (videosToCopy.length === 1) {
+      // 单个复制，保持向后兼容
+      setCopiedVideo(videosToCopy[0]);
+      setCopiedVideos([]);
+      // 存储到 sessionStorage
+      const isVideo = videosToCopy[0].type === 'video' || isVideoUrl(videosToCopy[0].url);
+      const item = {
+        id: videosToCopy[0].id,
+        url: videosToCopy[0].url,
+        type: isVideo ? 'video' as const : 'image' as const,
+        prompt: videosToCopy[0].prompt,
+        width: videosToCopy[0].width,
+        height: videosToCopy[0].height,
+      };
+      sessionStorage.setItem('canvasCopiedItems', JSON.stringify([item]));
+      window.dispatchEvent(new Event('canvasCopiedItemsChanged'));
+    } else {
+      // 批量复制
+      setCopiedVideos(videosToCopy);
+      setCopiedVideo(null);
+      // 存储到 sessionStorage
+      const items = videosToCopy.map(v => {
+        const isVideo = v.type === 'video' || isVideoUrl(v.url);
+        return {
+          id: v.id,
+          url: v.url,
+          type: isVideo ? 'video' as const : 'image' as const,
+          prompt: v.prompt,
+          width: v.width,
+          height: v.height,
+        };
+      });
+      sessionStorage.setItem('canvasCopiedItems', JSON.stringify(items));
+      window.dispatchEvent(new Event('canvasCopiedItemsChanged'));
+    }
+    
     try {
       const videoUrls = videosToCopy.map(v => v.url);
       await navigator.clipboard.writeText(JSON.stringify(videoUrls));
@@ -1895,7 +2180,7 @@ export function useTextToVideo() {
     } catch (err) {
       toast.error(isZh ? '复制失败' : 'Copy failed');
     }
-  }, [selectedVideoIds, canvasVideos, isZh]);
+  }, [selectedVideoIds, canvasVideos, isZh, isVideoUrl]);
 
   // 处理批量下载视频
   const handleBatchDownloadVideos = useCallback(async () => {
@@ -2020,6 +2305,7 @@ export function useTextToVideo() {
     selectedImages,
     isDragOver,
     copiedVideo,
+    copiedVideos,
     highlightedVideoId,
     chatPanelWidth,
     isResizing,
@@ -2065,5 +2351,10 @@ export function useTextToVideo() {
     // Utils
     cleanMessageContent,
     isZh,
+    
+    // Viewer
+    viewerOpen,
+    setViewerOpen,
+    viewerIndex,
   };
 }

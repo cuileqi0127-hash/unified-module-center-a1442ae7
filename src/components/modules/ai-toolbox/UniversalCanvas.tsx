@@ -690,53 +690,66 @@ export function UniversalCanvas({
                     )}
                   </div>
                 ) : isVideo ? (
-                  <>
-                    <video
-                      ref={(el) => {
-                        if (el) {
-                          videoRefs.current.set(item.id, el);
-                        } else {
-                          videoRefs.current.delete(item.id);
-                        }
-                      }}
-                      src={item.url}
-                      className="h-full w-full object-contain pointer-events-none select-none"
-                      draggable={false}
-                      loop
-                      muted
-                      onEnded={() => {
-                        setPlayingVideos(prev => {
-                          const next = new Set(prev);
-                          next.delete(item.id);
-                          return next;
-                        });
-                      }}
-                    />
-                    
-                    {/* Play/Pause Button - Show on hover or when playing */}
-                    <div 
-                      className={cn(
-                        "absolute inset-0 flex items-center justify-center bg-black/20 transition-all cursor-pointer",
-                        isPlaying ? "opacity-100" : "opacity-0 hover:opacity-100"
-                      )}
-                      onClick={(e) => {
+                  <video
+                    ref={(el) => {
+                      if (el) {
+                        videoRefs.current.set(item.id, el);
+                      } else {
+                        videoRefs.current.delete(item.id);
+                      }
+                    }}
+                    src={item.url}
+                    className="h-full w-full rounded-lg object-contain"
+                    draggable={false}
+                    controls
+                    playsInline
+                    loop
+                    onPlay={() => {
+                      setPlayingVideos(prev => new Set(prev).add(item.id));
+                    }}
+                    onPause={() => {
+                      setPlayingVideos(prev => {
+                        const next = new Set(prev);
+                        next.delete(item.id);
+                        return next;
+                      });
+                    }}
+                    onEnded={() => {
+                      setPlayingVideos(prev => {
+                        const next = new Set(prev);
+                        next.delete(item.id);
+                        return next;
+                      });
+                    }}
+                    onClick={(e) => {
+                      // 如果点击在控制栏区域，阻止事件冒泡到画布
+                      const video = e.currentTarget as HTMLVideoElement;
+                      const rect = video.getBoundingClientRect();
+                      const clickY = e.clientY - rect.top;
+                      const videoHeight = rect.height;
+                      // 如果点击在底部 20% 区域（控制栏区域），阻止冒泡
+                      if (clickY > videoHeight * 0.8) {
                         e.stopPropagation();
-                        toggleVideoPlay(item.id);
-                      }}
-                    >
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="h-12 w-12 rounded-full bg-background/90 backdrop-blur-sm hover:bg-background"
-                      >
-                        {isPlaying ? (
-                          <Pause className="h-6 w-6" />
-                        ) : (
-                          <Play className="h-6 w-6 ml-1" />
-                        )}
-                      </Button>
-                    </div>
-                  </>
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      // 允许右键菜单（用于视频控件）
+                      e.stopPropagation();
+                    }}
+                    onMouseDown={(e) => {
+                      // 检测点击位置，如果在控制栏区域，阻止拖动
+                      const video = e.currentTarget as HTMLVideoElement;
+                      const rect = video.getBoundingClientRect();
+                      const clickY = e.clientY - rect.top;
+                      const videoHeight = rect.height;
+                      // 如果点击在底部 20% 区域（控制栏区域），阻止拖动
+                      if (clickY > videoHeight * 0.8) {
+                        e.stopPropagation();
+                        return;
+                      }
+                      // 如果点击在视频的其他区域，允许拖动（不阻止事件）
+                    }}
+                  />
                 ) : (
                   <img
                     src={item.url}

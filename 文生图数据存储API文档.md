@@ -185,25 +185,25 @@ interface UserSettings {
 
 // 支持的模型类型
 type ImageModel = 
-  | 'gpt-image-1.5'                    // GPT 模型
-  | 'gemini-3-pro-image-preview-2k'    // Gemini 3 模型
-  | 'doubao-seedream-4-0-250828';      // 即梦模型
+  | 'gpt-image-1.5'                    // GPT-Image 模型
+  | 'gemini-3-pro-image-preview-2k'    // Nano Banana Pro 模型
+  | 'doubao-seedream-4-5-251128';      // 即梦模型
 
 // 支持的尺寸/比例（根据模型不同而不同）
-// GPT 模型支持：'2:3' | '3:2' | '1:1'
-// Gemini 3 模型支持：'1x1' | '2x3' | '3x2' | '3x4' | '4x3' | '4x5' | '5x4' | '9x16' | '16x9' | '21x9'
+// GPT-Image 模型支持：'2:3' | '3:2' | '1:1'
+// Nano Banana Pro 模型支持：'1x1' | '2x3' | '3x2' | '3x4' | '4x3' | '4x5' | '5x4' | '9x16' | '16x9' | '21x9'
 // 即梦模型支持：'1K' | '2K' | '4K'
 ```
 
 **字段说明：**
 
 - `model`: 当前选择的图片生成模型
-  - `gpt-image-1.5`: GPT 模型
-  - `gemini-3-pro-image-preview-2k`: Gemini 3 模型
-  - `doubao-seedream-4-0-250828`: 即梦模型
+  - `gpt-image-1.5`: GPT-Image 模型
+  - `gemini-3-pro-image-preview-2k`: Nano Banana Pro 模型
+  - `doubao-seedream-4-5-251128`: 即梦模型
 - `aspectRatio`: 当前选择的尺寸/比例
-  - **GPT 模型**支持：`'2:3'`、`'3:2'`、`'1:1'`
-  - **Gemini 3 模型**支持：`'1x1'`、`'2x3'`、`'3x2'`、`'3x4'`、`'4x3'`、`'4x5'`、`'5x4'`、`'9x16'`、`'16x9'`、`'21x9'`
+  - **GPT-Image 模型**支持：`'2:3'`、`'3:2'`、`'1:1'`
+  - **Nano Banana Pro 模型**支持：`'1x1'`、`'2x3'`、`'3x2'`、`'3x4'`、`'4x3'`、`'4x5'`、`'5x4'`、`'9x16'`、`'16x9'`、`'21x9'`
   - **即梦模型**支持：`'1K'`、`'2K'`、`'4K'`
 - `workMode`: 工作模式
   - 当前仅支持：`'text-to-image'`（文生图）

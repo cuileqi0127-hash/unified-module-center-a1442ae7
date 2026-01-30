@@ -146,14 +146,16 @@ export async function uploadMediaFile(
  * 创建视频生成任务
  */
 export async function createVideoTask(request: VideoGenerationRequest): Promise<VideoTaskResponse> {
+  console.log(request,'request')
   const requestBody: any = {
-    // model: request.model,
+    model_name: request.model,
     prompt: request.prompt,
+    model_version: '2.0',
   };
 
-  // if (request.seconds) {
-  //   requestBody.seconds = request.seconds;
-  // }
+  if (request.seconds) {
+    requestBody.duration = request.seconds;
+  }
 
   if (request.fileId) {
     requestBody.file_id = request.fileId;

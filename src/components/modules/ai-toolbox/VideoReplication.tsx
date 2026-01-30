@@ -12,13 +12,14 @@ import {
   Edit3,
   Check,
   Loader2,
-  Plus,
-  History,
   Trash2,
-  RotateCcw,
+  Copy,
+  Download,
+  Clipboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -34,8 +35,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { InfiniteCanvas } from './InfiniteCanvas';
+import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
+import { MediaViewer } from './MediaViewer';
 
 interface VideoReplicationProps {
   onNavigate?: (itemId: string) => void;
@@ -64,6 +65,8 @@ interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  image?: string;
+  video?: string;
   timestamp: Date;
   segmentId?: string;
 }
@@ -83,22 +86,6 @@ interface CanvasItem {
   prompt?: string;
 }
 
-// History interface for saving projects
-interface ProjectHistoryItem {
-  id: string;
-  name: string;
-  createdAt: Date;
-  viewState: ViewState;
-  originalVideoName: string | null;
-  referenceImageName: string | null;
-  sellingPoints: string;
-  segmentsCount: number;
-  // We store serializable data only (no blob URLs)
-  segments: VideoSegment[];
-  messages: Message[];
-}
-
-const HISTORY_STORAGE_KEY = 'video-replication-history';
 
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   // View state
@@ -129,12 +116,80 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   // Canvas state
   const [canvasItems, setCanvasItems] = useState<CanvasItem[]>([]);
   const [selectedCanvasItem, setSelectedCanvasItem] = useState<string | null>(null);
+  const [selectedCanvasItemIds, setSelectedCanvasItemIds] = useState<string[]>([]);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [replacingItemId, setReplacingItemId] = useState<string | null>(null);
+  const [copiedItem, setCopiedItem] = useState<CanvasItem | null>(null);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  const [deletingItemIds, setDeletingItemIds] = useState<Set<string>>(new Set());
+  const [addingItemIds, setAddingItemIds] = useState<Set<string>>(new Set());
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
   
-  // History state
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [projectHistory, setProjectHistory] = useState<ProjectHistoryItem[]>([]);
+  // 从 sessionStorage 读取跨页面复制的数据
+  useEffect(() => {
+    const checkCopiedItems = () => {
+      try {
+        const stored = sessionStorage.getItem('canvasCopiedItems');
+        if (stored) {
+          const items = JSON.parse(stored);
+          if (Array.isArray(items) && items.length > 0) {
+            if (items.length === 1) {
+              const item = items[0];
+              setCopiedItem({
+                id: item.id,
+                url: item.url,
+                type: item.type,
+                name: item.name || '',
+                x: 0,
+                y: 0,
+                width: item.width || 320,
+                height: item.height || 180,
+                prompt: item.prompt,
+              });
+            } else {
+              // 多个项目时，只取第一个作为 copiedItem
+              const item = items[0];
+              setCopiedItem({
+                id: item.id,
+                url: item.url,
+                type: item.type,
+                name: item.name || '',
+                x: 0,
+                y: 0,
+                width: item.width || 320,
+                height: item.height || 180,
+                prompt: item.prompt,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse copied items:', error);
+      }
+    };
+
+    checkCopiedItems();
+    // 监听 storage 事件，实现跨标签页同步
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'canvasCopiedItems') {
+        checkCopiedItems();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    // 也监听同页面内的变化（通过自定义事件）
+    const handleCustomStorageChange = () => {
+      checkCopiedItems();
+    };
+    window.addEventListener('canvasCopiedItemsChanged', handleCustomStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('canvasCopiedItemsChanged', handleCustomStorageChange);
+    };
+  }, []);
+  
+  // Canvas view state (for UniversalCanvas)
+  const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   
   // Panel resize
   const [chatPanelWidth, setChatPanelWidth] = useState(35);
@@ -145,90 +200,6 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   
-  // Load history from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Convert date strings back to Date objects
-        const history = parsed.map((item: any) => ({
-          ...item,
-          createdAt: new Date(item.createdAt),
-          messages: item.messages.map((m: any) => ({
-            ...m,
-            timestamp: new Date(m.timestamp),
-          })),
-        }));
-        setProjectHistory(history);
-      }
-    } catch (error) {
-      console.error('Failed to load history:', error);
-    }
-  }, []);
-
-  // Save history to localStorage
-  const saveHistoryToStorage = useCallback((history: ProjectHistoryItem[]) => {
-    try {
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
-    } catch (error) {
-      console.error('Failed to save history:', error);
-    }
-  }, []);
-
-  // Save current project to history
-  const saveToHistory = useCallback(() => {
-    if (!originalVideo && segments.length === 0) {
-      toast.error('当前项目为空，无法保存');
-      return;
-    }
-
-    const historyItem: ProjectHistoryItem = {
-      id: crypto.randomUUID(),
-      name: originalVideo?.name || `项目 ${new Date().toLocaleString('zh-CN')}`,
-      createdAt: new Date(),
-      viewState,
-      originalVideoName: originalVideo?.name || null,
-      referenceImageName: referenceImage?.name || null,
-      sellingPoints,
-      segmentsCount: segments.length,
-      segments,
-      messages,
-    };
-
-    const newHistory = [historyItem, ...projectHistory].slice(0, 20); // Keep last 20 items
-    setProjectHistory(newHistory);
-    saveHistoryToStorage(newHistory);
-    toast.success('项目已保存到历史记录');
-  }, [originalVideo, referenceImage, sellingPoints, segments, messages, viewState, projectHistory, saveHistoryToStorage]);
-
-  // Restore project from history
-  const restoreFromHistory = useCallback((item: ProjectHistoryItem) => {
-    setViewState(item.viewState === 'upload' ? 'prompts' : item.viewState);
-    setSegments(item.segments);
-    setMessages(item.messages.map(m => ({
-      ...m,
-      timestamp: new Date(m.timestamp),
-    })));
-    setSellingPoints(item.sellingPoints);
-    setSelectedSegments(new Set());
-    setCanvasItems([]);
-    setGeneratedVideo(null);
-    // Note: We can't restore actual video/image files (blob URLs are not persistent)
-    // So we set them to null and inform the user
-    setOriginalVideo(null);
-    setReferenceImage(null);
-    setHistoryOpen(false);
-    toast.success('项目已恢复，请重新上传视频和参考图');
-  }, []);
-
-  // Delete from history
-  const deleteFromHistory = useCallback((id: string) => {
-    const newHistory = projectHistory.filter(item => item.id !== id);
-    setProjectHistory(newHistory);
-    saveHistoryToStorage(newHistory);
-    toast.success('已从历史记录中删除');
-  }, [projectHistory, saveHistoryToStorage]);
   
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -274,9 +245,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         url,
       });
       
-      // Add to canvas
+      // Add to canvas with animation
+      const newItemId = crypto.randomUUID();
+      setAddingItemIds(new Set([newItemId]));
       setCanvasItems(prev => [...prev, {
-        id: crypto.randomUUID(),
+        id: newItemId,
         type: 'video',
         url,
         name: file.name,
@@ -285,6 +258,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         width: 320,
         height: 180,
       }]);
+      setTimeout(() => setAddingItemIds(new Set()), 300);
       
       toast.success('视频上传成功');
     }
@@ -332,9 +306,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         url,
       });
       
-      // Add to canvas
+      // Add to canvas with animation
+      const newItemId = crypto.randomUUID();
+      setAddingItemIds(new Set([newItemId]));
       setCanvasItems(prev => [...prev, {
-        id: crypto.randomUUID(),
+        id: newItemId,
         type: 'image',
         url,
         name: file.name,
@@ -343,6 +319,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         width: 200,
         height: 200,
       }]);
+      setTimeout(() => setAddingItemIds(new Set()), 300);
       
       toast.success('参考图上传成功');
     }
@@ -640,6 +617,164 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const canAnalyze = originalVideo && viewState === 'upload';
   const canGenerateVideo = segments.some(s => s.newPrompt) && !isGenerating;
 
+  // Handle delete canvas items
+  const handleDeleteCanvasItems = useCallback(() => {
+    const idsToDelete = selectedCanvasItemIds.length > 0 ? selectedCanvasItemIds : (selectedCanvasItem ? [selectedCanvasItem] : []);
+    if (idsToDelete.length === 0) return;
+
+    // Add to deleting set for animation
+    setDeletingItemIds(new Set(idsToDelete));
+    
+    // Remove after animation
+    setTimeout(() => {
+      setCanvasItems(prev => {
+        const newItems = prev.filter(item => !idsToDelete.includes(item.id));
+        // Sync with sidebar state
+        idsToDelete.forEach(id => {
+          const item = prev.find(i => i.id === id);
+          if (item && originalVideo && item.url === originalVideo.url) {
+            setOriginalVideo(null);
+          }
+          if (item && referenceImage && item.url === referenceImage.url) {
+            setReferenceImage(null);
+          }
+        });
+        return newItems;
+      });
+      setSelectedCanvasItem(null);
+      setSelectedCanvasItemIds([]);
+      setDeletingItemIds(new Set());
+      toast.success(idsToDelete.length > 1 ? `已删除 ${idsToDelete.length} 个项目` : '已删除');
+    }, 300);
+  }, [selectedCanvasItem, selectedCanvasItemIds, originalVideo, referenceImage]);
+
+  // Handle copy canvas items
+  const handleCopyCanvasItems = useCallback(() => {
+    const itemsToCopy = selectedCanvasItemIds.length > 0 
+      ? canvasItems.filter(item => selectedCanvasItemIds.includes(item.id))
+      : (selectedCanvasItem ? [canvasItems.find(item => item.id === selectedCanvasItem)] : []);
+    
+    if (itemsToCopy.length === 0 || itemsToCopy.some(item => !item)) return;
+
+    const validItems = itemsToCopy.filter((item): item is CanvasItem => item !== undefined);
+    if (validItems.length === 0) return;
+
+    // Store copied items (for single item, store it; for multiple, store the first one as reference)
+    if (validItems.length === 1) {
+      setCopiedItem(validItems[0]);
+    } else {
+      // For multiple items, we'll copy all
+      setCopiedItem(validItems[0]);
+    }
+
+    // 存储到 sessionStorage，供其他页面使用
+    const items = validItems.map(item => ({
+      id: item.id,
+      url: item.url,
+      type: item.type,
+      prompt: item.prompt,
+      width: item.width,
+      height: item.height,
+    }));
+    sessionStorage.setItem('canvasCopiedItems', JSON.stringify(items));
+    // 触发自定义事件，通知同页面内的其他组件
+    window.dispatchEvent(new Event('canvasCopiedItemsChanged'));
+
+    // Copy to clipboard (for single item)
+    if (validItems.length === 1) {
+      navigator.clipboard.writeText(JSON.stringify({
+        type: validItems[0].type,
+        url: validItems[0].url,
+        name: validItems[0].name,
+      })).catch(() => {});
+    }
+
+    toast.success(validItems.length > 1 ? `已复制 ${validItems.length} 个项目` : '已复制');
+  }, [selectedCanvasItem, selectedCanvasItemIds, canvasItems]);
+
+  // Handle paste canvas items
+  const handlePasteCanvasItems = useCallback(() => {
+    if (!copiedItem) return;
+
+    const newItem: CanvasItem = {
+      id: crypto.randomUUID(),
+      type: copiedItem.type,
+      url: copiedItem.url,
+      name: copiedItem.name,
+      x: copiedItem.x + 30,
+      y: copiedItem.y + 30,
+      width: copiedItem.width,
+      height: copiedItem.height,
+      prompt: copiedItem.prompt,
+    };
+
+    // Add to adding set for animation
+    setAddingItemIds(new Set([newItem.id]));
+
+    setCanvasItems(prev => [...prev, newItem]);
+    
+    // Clear adding animation after a delay
+    setTimeout(() => {
+      setAddingItemIds(new Set());
+    }, 300);
+
+    toast.success('已粘贴');
+  }, [copiedItem]);
+
+  // Handle download canvas items
+  const handleDownloadCanvasItems = useCallback(async () => {
+    const itemsToDownload = selectedCanvasItemIds.length > 0
+      ? canvasItems.filter(item => selectedCanvasItemIds.includes(item.id))
+      : (selectedCanvasItem ? [canvasItems.find(item => item.id === selectedCanvasItem)] : []);
+
+    if (itemsToDownload.length === 0 || itemsToDownload.some(item => !item)) return;
+
+    const validItems = itemsToDownload.filter((item): item is CanvasItem => item !== undefined);
+    
+    for (const item of validItems) {
+      try {
+        const response = await fetch(item.url);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = item.name || `${item.type}-${item.id}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Failed to download:', error);
+      }
+    }
+
+    toast.success(validItems.length > 1 ? `已下载 ${validItems.length} 个项目` : '已下载');
+  }, [selectedCanvasItem, selectedCanvasItemIds, canvasItems]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete key
+      if ((e.key === 'Delete' || e.key === 'Backspace') && (selectedCanvasItem || selectedCanvasItemIds.length > 0)) {
+        e.preventDefault();
+        handleDeleteCanvasItems();
+      }
+      // Copy (Ctrl/Cmd + C)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && (selectedCanvasItem || selectedCanvasItemIds.length > 0)) {
+        e.preventDefault();
+        handleCopyCanvasItems();
+      }
+      // Paste (Ctrl/Cmd + V)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedItem) {
+        e.preventDefault();
+        handlePasteCanvasItems();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCanvasItem, selectedCanvasItemIds, copiedItem, handleDeleteCanvasItems, handleCopyCanvasItems, handlePasteCanvasItems]);
+
   return (
     <div className="h-[calc(100vh-72px)] flex bg-background">
       {/* Left Panel - Chat & Controls */}
@@ -653,134 +788,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             <Video className="w-5 h-5 text-primary" />
             <span className="font-medium">复刻视频</span>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => {
-                // Save current before creating new
-                if (originalVideo || segments.length > 0) {
-                  saveToHistory();
-                }
-                // Reset all state for new project
-                setViewState('upload');
-                setOriginalVideo(null);
-                setReferenceImage(null);
-                setSellingPoints('');
-                setSegments([]);
-                setSelectedSegments(new Set());
-                setMessages([]);
-                setCanvasItems([]);
-                setGeneratedVideo(null);
-                toast.success('已创建新项目');
-              }}
-              title="新建项目"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={historyOpen ? "secondary" : "ghost"}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setHistoryOpen(!historyOpen)}
-              title="历史记录"
-            >
-              <History className="w-4 h-4" />
-            </Button>
-          </div>
         </div>
 
-        {/* History View */}
-        {historyOpen && (
-          <div className="flex-1 flex flex-col min-h-0 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium flex items-center gap-2">
-                <History className="w-4 h-4" />
-                历史记录
-              </h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setHistoryOpen(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <ScrollArea className="flex-1">
-              {projectHistory.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>暂无历史记录</p>
-                  <p className="text-sm mt-1">开始复刻视频后会自动保存</p>
-                </div>
-              ) : (
-                <div className="space-y-3 pr-2">
-                  {projectHistory.map((item) => (
-                    <div 
-                      key={item.id} 
-                      className="border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate text-sm" title={item.name}>
-                            {item.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.createdAt.toLocaleString('zh-CN')}
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {item.originalVideoName && (
-                              <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                                <Video className="w-3 h-3" />
-                                视频
-                              </span>
-                            )}
-                            {item.referenceImageName && (
-                              <span className="inline-flex items-center gap-1 text-xs bg-secondary/50 text-secondary-foreground px-2 py-0.5 rounded">
-                                <ImageIcon className="w-3 h-3" />
-                                参考图
-                              </span>
-                            )}
-                            {item.segmentsCount > 0 && (
-                              <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
-                                {item.segmentsCount} 个片段
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => restoreFromHistory(item)}
-                            title="恢复项目"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => deleteFromHistory(item.id)}
-                            title="删除"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </div>
-        )}
-
         {/* Upload Section */}
-        {!historyOpen && viewState === 'upload' && (
+        {viewState === 'upload' && (
           <div className="flex-1 p-4 space-y-4 overflow-y-auto">
             {/* Video Upload */}
             {!originalVideo ? (
@@ -892,7 +903,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         )}
 
         {/* Analyzing Animation */}
-        {!historyOpen && viewState === 'analyzing' && (
+        {viewState === 'analyzing' && (
           <div className="flex-1 flex flex-col items-center justify-center p-8">
             <div className="relative w-24 h-24 mb-6">
               <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
@@ -907,7 +918,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         )}
 
         {/* Prompts List View (after analysis, before chat) */}
-        {!historyOpen && viewState === 'prompts' && (
+        {viewState === 'prompts' && (
           <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4 overflow-y-auto">
             <div className="text-center mb-2">
               <h3 className="font-medium">生成的Prompt列表</h3>
@@ -983,7 +994,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         </Dialog>
 
         {/* Chat View with Timeline */}
-        {!historyOpen && viewState === 'chat' && (
+        {viewState === 'chat' && (
           <div className="flex-1 flex flex-col min-h-0">
 
             {/* Timeline Segments */}
@@ -1106,6 +1117,29 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                     )}
                   >
                     <p className="whitespace-pre-wrap">{message.content}</p>
+                    
+                    {/* Generated Image */}
+                    {message.image && (
+                      <div className="relative mt-2 w-56 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md">
+                        <img
+                          src={message.image}
+                          alt="Generated"
+                          className="aspect-square w-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {/* Generated Video */}
+                    {message.video && (
+                      <div className="relative mt-2 w-56 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md">
+                        <video
+                          src={message.video}
+                          className="aspect-video w-full object-cover"
+                          controls
+                        />
+                      </div>
+                    )}
+                    
                     <p className="text-[10px] opacity-60 mt-1">
                       {message.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -1206,55 +1240,126 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       />
 
       {/* Right Panel - Canvas */}
-      <div className="flex-1 flex flex-col bg-muted/30">
-        <InfiniteCanvas
-          images={canvasItems}
-          onImageMove={(id, x, y) => {
+      <div className="relative flex-1 flex flex-col bg-muted/30">
+        <UniversalCanvas
+          items={canvasItems.map(item => ({
+            id: item.id,
+            url: item.url,
+            x: item.x,
+            y: item.y,
+            width: item.width,
+            height: item.height,
+            prompt: item.prompt,
+            type: item.type,
+          } as CanvasMediaItem))}
+          onItemMove={(id, x, y) => {
             setCanvasItems(prev => prev.map(item => 
               item.id === id ? { ...item, x, y } : item
             ));
           }}
-          onImageSelect={setSelectedCanvasItem}
-          selectedImageId={selectedCanvasItem}
-          onImageDelete={(id) => {
-            const item = canvasItems.find(i => i.id === id);
-            setCanvasItems(prev => prev.filter(item => item.id !== id));
-            setSelectedCanvasItem(null);
-            // Sync with sidebar state
-            if (item && originalVideo && item.url === originalVideo.url) {
-              setOriginalVideo(null);
-            }
-            if (item && referenceImage && item.url === referenceImage.url) {
-              setReferenceImage(null);
-            }
-            toast.success('已删除');
+          onItemResize={(id, width, height) => {
+            setCanvasItems(prev => prev.map(item => 
+              item.id === id ? { ...item, width, height } : item
+            ));
           }}
-          onImageReplace={(id) => {
-            const item = canvasItems.find(i => i.id === id);
-            setReplacingItemId(id);
-            if (item?.type === 'video') {
-              fileInputRef.current?.click();
-            } else {
-              imageInputRef.current?.click();
+          onViewChange={(zoom, pan) => {
+            setCanvasView({ zoom, pan });
+          }}
+          initialZoom={canvasView.zoom}
+          initialPan={canvasView.pan}
+          onItemSelect={setSelectedCanvasItem}
+          onItemMultiSelect={setSelectedCanvasItemIds}
+          selectedItemId={selectedCanvasItem}
+          selectedItemIds={selectedCanvasItemIds}
+          onItemDragStart={() => {}}
+          onItemDoubleClick={(item) => {
+            // 找到当前项目在画布中的索引
+            const index = canvasItems.findIndex(i => i.id === item.id);
+            if (index !== -1) {
+              setViewerIndex(index);
+              setViewerOpen(true);
             }
           }}
-          onImageCopy={(image) => {
-            const newItem: CanvasItem = {
-              id: crypto.randomUUID(),
-              type: (image.type as 'video' | 'image') || 'image',
-              url: image.url,
-              name: image.name || '',
-              x: image.x + 30,
-              y: image.y + 30,
-              width: image.width,
-              height: image.height,
-            };
-            setCanvasItems(prev => [...prev, newItem]);
-            toast.success('已复制');
-          }}
+          highlightedItemId={highlightedItemId}
+          deletingItemIds={Array.from(deletingItemIds)}
+          addingItemIds={Array.from(addingItemIds)}
         />
+
+        {/* Selected Item(s) Floating Toolbar */}
+        {(selectedCanvasItem || selectedCanvasItemIds.length > 0) && (
+          <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm" style={{zIndex:999}}>
+            <span className="max-w-[200px] truncate text-xs text-muted-foreground">
+              {selectedCanvasItemIds.length > 1 
+                ? `已选择 ${selectedCanvasItemIds.length} 个项目`
+                : canvasItems.find(item => item.id === selectedCanvasItem)?.name || ''}
+            </span>
+            <div className="h-4 w-px bg-border" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-full"
+              onClick={handleCopyCanvasItems}
+              title={selectedCanvasItemIds.length > 1 ? '批量复制' : '复制'}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-full"
+              onClick={handleDownloadCanvasItems}
+              title={selectedCanvasItemIds.length > 1 ? '批量下载' : '下载'}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
+              onClick={handleDeleteCanvasItems}
+              title={selectedCanvasItemIds.length > 1 ? '批量删除' : '删除'}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* Paste Button */}
+        {copiedItem && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="absolute left-4 top-4 gap-1.5 shadow-sm z-50"
+            onClick={handlePasteCanvasItems}
+          >
+            <Clipboard className="h-4 w-4" />
+            粘贴项目
+          </Button>
+        )}
+
+        {/* Item Count Badge */}
+        {canvasItems.length > 0 && (
+          <Badge 
+            variant="secondary" 
+            className="absolute right-4 top-4 shadow-sm z-50"
+          >
+            {canvasItems.length} 个项目
+          </Badge>
+        )}
       </div>
 
+      {/* Media Viewer */}
+      <MediaViewer
+        items={canvasItems.map(item => ({
+          id: item.id,
+          url: item.url,
+          type: (item.type === 'video' || item.url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i)) ? 'video' as const : 'image' as const,
+          prompt: item.prompt,
+        }))}
+        initialIndex={viewerIndex}
+        isOpen={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+      />
     </div>
   );
 }

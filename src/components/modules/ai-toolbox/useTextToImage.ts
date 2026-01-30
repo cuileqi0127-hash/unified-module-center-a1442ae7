@@ -43,6 +43,7 @@ export interface ChatMessage {
   type: 'user' | 'system';
   content: string;
   image?: string;
+  video?: string;
   timestamp: Date;
   status?: 'thinking' | 'analyzing' | 'designing' | 'optimizing' | 'complete';
   designThoughts?: string[];
@@ -94,6 +95,7 @@ export function useTextToImage() {
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [copiedImage, setCopiedImage] = useState<CanvasImage | null>(null);
+  const [copiedImages, setCopiedImages] = useState<CanvasImage[]>([]); // 批量复制的图片数组
   const [highlightedImageId, setHighlightedImageId] = useState<string | null>(null);
   const [chatPanelWidth, setChatPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
@@ -141,6 +143,31 @@ export function useTextToImage() {
     });
   }, []);
 
+  // 工具函数：获取视频尺寸
+  const getVideoDimensions = useCallback(async (url: string): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous';
+      video.onloadedmetadata = () => {
+        const maxSize = 400;
+        let displayWidth = video.videoWidth;
+        let displayHeight = video.videoHeight;
+        
+        if (displayWidth > maxSize || displayHeight > maxSize) {
+          const scale = Math.min(maxSize / displayWidth, maxSize / displayHeight);
+          displayWidth = displayWidth * scale;
+          displayHeight = displayHeight * scale;
+        }
+        
+        resolve({ width: displayWidth, height: displayHeight });
+      };
+      video.onerror = () => {
+        resolve({ width: 400, height: 300 });
+      };
+      video.src = url;
+    });
+  }, []);
+
   // 清理消息内容，移除 markdown 图片链接
   const cleanMessageContent = useCallback((content: string): string => {
     if (!content) return content;
@@ -180,17 +207,17 @@ export function useTextToImage() {
             let messageCount = session.messageCount ?? 0;
             
             // 如果后端没有返回 messageCount，则获取详情
-            if (messageCount === 0 && session.messageCount === undefined) {
-              try {
-                const detailResponse = await getSessionDetail(session.id.toString());
-                if (detailResponse.success && detailResponse.data?.messages) {
-                  messageCount = detailResponse.data.messages.length;
-                }
-              } catch (error) {
-                // 如果获取详情失败，消息数量保持为 0
-                console.error(`Failed to get message count for session ${session.id}:`, error);
-              }
-            }
+            // if (messageCount === 0 && session.messageCount === undefined) {
+            //   try {
+            //     const detailResponse = await getSessionDetail(session.id.toString());
+            //     if (detailResponse.success && detailResponse.data?.messages) {
+            //       messageCount = detailResponse.data.messages.length;
+            //     }
+            //   } catch (error) {
+            //     // 如果获取详情失败，消息数量保持为 0
+            //     console.error(`Failed to get message count for session ${session.id}:`, error);
+            //   }
+            // }
             
             return {
               id: session.id.toString(),
@@ -347,7 +374,7 @@ export function useTextToImage() {
                     // 添加尺寸信息
                     if (generation.size) {
                       const model = session.settings?.model || 'gpt-image-1.5';
-                      const isSeedreamModel = model === 'doubao-seedream-4-0-250828';
+                      const isSeedreamModel = model === 'doubao-seedream-4-5-251128';
                       designThoughts.push(
                         isSeedreamModel
                           ? (isZh ? `尺寸：${generation.size}` : `Size: ${generation.size}`)
@@ -595,7 +622,7 @@ export function useTextToImage() {
                     // 添加尺寸信息
                     if (generation.size) {
                       const model = session.settings?.model || 'gpt-image-1.5';
-                      const isSeedreamModel = model === 'doubao-seedream-4-0-250828';
+                      const isSeedreamModel = model === 'doubao-seedream-4-5-251128';
                       designThoughts.push(
                         isSeedreamModel
                           ? (isZh ? `尺寸：${generation.size}` : `Size: ${generation.size}`)
@@ -701,21 +728,240 @@ export function useTextToImage() {
   // 处理复制图片
   const handleCopyImage = useCallback((image: CanvasImage) => {
     setCopiedImage(image);
+    // 存储到 sessionStorage，供其他页面使用
+    sessionStorage.setItem('canvasCopiedItems', JSON.stringify([{
+      id: image.id,
+      url: image.url,
+      type: 'image',
+      prompt: image.prompt,
+      width: image.width,
+      height: image.height,
+    }]));
     toast.success(isZh ? '已复制到剪贴板，可在新画布粘贴' : 'Copied to clipboard, can paste in new canvas');
   }, [isZh]);
 
+  // 判断URL是否为视频
+  const isVideoUrl = useCallback((url: string): boolean => {
+    return /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i.test(url) || url.includes('video');
+  }, []);
+
+  // 从 sessionStorage 读取跨页面复制的数据
+  useEffect(() => {
+    const checkCopiedItems = () => {
+      try {
+        const stored = sessionStorage.getItem('canvasCopiedItems');
+        if (stored) {
+          const items = JSON.parse(stored);
+          if (Array.isArray(items) && items.length > 0) {
+            if (items.length === 1) {
+              const item = items[0];
+              const isVideo = item.type === 'video' || isVideoUrl(item.url);
+              setCopiedImage({
+                id: item.id,
+                url: item.url,
+                type: isVideo ? 'video' : 'image',
+                prompt: item.prompt,
+                x: 0,
+                y: 0,
+                width: item.width || 280,
+                height: item.height || 280,
+              });
+              setCopiedImages([]);
+            } else {
+              setCopiedImages(items.map(item => {
+                const isVideo = item.type === 'video' || isVideoUrl(item.url);
+                return {
+                  id: item.id,
+                  url: item.url,
+                  type: (isVideo ? 'video' : 'image') as 'image' | 'video',
+                  prompt: item.prompt,
+                  x: 0,
+                  y: 0,
+                  width: item.width || 280,
+                  height: item.height || 280,
+                };
+              }));
+              setCopiedImage(null);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse copied items:', error);
+      }
+    };
+
+    checkCopiedItems();
+    // 监听 storage 事件，实现跨标签页同步
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'canvasCopiedItems') {
+        checkCopiedItems();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    // 也监听同页面内的变化（通过自定义事件）
+    const handleCustomStorageChange = () => {
+      checkCopiedItems();
+    };
+    window.addEventListener('canvasCopiedItemsChanged', handleCustomStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('canvasCopiedItemsChanged', handleCustomStorageChange);
+    };
+  }, [isVideoUrl]);
+
   // 处理粘贴图片
   const handlePasteImage = useCallback(async () => {
+    // 优先处理批量粘贴
+    if (copiedImages.length > 0) {
+      const newImages: CanvasImage[] = [];
+      const existingRects = canvasImages.map(img => ({
+        x: img.x,
+        y: img.y,
+        width: img.width,
+        height: img.height,
+      }));
+
+      // 批量粘贴多个图片/视频
+      for (let i = 0; i < copiedImages.length; i++) {
+        const copiedImg = copiedImages[i];
+        const isVideo = copiedImg.type === 'video' || isVideoUrl(copiedImg.url);
+        // 根据类型获取尺寸
+        const dimensions = isVideo 
+          ? await getVideoDimensions(copiedImg.url)
+          : await getImageDimensions(copiedImg.url);
+        const position = findNonOverlappingPosition(
+          { width: dimensions.width, height: dimensions.height },
+          [...existingRects, ...newImages.map(img => ({
+            x: img.x,
+            y: img.y,
+            width: img.width,
+            height: img.height,
+          }))]
+        );
+        
+        const newImage: CanvasImage = {
+          ...copiedImg,
+          id: isVideo ? `video-${Date.now()}-${i}` : `img-${Date.now()}-${i}`,
+          x: position.x,
+          y: position.y,
+          width: dimensions.width,
+          height: dimensions.height,
+          type: isVideo ? 'video' : 'image',
+        };
+        newImages.push(newImage);
+        existingRects.push({
+          x: position.x,
+          y: position.y,
+          width: dimensions.width,
+          height: dimensions.height,
+        });
+      }
+
+      // 添加到画布
+      const newIds = newImages.map(img => img.id);
+      setAddingImageIds(new Set(newIds));
+      setCanvasImages(prev => [...prev, ...newImages]);
+      setSelectedImageId(newImages[0]?.id || null);
+      setSelectedImageIds(newIds);
+      setCopiedImages([]);
+
+      // 动画完成后清除新增状态
+      setTimeout(() => {
+        setAddingImageIds(new Set());
+      }, 300);
+
+      // 批量保存生成结果到数据库
+      if (currentSessionId && newImages.length > 0) {
+        try {
+          const savePromises = newImages.map(async (newImage, index) => {
+            const isVideo = newImage.type === 'video' || isVideoUrl(newImage.url);
+            const dimensions = isVideo 
+              ? await getVideoDimensions(newImage.url)
+              : await getImageDimensions(newImage.url);
+            return saveGenerationResult(currentSessionId, {
+              generation: {
+                model: model,
+                size: aspectRatio,
+                prompt: newImage.prompt || (isZh ? (isVideo ? `复制粘贴的视频 ${index + 1}` : `复制粘贴的图片 ${index + 1}`) : (isVideo ? `Pasted video ${index + 1}` : `Pasted image ${index + 1}`)),
+                status: 'success',
+              },
+              asset: {
+                type: isVideo ? 'video' : 'image',
+                sourceUrl: newImage.url,
+                seq: index + 1,
+                width: dimensions.width,
+                height: dimensions.height,
+              },
+              message: {
+                type: 'system',
+                content: isZh ? '生成完成' : 'Generation complete',
+                status: 'complete',
+                resultSummary: isZh 
+                  ? `已粘贴图片到画布`
+                  : `Image pasted to canvas`,
+              },
+              canvasItem: {
+                x: newImage.x,
+                y: newImage.y,
+                width: dimensions.width,
+                height: dimensions.height,
+                rotate: 0,
+                visible: true,
+                zindex: canvasImages.length + index,
+              },
+            });
+          });
+
+          const saveResponses = await Promise.all(savePromises);
+          saveResponses.forEach((saveResponse, index) => {
+            if (saveResponse.success && saveResponse.data) {
+              canvasItemIdMap.current.set(newImages[index].id, saveResponse.data.canvasItemId);
+            }
+          });
+
+          // 刷新历史记录
+          await loadSessions(1, false);
+        } catch (error) {
+          console.error('Failed to save pasted images:', error);
+        }
+      }
+
+      const videoCount = newImages.filter(img => img.type === 'video' || isVideoUrl(img.url)).length;
+      const imageCount = newImages.length - videoCount;
+      if (videoCount > 0 && imageCount > 0) {
+        toast.success(isZh ? `已粘贴 ${imageCount} 张图片和 ${videoCount} 个视频到画布` : `${imageCount} images and ${videoCount} videos pasted to canvas`);
+      } else if (videoCount > 0) {
+        toast.success(isZh ? `已粘贴 ${videoCount} 个视频到画布` : `${videoCount} videos pasted to canvas`);
+      } else {
+        toast.success(isZh ? `已粘贴 ${imageCount} 张图片到画布` : `${imageCount} images pasted to canvas`);
+      }
+      return;
+    }
+
+    // 单个粘贴（向后兼容）
     if (copiedImage) {
-      const dimensions = await getImageDimensions(copiedImage.url);
+      const isVideo = copiedImage.type === 'video' || isVideoUrl(copiedImage.url);
+      // 根据类型获取尺寸
+      const dimensions = isVideo 
+        ? await getVideoDimensions(copiedImage.url)
+        : await getImageDimensions(copiedImage.url);
+      const position = findNonOverlappingPosition(
+        { width: dimensions.width, height: dimensions.height },
+        canvasImages.map(img => ({
+          x: img.x,
+          y: img.y,
+          width: img.width,
+          height: img.height,
+        }))
+      );
       const newImage: CanvasImage = {
         ...copiedImage,
-        id: `img-${Date.now()}`,
-        x: 100 + Math.random() * 100,
-        y: 100 + Math.random() * 100,
+        id: isVideo ? `video-${Date.now()}` : `img-${Date.now()}`,
+        x: position.x,
+        y: position.y,
         width: dimensions.width,
         height: dimensions.height,
-        type: 'image',
+        type: isVideo ? 'video' : 'image',
       };
       
       // 先标记为新增中，触发动画
@@ -733,9 +979,57 @@ export function useTextToImage() {
         });
       }, 300);
       
+      // 保存生成结果到数据库
+      if (currentSessionId) {
+        try {
+          const isVideo = newImage.type === 'video' || isVideoUrl(newImage.url);
+          const saveResponse = await saveGenerationResult(currentSessionId, {
+            generation: {
+              model: model,
+              size: aspectRatio,
+              prompt: copiedImage.prompt || (isZh ? (isVideo ? '复制粘贴的视频' : '复制粘贴的图片') : (isVideo ? 'Pasted video' : 'Pasted image')),
+              status: 'success',
+            },
+            asset: {
+              type: isVideo ? 'video' : 'image',
+              sourceUrl: copiedImage.url,
+              seq: 1,
+              width: dimensions.width,
+              height: dimensions.height,
+            },
+            message: {
+              type: 'system',
+              content: isZh ? '生成完成' : 'Generation complete',
+              status: 'complete',
+              resultSummary: isZh 
+                ? (isVideo ? `已粘贴视频到画布` : `已粘贴图片到画布`)
+                : (isVideo ? `Video pasted to canvas` : `Image pasted to canvas`),
+            },
+            canvasItem: {
+              x: position.x,
+              y: position.y,
+              width: dimensions.width,
+              height: dimensions.height,
+              rotate: 0,
+              visible: true,
+              zindex: canvasImages.length,
+            },
+          });
+
+          if (saveResponse.success && saveResponse.data) {
+            // 保存画布元素ID映射
+            canvasItemIdMap.current.set(newImage.id, saveResponse.data.canvasItemId);
+            // 刷新历史记录
+            await loadSessions(1, false);
+          }
+        } catch (error) {
+          console.error('Failed to save pasted image:', error);
+        }
+      }
+      
       toast.success(isZh ? '已粘贴图片到画布' : 'Image pasted to canvas');
     }
-  }, [copiedImage, isZh, getImageDimensions]);
+  }, [copiedImage, copiedImages, isZh, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, loadSessions]);
 
   // 处理上传图片到画布
   const handleUploadImage = useCallback(async (file: File) => {
@@ -901,13 +1195,13 @@ export function useTextToImage() {
                 image: imageUrl,
                 designThoughts: [
                   isZh ? `图片理解：${revisedPrompt}` : `Image Understanding: ${revisedPrompt}`,
-                  model === 'doubao-seedream-4-0-250828'
+                  model === 'doubao-seedream-4-5-251128'
                     ? (isZh ? `尺寸：${aspectRatio}` : `Size: ${aspectRatio}`)
                     : (isZh ? `画面比例：${aspectRatio}` : `Aspect Ratio: ${aspectRatio}`),
                 ],
                 resultSummary: isZh 
-                  ? `已完成图片生成，${model === 'doubao-seedream-4-0-250828' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
-                  : `Image generation complete, output ${model === 'doubao-seedream-4-0-250828' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
+                  ? `已完成图片生成，${model === 'doubao-seedream-4-5-251128' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
+                  : `Image generation complete, output ${model === 'doubao-seedream-4-5-251128' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
               }
             : msg
         )
@@ -972,8 +1266,8 @@ export function useTextToImage() {
               content: isZh ? '生成完成' : 'Generation complete',
               status: 'complete',
               resultSummary: isZh 
-                ? `已完成图片生成，${model === 'doubao-seedream-4-0-250828' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
-                : `Image generation complete, output ${model === 'doubao-seedream-4-0-250828' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
+                ? `已完成图片生成，${model === 'doubao-seedream-4-5-251128' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
+                : `Image generation complete, output ${model === 'doubao-seedream-4-5-251128' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
             },
             canvasItem: {
               x: position.x,
@@ -1041,13 +1335,17 @@ export function useTextToImage() {
   }, [handleGenerate]);
 
   // 处理图片双击
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+
   const handleImageDoubleClick = useCallback((image: CanvasImage) => {
-    handleAddSelectedImage({
-      id: image.id,
-      url: image.url,
-      prompt: image.prompt,
-    });
-  }, [handleAddSelectedImage]);
+    // 找到当前图片在画布中的索引
+    const index = canvasImages.findIndex(img => img.id === image.id);
+    if (index !== -1) {
+      setViewerIndex(index);
+      setViewerOpen(true);
+    }
+  }, [canvasImages]);
 
   // 处理删除图片
   const handleDeleteImage = useCallback(async () => {
@@ -1154,6 +1452,16 @@ export function useTextToImage() {
     
     const imagesToCopy = canvasImages.filter(img => selectedImageIds.includes(img.id));
     if (imagesToCopy.length === 0) return;
+    
+    if (imagesToCopy.length === 1) {
+      // 单个复制，保持向后兼容
+      setCopiedImage(imagesToCopy[0]);
+      setCopiedImages([]);
+    } else {
+      // 批量复制
+      setCopiedImages(imagesToCopy);
+      setCopiedImage(null);
+    }
     
     try {
       const imageUrls = imagesToCopy.map(img => img.url);
@@ -1298,6 +1606,7 @@ export function useTextToImage() {
     selectedImages,
     isDragOver,
     copiedImage,
+    copiedImages,
     highlightedImageId,
     chatPanelWidth,
     isResizing,
@@ -1345,5 +1654,10 @@ export function useTextToImage() {
     // Utils
     cleanMessageContent,
     isZh,
+    
+    // Viewer
+    viewerOpen,
+    setViewerOpen,
+    viewerIndex,
   };
 }

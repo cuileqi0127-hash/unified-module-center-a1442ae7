@@ -30,6 +30,8 @@ import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToVideo, type CanvasVideo } from './useTextToVideo';
 import { AnimatedText } from './AnimatedText';
+import { MediaViewer } from './MediaViewer';
+import { GenerationChatPanel } from './GenerationChatPanel';
 
 interface TextToVideoProps {
   onNavigate?: (itemId: string) => void;
@@ -66,6 +68,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     selectedImages,
     isDragOver,
     copiedVideo,
+    copiedVideos,
     highlightedVideoId,
     chatPanelWidth,
     isResizing,
@@ -108,6 +111,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     // Utils
     cleanMessageContent,
     isZh,
+    // Viewer
+    viewerOpen,
+    setViewerOpen,
+    viewerIndex,
   } = useTextToVideo();
 
   // 视图层辅助函数
@@ -272,106 +279,25 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-5">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        'flex flex-col gap-2',
-                        message.type === 'user' ? 'items-start' : 'items-start'
-                      )}
-                    >
-                      {message.type === 'user' ? (
-                        <div className="flex items-start gap-2">
-                          <span className="mt-0.5 text-lg">•</span>
-                          <p className="text-sm leading-relaxed text-foreground">{cleanMessageContent(message.content)}</p>
-                        </div>
-                      ) : (
-                        <div className="w-full space-y-3">
-                          {/* Design Thoughts */}
-                          {message.designThoughts && message.designThoughts.length > 0 && (
-                            <div className="space-y-2">
-                              {message.designThoughts.map((thought, idx) => {
-                                const cleanedThought = cleanMessageContent(thought);
-                                if (!cleanedThought) return null;
-                                return (
-                                <div key={idx} className="flex items-start gap-2">
-                                  <span className="mt-0.5 text-primary">•</span>
-                                  <p className="text-sm leading-relaxed text-muted-foreground">
-                                    <span className="font-medium text-foreground">
-                                        {cleanedThought.split('：')[0]}：
-                                    </span>
-                                      {cleanedThought.split('：').slice(1).join('：')}
-                                  </p>
-                                </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                          
-                          {/* Status indicator when still processing */}
-                          {message.status && message.status !== 'completed' && (
-                            <div className="flex items-center gap-2 py-1">
-                              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                              <span className="text-sm text-muted-foreground">
-                                <AnimatedText 
-                                  text={getStatusText(message.status)}
-                                  isAnimating={message.status === 'processing' || message.status === 'queued'}
-                                />
-                                {message.progress !== undefined && ` (${message.progress}%)`}
-                              </span>
-                            </div>
-                          )}
-                          
-                          {/* Generated Video */}
-                          {message.video && message.status === 'completed' && (
-                            <div className="relative mt-2">
-                              <div 
-                                className="relative w-56 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md"
-                                onClick={() => {
-                                  const video = canvasVideos.find(v => v.url === message.video);
-                                  if (video) setSelectedVideoId(video.id);
-                                }}
-                              >
-                                <video
-                                  src={message.video}
-                                  className="aspect-video w-full object-cover"
-                                  controls
-                                />
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
-                                >
-                                  <MessageSquare className="h-3 w-3" />
-                                  {isZh ? '反馈' : 'Feedback'}
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Result Summary */}
-                          {message.resultSummary && message.status === 'completed' && (
-                            <p className="text-sm leading-relaxed text-muted-foreground">
-                              {cleanMessageContent(message.resultSummary)}
-                            </p>
-                          )}
-                          
-                          {/* Task Complete indicator */}
-                          {message.status === 'completed' && (
-                            <div className="flex items-center gap-1.5 pt-1">
-                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">
-                                {getStatusText('completed')}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
+                <GenerationChatPanel
+                  messages={messages}
+                  isZh={isZh}
+                  onImageClick={(url) => {
+                    const video = canvasVideos.find(v => v.url === url);
+                    if (video) setSelectedVideoId(video.id);
+                  }}
+                  onVideoClick={(url) => {
+                    const video = canvasVideos.find(v => v.url === url);
+                    if (video) setSelectedVideoId(video.id);
+                  }}
+                  findCanvasItem={(url) => {
+                    const video = canvasVideos.find(v => v.url === url);
+                    return video ? { id: video.id } : undefined;
+                  }}
+                  cleanMessageContent={cleanMessageContent}
+                  getStatusText={getStatusText}
+                  chatEndRef={chatEndRef}
+                />
               )}
             </div>
           )}
@@ -638,16 +564,6 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
             {isZh ? '展开' : 'Expand'}
           </Button>
         )}
-        
-        {/* Workspace Header */}
-        <div className="pointer-events-none absolute left-10 top-10 z-10">
-          <h1 className="text-2xl font-bold text-foreground/90">
-            {isZh ? '文生视频' : 'Text to Video'}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isZh ? '通过文字描述创建精美视频' : 'Create stunning videos from text descriptions'}
-          </p>
-        </div>
 
         <UniversalCanvas
           items={[
@@ -671,7 +587,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
 
         {/* Selected Video(s) Floating Toolbar */}
         {(selectedVideo || selectedVideoIds.length > 0) && (
-          <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm animate-fade-in">
+          <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm" style={{zIndex:999}}>
             <span className="max-w-[200px] truncate text-xs text-muted-foreground">
               {selectedVideoIds.length > 1 
                 ? isZh ? `已选择 ${selectedVideoIds.length} 个视频` : `${selectedVideoIds.length} videos selected`
@@ -709,7 +625,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
         )}
 
         {/* Paste Button */}
-        {copiedVideo && (
+        {(copiedVideo || copiedVideos.length > 0) && (
           <Button
             variant="secondary"
             size="sm"
@@ -717,7 +633,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
             onClick={handlePasteVideo}
           >
             <Clipboard className="h-4 w-4" />
-            {isZh ? '粘贴视频' : 'Paste Video'}
+            {isZh 
+              ? (copiedVideos.length > 0 ? `粘贴 ${copiedVideos.length} 个项目` : '粘贴视频')
+              : (copiedVideos.length > 0 ? `Paste ${copiedVideos.length} items` : 'Paste Video')
+            }
           </Button>
         )}
 
@@ -729,6 +648,21 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           {canvasVideos.length} {isZh ? '个视频' : 'videos'}
         </Badge>
       </div>
+
+      {/* Media Viewer */}
+      <MediaViewer
+        items={canvasVideos
+          .filter(v => v.type !== 'placeholder' && v.url) // 只包含非占位符且有URL的项目
+          .map(v => ({
+            id: v.id,
+            url: v.url,
+            type: (v.type === 'video' || v.url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i)) ? 'video' as const : 'image' as const,
+            prompt: v.prompt,
+          }))}
+        initialIndex={viewerIndex}
+        isOpen={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+      />
     </div>
   );
 }

@@ -112,6 +112,22 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-4px)" },
         },
+        "media-viewer-fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "media-viewer-fade-out": {
+          from: { opacity: "1" },
+          to: { opacity: "0" },
+        },
+        "media-viewer-scale-in": {
+          from: { opacity: "0", transform: "scale(0.9)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        "media-viewer-scale-out": {
+          from: { opacity: "1", transform: "scale(1)" },
+          to: { opacity: "0", transform: "scale(0.95)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -122,6 +138,10 @@ export default {
         "pulse-slow": "pulse-slow 2s ease-in-out infinite",
         "wave": "wave 3s ease-in-out infinite",
         "bounce": "bounce 0.6s ease-in-out infinite",
+        "media-viewer-fade-in": "media-viewer-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "media-viewer-fade-out": "media-viewer-fade-out 0.3s cubic-bezier(0.4, 0, 1, 1)",
+        "media-viewer-scale-in": "media-viewer-scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "media-viewer-scale-out": "media-viewer-scale-out 0.3s cubic-bezier(0.4, 0, 1, 1)",
       },
     },
   },

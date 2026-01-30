@@ -10,7 +10,7 @@ const API_BASE_URL = '/api/tu-zi/v1';
 const API_KEY = 'sk-5ZmMmOyDZ8uyPjCHe8yFlrhwQwYUpGb8M0wrTOdonYe8GpMr';
 
 // 支持的模型类型
-export type ImageModel = 'gpt-image-1.5' | 'gemini-3-pro-image-preview-2k' | 'doubao-seedream-4-0-250828';
+export type ImageModel = 'gpt-image-1.5' | 'gemini-3-pro-image-preview-2k' | 'doubao-seedream-4-5-251128';
 
 // 支持的图片尺寸（标准比例）
 export type ImageSize = '1:1' | '16:9' | '9:16' | '4:3' | '2:3' | '3:2';
@@ -34,7 +34,7 @@ export interface ImageGenerationRequest {
   response_format?: 'url' | 'b64_json'; // 响应格式，默认 url
 }
 
-// GPT 模型响应接口
+// GPT-Image 模型响应接口
 export interface GPTImageResponse {
   data: Array<{
     url: string;
@@ -78,7 +78,7 @@ export interface ApiError {
  */
 export function mapSizeToApiFormat(model: ImageModel, size: AllImageSize): string {
   // 即梦模型使用原始值（1K, 2K, 4K）
-  if (model === 'doubao-seedream-4-0-250828') {
+  if (model === 'doubao-seedream-4-5-251128') {
     return size as string; // 直接返回 1K, 2K, 4K
   }
   
