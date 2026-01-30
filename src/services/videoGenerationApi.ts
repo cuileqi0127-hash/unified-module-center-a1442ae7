@@ -18,23 +18,24 @@ const AIGC_CREATE_URL = `${AIGC_BASE_URL}/aigc/create`;
 const AIGC_TASK_URL = `${AIGC_BASE_URL}/aigc/task`;
 
 // 支持的模型类型
-export type VideoModel = 'sora-2';
+export type VideoModel = 'OS' | 'Kling';
 
 // 支持的视频时长
-export type VideoSeconds = '4' | '8' | '12';
+export type VideoSeconds = '4' | '5' | '8' | '10' | '12';
 
-// 支持的视频尺寸（16:9 对应 1280x720，9:16 对应 720x1280）
-export type VideoSize = '16:9' | '9:16';
+// 支持的视频尺寸（16:9 对应 1280x720，9:16 对应 720x1280，1:1 对应 1024x1024）
+export type VideoSize = '16:9' | '9:16' | '1:1';
 
 /**
  * 将尺寸比例转换为 API 需要的像素格式
- * @param size 尺寸比例 '16:9' 或 '9:16'
- * @returns 像素格式 '1280x720' 或 '720x1280'
+ * @param size 尺寸比例 '16:9'、'9:16' 或 '1:1'
+ * @returns 像素格式 '1280x720'、'720x1280' 或 '1024x1024'
  */
 export function mapSizeToApiFormat(size: VideoSize): string {
   const sizeMap: Record<VideoSize, string> = {
-    '16:9': '1280x720', // 720p
-    '9:16': '720x1280', // 竖屏 720p
+    '16:9': '1280x720', // 720p 横屏
+    '9:16': '720x1280', // 720p 竖屏
+    '1:1': '1024x1024', // 正方形
   };
   return sizeMap[size] || '1280x720';
 }
@@ -161,10 +162,9 @@ export async function createVideoTask(request: VideoGenerationRequest): Promise<
     requestBody.file_id = request.fileId;
   }
 
-  // if (request.size) {
-  //   // 将比例格式转换为像素格式（16:9 -> 1280x720, 9:16 -> 720x1280）
-  //   requestBody.size = mapSizeToApiFormat(request.size);
-  // }
+  if (request.size) {
+    requestBody.aspect_ratio = mapSizeToApiFormat(request.size);
+  }
 
   // if (request.watermark !== undefined) {
   //   requestBody.watermark = request.watermark;

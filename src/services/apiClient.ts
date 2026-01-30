@@ -9,7 +9,7 @@
  * - Token 过期处理
  */
 
-import { authenticatedFetch, getAuthHeaders, handleApiResponse } from './apiInterceptor';
+import { authenticatedFetch, getAuthHeaders, handleApiResponse, handle401Error } from './apiInterceptor';
 
 // 根据环境变量判断使用代理还是直接访问
 // 生产环境也使用相对路径，通过 Nginx 代理转发
@@ -78,6 +78,8 @@ export async function apiGet<T = any>(
     const isCode401 = (typeof code === 'number' && code === 401) || 
                      (typeof code === 'string' && code === '401');
     if (isCode401) {
+      // 处理 401 错误：清除用户状态并显示登录弹窗
+      handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
     return data;
@@ -151,6 +153,8 @@ export async function apiPost<T = any>(
     const isCode401 = (typeof code === 'number' && code === 401) || 
                      (typeof code === 'string' && code === '401');
     if (isCode401) {
+      // 处理 401 错误：清除用户状态并显示登录弹窗
+      handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
     return data;
@@ -217,6 +221,8 @@ export async function apiPatch<T = any>(
     const isCode401 = (typeof code === 'number' && code === 401) || 
                      (typeof code === 'string' && code === '401');
     if (isCode401) {
+      // 处理 401 错误：清除用户状态并显示登录弹窗
+      handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
     return data;
@@ -287,6 +293,8 @@ export async function apiDelete<T = any>(
     const isCode401 = (typeof code === 'number' && code === 401) || 
                      (typeof code === 'string' && code === '401');
     if (isCode401) {
+      // 处理 401 错误：清除用户状态并显示登录弹窗
+      handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
     return data;
@@ -353,6 +361,8 @@ export async function apiPut<T = any>(
     const isCode401 = (typeof code === 'number' && code === 401) || 
                      (typeof code === 'string' && code === '401');
     if (isCode401) {
+      // 处理 401 错误：清除用户状态并显示登录弹窗
+      handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
     return data;

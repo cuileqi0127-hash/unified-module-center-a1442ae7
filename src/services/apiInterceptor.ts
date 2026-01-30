@@ -48,8 +48,9 @@ export function getAuthHeaders(): HeadersInit {
  */
 /**
  * 处理 401 错误：清除用户状态并显示登录弹窗
+ * 导出为公共函数，供其他模块使用
  */
-function handle401Error() {
+export function handle401Error() {
   // 清除缓存的 token
   clearOAuthCache();
   

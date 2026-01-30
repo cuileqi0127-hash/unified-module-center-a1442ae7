@@ -7,10 +7,9 @@
 
 import { handleApiResponse } from './apiInterceptor';
 
-// 根据环境判断使用代理还是直接访问
-const API_URL = import.meta.env.DEV 
-  ? "/api/process/upload"  // 开发环境使用代理
-  : "http://183.87.33.181:8001/api/process/upload";  // 生产环境直接访问
+// 使用相对路径，通过 Nginx 代理转发
+// 开发环境使用 Vite 代理，生产环境使用 Nginx 代理
+const API_URL = "/api/process/upload";
 const API_KEY = "F92sG7kP1rX5b1";
 
 /**
