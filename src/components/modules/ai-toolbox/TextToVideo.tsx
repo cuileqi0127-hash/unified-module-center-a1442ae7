@@ -245,7 +245,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                         {session.title}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {session.timestamp.toLocaleDateString(isZh ? 'zh-CN' : 'en-US')} · {session.messageCount} {isZh ? '条消息' : 'messages'}
+                        {session.timestamp.toLocaleDateString(isZh ? 'zh-CN' : 'en-US')} · {session.assetCount} {isZh ? '条消息' : 'messages'}
                       </p>
                     </button>
                   ))}

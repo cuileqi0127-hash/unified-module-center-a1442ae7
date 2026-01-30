@@ -95,7 +95,7 @@ export interface Session {
   taskType: TaskType;
   settings: SessionSettings;
   canvasView: CanvasView;
-  messageCount?: number; // 消息数量（如果后端返回）
+  assetCount?: number; // 消息数量（如果后端返回）
 }
 
 // 会话详情（包含关联数据）

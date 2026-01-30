@@ -399,7 +399,7 @@ type VideoModel =
       {
         "id": "session-001",
         "title": "视频生成示例",
-        "messageCount": 2,
+        "assetCount": 2,
         "videoCount": 1,
         "updatedAt": "2024-01-15T10:30:00.000Z"
       }

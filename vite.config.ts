@@ -46,6 +46,12 @@ export default defineConfig(({ mode }) => ({
         secure: false,
         rewrite: (path) => path.replace(/^\/api\/video-to-prompt/, ''),
       },
+      // 文件代理（用于下载跨域文件）
+      "/api/proxy": {
+        target: 'http://94.74.101.163:28080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/proxy/, '/api/proxy'),
+      },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

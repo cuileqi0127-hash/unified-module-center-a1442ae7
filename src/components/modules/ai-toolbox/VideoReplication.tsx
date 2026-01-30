@@ -213,7 +213,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   
   // Panel resize
-  const [chatPanelWidth, setChatPanelWidth] = useState(35);
+  const [chatPanelWidth, setChatPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
   
   // Refs
@@ -807,24 +807,105 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
 
     const validItems = itemsToDownload.filter((item): item is CanvasItem => item !== undefined);
     
-    for (const item of validItems) {
-      try {
-        const response = await fetch(item.url);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+    try {
+      // 如果只有一个文件，直接下载
+      if (validItems.length === 1) {
+        const item = validItems[0];
         const a = document.createElement('a');
-        a.href = url;
+        a.href = item.url;
         a.download = item.name || `${item.type}-${item.id}`;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error('Failed to download:', error);
+        toast.success('已开始下载');
+        return;
       }
+      
+      // 多个文件，打包成 zip 下载
+      // @ts-ignore - JSZip 类型定义
+      let JSZip: any;
+      try {
+        // @ts-ignore - JSZip 动态导入
+        JSZip = (await import('jszip')).default;
+      } catch (err) {
+        // 如果 jszip 未安装，提示用户并逐个下载
+        toast.error('请先安装 jszip: npm install jszip，将逐个下载文件');
+        // 逐个下载
+        for (const item of validItems) {
+          const a = document.createElement('a');
+          a.href = item.url;
+          a.download = item.name || `${item.type}-${item.id}`;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        return;
+      }
+      
+      const zip = new JSZip();
+      
+      // 显示加载提示
+      const loadingToast = toast.loading(`正在打包 ${validItems.length} 个项目...`);
+      
+      // 获取文件并添加到 zip
+      let successCount = 0;
+      for (let i = 0; i < validItems.length; i++) {
+        const item = validItems[i];
+        try {
+          // 使用 XMLHttpRequest 获取文件（可以处理 CORS）
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', item.url, true);
+            xhr.responseType = 'blob';
+            xhr.onload = () => {
+              if (xhr.status === 200) {
+                resolve(xhr.response);
+              } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.ontimeout = () => reject(new Error('Request timeout'));
+            xhr.timeout = 30000; // 30秒超时
+            xhr.send();
+          });
+          const extension = item.type === 'video' ? 'mp4' : 'png';
+          zip.file(`${item.name || `${item.type}-${item.id}`}.${extension}`, blob);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to fetch item ${item.id}:`, err);
+          // 继续处理其他文件
+        }
+      }
+      
+      if (successCount === 0) {
+        toast.dismiss(loadingToast);
+        toast.error('所有文件下载失败，请检查网络连接');
+        return;
+      }
+      
+      // 生成 zip 文件
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = zipUrl;
+      a.download = `canvas-items-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(zipUrl);
+      
+      toast.dismiss(loadingToast);
+      toast.success(`已下载 ${successCount}/${validItems.length} 个项目（压缩包）`);
+    } catch (err) {
+      console.error('Download failed:', err);
+      toast.error(`下载失败: ${err instanceof Error ? err.message : '未知错误'}`);
     }
-
-    toast.success(validItems.length > 1 ? `已下载 ${validItems.length} 个项目` : '已下载');
   }, [selectedCanvasItem, selectedCanvasItemIds, canvasItems]);
 
   // Handle keyboard shortcuts

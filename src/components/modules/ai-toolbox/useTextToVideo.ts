@@ -174,7 +174,7 @@ export function useTextToVideo() {
   
   // 会话管理状态
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
-  const [historySessions, setHistorySessions] = useState<Array<{ id: string; title: string; timestamp: Date; messageCount: number }>>([]);
+  const [historySessions, setHistorySessions] = useState<Array<{ id: string; title: string; timestamp: Date; assetCount: number }>>([]);
   const [historyPage, setHistoryPage] = useState(1); // 当前页码
   const [hasMoreHistory, setHasMoreHistory] = useState(true); // 是否还有更多历史记录
   const [isLoadingHistory, setIsLoadingHistory] = useState(false); // 是否正在加载历史记录
@@ -287,29 +287,16 @@ export function useTextToVideo() {
         const total = response.data.total || 0;
         
         // 为每个会话获取消息数量
-        // 优化：如果后端已经返回 messageCount，直接使用；否则获取详情
+        // 优化：如果后端已经返回 assetCount，直接使用；否则获取详情
         const sessionsWithMessageCount = await Promise.all(
           sessions.map(async (session: Session) => {
-            let messageCount = session.messageCount ?? 0;
-            
-            // 如果后端没有返回 messageCount，则获取详情
-            // if (messageCount === 0 && session.messageCount === undefined) {
-            //   try {
-            //     const detailResponse = await getSessionDetail(session.id.toString());
-            //     if (detailResponse.success && detailResponse.data?.messages) {
-            //       messageCount = detailResponse.data.messages.length;
-            //     }
-            //   } catch (error) {
-            //     // 如果获取详情失败，消息数量保持为 0
-            //     console.error(`Failed to get message count for session ${session.id}:`, error);
-            //   }
-            // }
+            let assetCount = session.assetCount ?? 0;
             
             return {
               id: session.id.toString(),
               title: session.title || (isZh ? '未命名会话' : 'Untitled Session'),
               timestamp: new Date(session.createTime || Date.now()),
-              messageCount,
+              assetCount,
             };
           })
         );
@@ -2192,24 +2179,104 @@ export function useTextToVideo() {
     
     if (videosToDownload.length === 0) return;
     
-    for (const video of videosToDownload) {
-      try {
-        const response = await fetch(video.url);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
+    try {
+      // 如果只有一个文件，直接下载
+      if (videosToDownload.length === 1) {
+        const video = videosToDownload[0];
         const a = document.createElement('a');
-        a.href = url;
+        a.href = video.url;
         a.download = `video-${video.id}.mp4`;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error('Download failed:', err);
+        toast.success(isZh ? '已开始下载视频' : 'Started downloading video');
+        return;
       }
+      
+      // 多个文件，打包成 zip 下载
+      // @ts-ignore - JSZip 类型定义
+      let JSZip: any;
+      try {
+        // @ts-ignore - JSZip 动态导入
+        JSZip = (await import('jszip')).default;
+      } catch (err) {
+        // 如果 jszip 未安装，提示用户并逐个下载
+        toast.error(isZh ? '请先安装 jszip: npm install jszip，将逐个下载文件' : 'Please install jszip: npm install jszip, will download files one by one');
+        // 逐个下载
+        for (const video of videosToDownload) {
+          const a = document.createElement('a');
+          a.href = video.url;
+          a.download = `video-${video.id}.mp4`;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        return;
+      }
+      
+      const zip = new JSZip();
+      
+      // 显示加载提示
+      const loadingToast = toast.loading(isZh ? `正在打包 ${videosToDownload.length} 个视频...` : `Packing ${videosToDownload.length} videos...`);
+      
+      // 获取文件并添加到 zip
+      let successCount = 0;
+      for (let i = 0; i < videosToDownload.length; i++) {
+        const video = videosToDownload[i];
+        try {
+          // 使用 XMLHttpRequest 获取文件（可以处理 CORS）
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', video.url, true);
+            xhr.responseType = 'blob';
+            xhr.onload = () => {
+              if (xhr.status === 200) {
+                resolve(xhr.response);
+              } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.ontimeout = () => reject(new Error('Request timeout'));
+            xhr.timeout = 30000; // 30秒超时
+            xhr.send();
+          });
+          zip.file(`video-${video.id}.mp4`, blob);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to fetch video ${video.id}:`, err);
+          // 继续处理其他文件
+        }
+      }
+      
+      if (successCount === 0) {
+        toast.dismiss(loadingToast);
+        toast.error(isZh ? '所有文件下载失败，请检查网络连接' : 'All files failed to download, please check network connection');
+        return;
+      }
+      
+      // 生成 zip 文件
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = zipUrl;
+      a.download = `videos-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(zipUrl);
+      
+      toast.dismiss(loadingToast);
+      toast.success(isZh ? `已下载 ${successCount}/${videosToDownload.length} 个视频（压缩包）` : `Downloaded ${successCount}/${videosToDownload.length} videos (zip)`);
+    } catch (err) {
+      console.error('Download failed:', err);
+      toast.error(isZh ? `下载失败: ${err instanceof Error ? err.message : '未知错误'}` : `Download failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-    
-    toast.success(isZh ? `已下载 ${videosToDownload.length} 个视频` : `Downloaded ${videosToDownload.length} videos`);
   }, [selectedVideoIds, selectedVideoId, canvasVideos, isZh]);
 
   // 处理调整聊天栏宽度

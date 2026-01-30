@@ -375,7 +375,7 @@ type ImageModel =
       {
         "id": "session-001",
         "title": "橘猫阳光场景生成",
-        "messageCount": 4,
+        "assetCount": 4,
         "imageCount": 2,
         "updatedAt": "2024-01-15T10:30:00.000Z"
       }
