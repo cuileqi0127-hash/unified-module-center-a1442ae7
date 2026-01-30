@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
 import { MediaViewer } from './MediaViewer';
+import { uploadVideoFile, uploadImageFile } from '@/services/videoReplicationApi';
 
 interface VideoReplicationProps {
   onNavigate?: (itemId: string) => void;
@@ -149,9 +150,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   // 从 sessionStorage 读取跨页面复制的数据
   useEffect(() => {
     const checkCopiedItems = () => {
-      try {
+    try {
         const stored = sessionStorage.getItem('canvasCopiedItems');
-        if (stored) {
+      if (stored) {
           const items = JSON.parse(stored);
           if (Array.isArray(items) && items.length > 0) {
             if (items.length === 1) {
@@ -184,7 +185,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             }
           }
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Failed to parse copied items:', error);
       }
     };
@@ -227,7 +228,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   }, [messages]);
 
   // Handle video upload
-  const handleVideoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -236,6 +237,20 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       return;
     }
     
+    setIsUploading(true);
+    
+    try {
+      // 调用上传接口
+      const res = await uploadVideoFile(file);
+      console.log('Upload response:', res);
+      
+      // 如果返回数据中有 prompt_text，自动填充到商品卖点输入框
+      if (res && res.prompt_text && typeof res.prompt_text === 'string') {
+        setSellingPoints(res.prompt_text);
+        toast.success('视频上传成功，已自动填充商品卖点');
+      }
+      
+      // 创建本地预览 URL
     const url = URL.createObjectURL(file);
     
     // Check if replacing an existing item
@@ -253,7 +268,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           type: 'video',
           name: file.name,
           url,
-          file,
+            file,
         });
       }
       setReplacingItemId(null);
@@ -264,14 +279,14 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         type: 'video',
         name: file.name,
         url,
-        file,
+          file,
       });
       
-      // Add to canvas with animation
-      const newItemId = crypto.randomUUID();
-      setAddingItemIds(new Set([newItemId]));
+        // Add to canvas with animation
+        const newItemId = crypto.randomUUID();
+        setAddingItemIds(new Set([newItemId]));
       setCanvasItems(prev => [...prev, {
-        id: newItemId,
+          id: newItemId,
         type: 'video',
         url,
         name: file.name,
@@ -280,17 +295,24 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         width: 320,
         height: 180,
       }]);
-      setTimeout(() => setAddingItemIds(new Set()), 300);
+        setTimeout(() => setAddingItemIds(new Set()), 300);
       
+        if (!res || !res.prompt_text) {
       toast.success('视频上传成功');
     }
-    
+      }
+    } catch (error) {
+      console.error('Video upload error:', error);
+      toast.error(error instanceof Error ? error.message : '视频上传失败');
+    } finally {
+      setIsUploading(false);
     // Reset input
     e.target.value = '';
+    }
   }, [replacingItemId, canvasItems, originalVideo]);
 
   // Handle reference image upload
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -299,6 +321,14 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       return;
     }
     
+    setIsUploading(true);
+    
+    try {
+      // 调用上传接口
+      const res = await uploadImageFile(file);
+      console.log('Upload response:', res);
+      
+      // 创建本地预览 URL
     const url = URL.createObjectURL(file);
     
     // Check if replacing an existing item
@@ -316,7 +346,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           type: 'image',
           name: file.name,
           url,
-          file,
+            file,
         });
       }
       setReplacingItemId(null);
@@ -327,14 +357,14 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         type: 'image',
         name: file.name,
         url,
-        file,
+          file,
       });
       
-      // Add to canvas with animation
-      const newItemId = crypto.randomUUID();
-      setAddingItemIds(new Set([newItemId]));
+        // Add to canvas with animation
+        const newItemId = crypto.randomUUID();
+        setAddingItemIds(new Set([newItemId]));
       setCanvasItems(prev => [...prev, {
-        id: newItemId,
+          id: newItemId,
         type: 'image',
         url,
         name: file.name,
@@ -343,13 +373,18 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         width: 200,
         height: 200,
       }]);
-      setTimeout(() => setAddingItemIds(new Set()), 300);
+        setTimeout(() => setAddingItemIds(new Set()), 300);
       
       toast.success('参考图上传成功');
     }
-    
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error(error instanceof Error ? error.message : '图片上传失败');
+    } finally {
+      setIsUploading(false);
     // Reset input
     e.target.value = '';
+    }
   }, [replacingItemId, canvasItems, referenceImage]);
 
   // Analyze video and generate segments, then auto-generate new prompts
@@ -360,7 +395,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     }
     
     setViewState('analyzing');
-
+    
     if (!originalVideo.file) {
       toast.error('未获取到视频文件，请重新上传');
       setViewState('upload');
@@ -401,20 +436,20 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       }
 
       const segmentsWithNewPrompts: VideoSegment[] = [
-        {
-          id: '1',
-          startTime: 0,
+      {
+        id: '1',
+        startTime: 0,
           endTime: 0,
           originalPrompt: promptText,
           newPrompt: `[新商品] ${promptText}，融合${sellingPoints || '产品特色'}，参考商品图片风格`,
-          isEditing: false,
-          isSelected: false,
-        },
-      ];
-
-      setSegments(segmentsWithNewPrompts);
-      setViewState('prompts');
-      toast.success('复刻分析完成');
+        isEditing: false,
+        isSelected: false,
+      },
+    ];
+    
+    setSegments(segmentsWithNewPrompts);
+    setViewState('prompts');
+    toast.success('复刻分析完成');
       return;
     } catch (error) {
       console.error('Video to prompt failed:', error);
@@ -876,7 +911,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             )}
 
             {/* Reference Image Upload */}
-            {!referenceImage ? (
+            {/* {!referenceImage ? (
               <div 
                 className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
                 onClick={() => imageInputRef.current?.click()}
@@ -914,7 +949,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                   className="w-full h-32 object-cover rounded-md"
                 />
               </div>
-            )}
+            )} */}
 
             {/* Selling Points Input */}
             <div className="border border-border rounded-lg p-4">
@@ -1373,7 +1408,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             >
               <Trash2 className="h-4 w-4" />
             </Button>
-          </div>
+      </div>
         )}
 
         {/* Paste Button */}

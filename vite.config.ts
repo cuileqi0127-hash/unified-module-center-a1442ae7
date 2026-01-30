@@ -15,6 +15,13 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/tu-zi/, ''),
       },
+      // 视频复刻上传接口代理
+      "/api/process": {
+        target: 'http://183.87.33.181:8001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/process/, '/api/process'),
+      },
       '/api': {
         target: 'http://94.74.101.163:28080',
         changeOrigin: true,
@@ -32,17 +39,12 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/vod/, '/vod'),
       },
+      // 视频转提示词接口代理
       "/api/video-to-prompt": {
         target: 'http://183.87.33.181:8001',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api\/video-to-prompt/, ''),
-      },
-      "/api/process": {
-        target: 'http://183.87.33.181:8001',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api\/process/, ''),
       },
     },
   },
