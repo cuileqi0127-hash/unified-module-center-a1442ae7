@@ -342,7 +342,7 @@ export async function batchDeleteCanvasItems(
 
 /**
  * 8. 更新画布元素
- * 移动/缩放画布元素
+ * 移动/缩放/放大缩小画布元素
  */
 export async function updateCanvasItem(
   canvasItemId: number,

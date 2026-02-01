@@ -110,6 +110,13 @@ export function UniversalCanvas({
   const [isBoxSelecting, setIsBoxSelecting] = useState(false);
   const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const selectionStartPos = useRef<{ x: number; y: number } | null>(null);
+  
+  // Resize state
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizingItemId, setResizingItemId] = useState<string | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<'nw' | 'ne' | 'sw' | 'se' | null>(null);
+  const resizeStartPos = useRef<{ x: number; y: number } | null>(null);
+  const resizeStartSize = useRef<{ width: number; height: number; x: number; y: number } | null>(null);
 
   // Handle keyboard events for space-drag panning and ctrl-drag panning
   useEffect(() => {
@@ -299,9 +306,78 @@ export function UniversalCanvas({
     }
   }, [isSpacePressed, onItemSelect, onItemMultiSelect, items, zoom, pan]);
 
-  // Handle panning/box selection move
+  // Handle panning/box selection/resize move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning) {
+    if (isResizing && resizingItemId && resizeHandle && resizeStartPos.current && resizeStartSize.current && containerRef.current) {
+      // 用户交互时，确保初始化标志为 false
+      if (isInitializingRef.current) {
+        isInitializingRef.current = false;
+      }
+      
+      // 计算鼠标移动的距离（屏幕坐标）
+      const deltaScreenX = e.clientX - resizeStartPos.current.x;
+      const deltaScreenY = e.clientY - resizeStartPos.current.y;
+      
+      // 转换为画布坐标
+      const deltaCanvasX = deltaScreenX / zoom;
+      const deltaCanvasY = deltaScreenY / zoom;
+      
+      let newWidth = resizeStartSize.current.width;
+      let newHeight = resizeStartSize.current.height;
+      let newX = resizeStartSize.current.x;
+      let newY = resizeStartSize.current.y;
+      
+      // 根据拖拽的角计算新的尺寸和位置
+      switch (resizeHandle) {
+        case 'nw': // 左上角：保持右下角固定
+          newWidth = resizeStartSize.current.width - deltaCanvasX;
+          newHeight = resizeStartSize.current.height - deltaCanvasY;
+          newX = resizeStartSize.current.x + deltaCanvasX;
+          newY = resizeStartSize.current.y + deltaCanvasY;
+          break;
+        case 'ne': // 右上角：保持左下角固定
+          newWidth = resizeStartSize.current.width + deltaCanvasX;
+          newHeight = resizeStartSize.current.height - deltaCanvasY;
+          newY = resizeStartSize.current.y + deltaCanvasY;
+          break;
+        case 'sw': // 左下角：保持右上角固定
+          newWidth = resizeStartSize.current.width - deltaCanvasX;
+          newHeight = resizeStartSize.current.height + deltaCanvasY;
+          newX = resizeStartSize.current.x + deltaCanvasX;
+          break;
+        case 'se': // 右下角：保持左上角固定
+          newWidth = resizeStartSize.current.width + deltaCanvasX;
+          newHeight = resizeStartSize.current.height + deltaCanvasY;
+          break;
+      }
+      
+      // 限制最小尺寸
+      const minSize = 50 / zoom; // 最小 50 像素（屏幕坐标）
+      newWidth = Math.max(minSize, newWidth);
+      newHeight = Math.max(minSize, newHeight);
+      
+      // 如果位置改变，需要调整位置以保持固定角不变
+      if (resizeHandle === 'nw') {
+        // 左上角：保持右下角固定
+        newX = resizeStartSize.current.x + resizeStartSize.current.width - newWidth;
+        newY = resizeStartSize.current.y + resizeStartSize.current.height - newHeight;
+      } else if (resizeHandle === 'ne') {
+        // 右上角：保持左下角固定
+        newY = resizeStartSize.current.y + resizeStartSize.current.height - newHeight;
+      } else if (resizeHandle === 'sw') {
+        // 左下角：保持右上角固定
+        newX = resizeStartSize.current.x + resizeStartSize.current.width - newWidth;
+      }
+      // se (右下角) 保持左上角固定，不需要调整位置
+      
+      // 更新画布元素尺寸
+      onItemResize?.(resizingItemId, newWidth, newHeight);
+      
+      // 如果位置改变，需要更新位置
+      if (resizeHandle === 'nw' || resizeHandle === 'sw' || resizeHandle === 'ne') {
+        onItemMove?.(resizingItemId, newX, newY);
+      }
+    } else if (isPanning) {
       // 用户交互时，确保初始化标志为 false
       if (isInitializingRef.current) {
         isInitializingRef.current = false;
@@ -331,7 +407,7 @@ export function UniversalCanvas({
         height: Math.abs(height),
       });
     }
-  }, [isPanning, isBoxSelecting, zoom, onViewChange]);
+  }, [isResizing, resizingItemId, resizeHandle, isPanning, isBoxSelecting, zoom, pan, onItemResize, onItemMove, onViewChange]);
 
   // Handle context menu (right-click) - prevent when panning with Ctrl
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -342,9 +418,15 @@ export function UniversalCanvas({
     }
   }, [isPanning, isCtrlPressed]);
 
-  // Handle panning/box selection end
+  // Handle panning/box selection/resize end
   const handleMouseUp = useCallback((e?: React.MouseEvent) => {
-    if (isBoxSelecting && containerRef.current && onItemMultiSelect) {
+    if (isResizing) {
+      setIsResizing(false);
+      setResizingItemId(null);
+      setResizeHandle(null);
+      resizeStartPos.current = null;
+      resizeStartSize.current = null;
+    } else if (isBoxSelecting && containerRef.current && onItemMultiSelect) {
       const currentBox = selectionBox || (selectionStartPos.current ? {
         x: selectionStartPos.current.x,
         y: selectionStartPos.current.y,
@@ -410,7 +492,7 @@ export function UniversalCanvas({
     }
     
     setIsPanning(false);
-  }, [isBoxSelecting, selectionBox, items, zoom, pan, selectedItemIds, onItemMultiSelect, onItemSelect]);
+  }, [isResizing, isBoxSelecting, selectionBox, items, zoom, pan, selectedItemIds, onItemMultiSelect, onItemSelect]);
 
   // Handle video play/pause
   const toggleVideoPlay = useCallback((itemId: string) => {
@@ -570,7 +652,7 @@ export function UniversalCanvas({
                 data-item-id={item.id}
                 data-is-placeholder={isPlaceholder ? 'true' : undefined}
                 className={cn(
-                  'absolute rounded-lg bg-background shadow-lg overflow-hidden',
+                  'absolute rounded-lg bg-background shadow-lg',
                   // 只在删除和新增时应用过渡动画，不影响拖拽和缩放
                   (deletingItemIds.includes(item.id) || addingItemIds.includes(item.id)) && 'transition-[opacity,transform] duration-300 ease-in-out',
                   isPlaceholderDisabled 
@@ -699,7 +781,7 @@ export function UniversalCanvas({
                       }
                     }}
                     src={item.url}
-                    className="h-full w-full rounded-lg object-contain"
+                    className="h-full w-full rounded-lg object-cover"
                     draggable={false}
                     controls
                     playsInline
@@ -754,7 +836,7 @@ export function UniversalCanvas({
                   <img
                     src={item.url}
                     alt={item.prompt || 'Canvas item'}
-                    className="h-full w-full rounded-lg object-contain pointer-events-none select-none"
+                    className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
                     draggable={false}
                   />
                 )}
@@ -776,13 +858,85 @@ export function UniversalCanvas({
                   <Move className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
 
-                {/* Selection Handles */}
-                {selectedItemId === item.id && (
+                {/* Selection and Resize Handles */}
+                {selectedItemId === item.id && !isPlaceholderDisabled && (
                   <>
-                    <div className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
-                    <div className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
-                    <div className="absolute -bottom-1.5 -left-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
-                    <div className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                    {/* 左上角 - 可拖拽调整大小 */}
+                    <div
+                      className="absolute -left-2 -top-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nwse-resize hover:bg-primary/10 hover:scale-110 transition-transform z-[60] shadow-sm"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (isPlaceholderDisabled) return;
+                        setIsResizing(true);
+                        setResizingItemId(item.id);
+                        setResizeHandle('nw');
+                        resizeStartPos.current = { x: e.clientX, y: e.clientY };
+                        resizeStartSize.current = {
+                          width: item.width,
+                          height: item.height,
+                          x: item.x,
+                          y: item.y,
+                        };
+                      }}
+                    />
+                    {/* 右上角 - 可拖拽调整大小 */}
+                    <div
+                      className="absolute -right-2 -top-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nesw-resize hover:bg-primary/10 hover:scale-110 transition-transform z-[60] shadow-sm"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (isPlaceholderDisabled) return;
+                        setIsResizing(true);
+                        setResizingItemId(item.id);
+                        setResizeHandle('ne');
+                        resizeStartPos.current = { x: e.clientX, y: e.clientY };
+                        resizeStartSize.current = {
+                          width: item.width,
+                          height: item.height,
+                          x: item.x,
+                          y: item.y,
+                        };
+                      }}
+                    />
+                    {/* 左下角 - 可拖拽调整大小 */}
+                    <div
+                      className="absolute -left-2 -bottom-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nesw-resize hover:bg-primary/10 hover:scale-110 transition-transform z-[60] shadow-sm"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (isPlaceholderDisabled) return;
+                        setIsResizing(true);
+                        setResizingItemId(item.id);
+                        setResizeHandle('sw');
+                        resizeStartPos.current = { x: e.clientX, y: e.clientY };
+                        resizeStartSize.current = {
+                          width: item.width,
+                          height: item.height,
+                          x: item.x,
+                          y: item.y,
+                        };
+                      }}
+                    />
+                    {/* 右下角 - 可拖拽调整大小 */}
+                    <div
+                      className="absolute -right-2 -bottom-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nwse-resize hover:bg-primary/10 hover:scale-110 transition-transform z-[60] shadow-sm"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (isPlaceholderDisabled) return;
+                        setIsResizing(true);
+                        setResizingItemId(item.id);
+                        setResizeHandle('se');
+                        resizeStartPos.current = { x: e.clientX, y: e.clientY };
+                        resizeStartSize.current = {
+                          width: item.width,
+                          height: item.height,
+                          x: item.x,
+                          y: item.y,
+                        };
+                      }}
+                    />
                   </>
                 )}
               </div>

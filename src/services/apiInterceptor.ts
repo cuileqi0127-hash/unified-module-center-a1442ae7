@@ -66,8 +66,8 @@ export function handle401Error() {
 }
 
 export async function handleApiResponse(response: Response): Promise<Response> {
-  // 如果响应状态是 401 未授权或 403 禁止访问，说明 token 失效或无效
-  if (response.status === 401 || response.status === 403) {
+  // 如果响应状态是 401 未授权或 403 禁止访问 500 网路异常，说明 token 失效或无效
+  if (response.status === 401 || response.status === 403 || response.status === 500) {
     handle401Error();
     throw new Error('Token expired or invalid, please login again');
   }
@@ -83,6 +83,7 @@ export async function handleApiResponse(response: Response): Promise<Response> {
       // 只检查 JSON 响应
       if (contentType && contentType.includes('application/json')) {
         const data = await clonedResponse.json();
+        console.log(data,'data');
         
         // 检查 code 字段是否为 401（token 过期）
         // 兼容 code 为数字或字符串的情况

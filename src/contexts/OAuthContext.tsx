@@ -115,6 +115,7 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
 
   // 显示登录弹窗（用于token失效时）
   const handleShowLoginDialog = () => {
+    console.log('4')
     setShowLoginDialog(true);
   };
 
@@ -126,10 +127,10 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
   };
 
   // 注册登录弹窗显示函数和清除用户状态函数到 API 拦截器
-  useEffect(() => {
-    setShowLoginDialog(handleShowLoginDialog);
-    setClearUserState(handleClearUserState);
-  }, []);
+  // useEffect(() => {
+  //   setShowLoginDialog(handleShowLoginDialog);
+  //   setClearUserState(handleClearUserState);
+  // }, []);
 
   // 检查token有效性
   useEffect(() => {
@@ -140,10 +141,6 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
           handleShowLoginDialog();
         }
       };
-
-      // 定期检查token有效性（可选）
-      // const interval = setInterval(checkToken, 60000); // 每分钟检查一次
-      // return () => clearInterval(interval);
     }
   }, [isLoading, isAuthenticated]);
 

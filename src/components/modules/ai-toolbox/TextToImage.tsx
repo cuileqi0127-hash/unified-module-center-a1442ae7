@@ -155,7 +155,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           !isResizing && "transition-all duration-300",
           isChatPanelCollapsed && "w-0 border-r-0 overflow-hidden pointer-events-none"
         )}
-        style={{ width: isChatPanelCollapsed ? '0%' : `${chatPanelWidth}%` }}
+        style={{ width: isChatPanelCollapsed ? '0%' : `${chatPanelWidth}%`,minWidth: isChatPanelCollapsed ? 'auto' : 'min-content' }}
       >
         {/* Header Bar - Fixed at top */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
@@ -323,13 +323,20 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* Selected Images Capsules - Show all selected canvas images */}
+            {/* Selected Images Capsules - Show all selected canvas images (exclude videos) */}
             {(selectedImageIds.length > 0 || selectedImageId) && (() => {
-              // Get all selected images from canvas
+              // Helper function to check if an item is a video
+              const isVideo = (item: CanvasImage): boolean => {
+                if (item.type === 'video') return true;
+                // Check URL extension if type is not set
+                return /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i.test(item.url);
+              };
+              
+              // Get all selected images from canvas, filter out videos
               const imagesToDisplay = selectedImageIds.length > 0
                 ? selectedImageIds
                     .map(id => canvasImages.find(img => img.id === id))
-                    .filter((img): img is CanvasImage => img !== undefined)
+                    .filter((img): img is CanvasImage => img !== undefined && !isVideo(img))
                     .map(img => ({
                       id: img.id,
                       url: img.url,
@@ -338,6 +345,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                 : selectedImageId
                   ? (() => {
                       const img = canvasImages.find(img => img.id === selectedImageId);
+                      // 如果是视频类型，不显示 ImageCapsule
+                      if (img && isVideo(img)) {
+                        return [];
+                      }
                       return img ? [{
                         id: img.id,
                         url: img.url,
@@ -520,7 +531,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           ref={resizeRef}
           onMouseDown={handleResizeStart}
           className={cn(
-            "w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
+            "w-[1px] cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
             isResizing && "bg-primary"
           )}
           style={{ touchAction: 'none' }}
@@ -614,22 +625,6 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
-        )}
-
-        {/* Paste Button - Shows when image is copied */}
-        {(copiedImage || copiedImages.length > 0) && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute left-4 top-4 gap-1.5 shadow-sm"
-            onClick={handlePasteImage}
-          >
-            <Clipboard className="h-4 w-4" />
-            {isZh 
-              ? (copiedImages.length > 0 ? `粘贴 ${copiedImages.length} 张图片` : '粘贴图片')
-              : (copiedImages.length > 0 ? `Paste ${copiedImages.length} images` : 'Paste Image')
-            }
-          </Button>
         )}
 
         {/* Image Count Badge */}

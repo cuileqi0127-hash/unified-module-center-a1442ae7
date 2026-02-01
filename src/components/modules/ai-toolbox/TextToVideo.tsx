@@ -152,7 +152,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           !isResizing && "transition-all duration-300",
           isChatPanelCollapsed && "w-0 border-r-0 overflow-hidden pointer-events-none"
         )}
-        style={{ width: isChatPanelCollapsed ? '0%' : `${chatPanelWidth}%` }}
+        style={{ width: isChatPanelCollapsed ? '0%' : `${chatPanelWidth}%`,minWidth: isChatPanelCollapsed ? 'auto' : 'min-content' }}
       >
         {/* Header Bar */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3 flex-shrink-0">
@@ -317,12 +317,20 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* Selected Videos Capsules */}
+            {/* Selected Videos Capsules - Only show images, not videos */}
             {(selectedVideoIds.length > 0 || selectedVideoId) && (() => {
-              const videosToDisplay = selectedVideoIds.length > 0
+              // Helper function to check if an item is a video
+              const isVideo = (item: CanvasVideo): boolean => {
+                if (item.type === 'video' || item.type === 'placeholder') return true;
+                // Check URL extension if type is not set
+                return /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i.test(item.url);
+              };
+              
+              // Filter out videos, only show images
+              const imagesToDisplay = selectedVideoIds.length > 0
                 ? selectedVideoIds
                     .map(id => canvasVideos.find(v => v.id === id))
-                    .filter((v): v is CanvasVideo => v !== undefined)
+                    .filter((v): v is CanvasVideo => v !== undefined && !isVideo(v))
                     .map(v => ({
                       id: v.id,
                       url: v.url,
@@ -331,6 +339,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                 : selectedVideoId
                   ? (() => {
                       const v = canvasVideos.find(v => v.id === selectedVideoId);
+                      // 如果是视频类型，不显示 ImageCapsule
+                      if (v && isVideo(v)) {
+                        return [];
+                      }
                       return v ? [{
                         id: v.id,
                         url: v.url,
@@ -339,11 +351,11 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                     })()
                   : [];
               
-              if (videosToDisplay.length === 0) return null;
+              if (imagesToDisplay.length === 0) return null;
               
               return (
               <div className="flex flex-wrap items-center gap-2 px-4 pt-3 pb-1">
-                  {videosToDisplay.map((image) => (
+                  {imagesToDisplay.map((image) => (
                   <ImageCapsule
                       key={image.id}
                       image={image}
@@ -536,7 +548,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           ref={resizeRef}
           onMouseDown={handleResizeStart}
           className={cn(
-            "w-1 cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
+            "w-[1px] cursor-col-resize bg-border hover:bg-primary/50 transition-colors flex-shrink-0",
             isResizing && "bg-primary"
           )}
           style={{ touchAction: 'none' }}
@@ -622,22 +634,6 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
-        )}
-
-        {/* Paste Button */}
-        {(copiedVideo || copiedVideos.length > 0) && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute left-4 top-4 gap-1.5 shadow-sm"
-            onClick={handlePasteVideo}
-          >
-            <Clipboard className="h-4 w-4" />
-            {isZh 
-              ? (copiedVideos.length > 0 ? `粘贴 ${copiedVideos.length} 个项目` : '粘贴视频')
-              : (copiedVideos.length > 0 ? `Paste ${copiedVideos.length} items` : 'Paste Video')
-            }
-          </Button>
         )}
 
         {/* Video Count Badge */}

@@ -4,6 +4,7 @@
  */
 
 import { getCookie, setCookie, deleteCookie } from '@/utils/cookies';
+import { apiPost } from './apiClient';
 
 // 根据环境变量判断使用代理还是直接访问
 // 生产环境也使用相对路径，通过 Nginx 代理转发
@@ -92,25 +93,17 @@ export function redirectToLogin(): void {
  */
 export async function getTokenByCode(code: string): Promise<TokenResponse> {
   try {
-    const response = await fetch(`${OAUTH_API_BASE_URL}/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        code,
-        grantType: 'authorization_code',
-        clientId: 'portal-a'
-      }),
+    // 注意：OAuth token 接口使用 apiPost，但设置 useAuth: false（因为此时还没有 token）
+    const response = await apiPost<TokenResponse>('/oauth2/token', {
+      code,
+      grantType: 'authorization_code',
+      clientId: 'portal-a'
+    }, {
+      useAuth: false, // OAuth token 接口不使用用户认证
     });
-
-    if (!response.ok) {
-      throw new Error(`Token request failed: ${response.status}`);
-    }
-
-    const data: TokenResponse = await response.json();
     
     // 检查响应是否成功（code 是字符串 "0"）
+    const data = response.data || response as TokenResponse;
     if (!data.success || data.code !== "0") {
       throw new Error(data.msg || 'Token request failed');
     }

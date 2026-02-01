@@ -1492,19 +1492,6 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       </div>
         )}
 
-        {/* Paste Button */}
-        {copiedItem && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute left-4 top-4 gap-1.5 shadow-sm z-50"
-            onClick={handlePasteCanvasItems}
-          >
-            <Clipboard className="h-4 w-4" />
-            粘贴项目
-          </Button>
-        )}
-
         {/* Item Count Badge */}
         {canvasItems.length > 0 && (
           <Badge 

@@ -18,7 +18,7 @@ export function LoginDialog({ open }: LoginDialogProps) {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
-        className="sm:max-w-md [&>button]:hidden"
+        className="sm:max-w-sm [&>button]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >

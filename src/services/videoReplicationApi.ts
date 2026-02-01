@@ -5,11 +5,11 @@
  * 提供视频复刻相关的接口封装
  */
 
-import { handleApiResponse } from './apiInterceptor';
+import { apiPost, type ApiResponse } from './apiClient';
 
 // 使用相对路径，通过 Nginx 代理转发
 // 开发环境使用 Vite 代理，生产环境使用 Nginx 代理
-const API_URL = "/api/process/upload";
+const API_ENDPOINT = "/process/upload";
 const API_KEY = "F92sG7kP1rX5b1";
 
 /**
@@ -22,33 +22,15 @@ export async function uploadVideoFile(file: File): Promise<any> {
   formData.append('file', file);
 
   try {
-    let response = await fetch(API_URL, {
-      method: 'POST',
+    const response = await apiPost<any>(API_ENDPOINT, formData, {
       headers: {
         'X-API-Key': API_KEY,
       },
-      body: formData,
+      useAuth: false, // 视频复刻接口不使用用户认证
     });
-
-    // 检查 401 错误
-    response = await handleApiResponse(response);
-
-    const res = await response.json();
-    console.log('Upload response:', res);
     
-    // 检查响应 JSON 中的 code 字段是否为 401
-    const code = res?.code;
-    const isCode401 = (typeof code === 'number' && code === 401) || 
-                     (typeof code === 'string' && code === '401');
-    if (isCode401) {
-      throw new Error('Token expired or invalid, please login again');
-    }
-    
-    if (!response.ok) {
-      throw new Error(res.message || `Upload failed with status ${response.status}`);
-    }
-
-    return res;
+    console.log('Upload response:', response);
+    return response.data || response;
   } catch (error) {
     console.error('Upload error:', error);
     throw error;
@@ -65,33 +47,15 @@ export async function uploadImageFile(file: File): Promise<any> {
   formData.append('file', file);
 
   try {
-    let response = await fetch(API_URL, {
-      method: 'POST',
+    const response = await apiPost<any>(API_ENDPOINT, formData, {
       headers: {
         'X-API-Key': API_KEY,
       },
-      body: formData,
+      useAuth: false, // 视频复刻接口不使用用户认证
     });
-
-    // 检查 401 错误
-    response = await handleApiResponse(response);
-
-    const res = await response.json();
-    console.log('Upload response:', res);
     
-    // 检查响应 JSON 中的 code 字段是否为 401
-    const code = res?.code;
-    const isCode401 = (typeof code === 'number' && code === 401) || 
-                     (typeof code === 'string' && code === '401');
-    if (isCode401) {
-      throw new Error('Token expired or invalid, please login again');
-    }
-    
-    if (!response.ok) {
-      throw new Error(res.message || `Upload failed with status ${response.status}`);
-    }
-
-    return res;
+    console.log('Upload response:', response);
+    return response.data || response;
   } catch (error) {
     console.error('Upload error:', error);
     throw error;
