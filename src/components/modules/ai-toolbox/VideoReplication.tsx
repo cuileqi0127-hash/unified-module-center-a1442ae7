@@ -38,7 +38,8 @@ import {
 } from "@/components/ui/dialog";
 import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
 import { MediaViewer } from './MediaViewer';
-import { uploadVideoFile, uploadImageFile } from '@/services/videoReplicationApi';
+import { uploadVideoFile, uploadMediaFile, createVideoTask, getTaskStatus, pollTaskUntilComplete, type MediaUploadResponse, type VideoTaskResponse } from '@/services/videoReplicationApi';
+import { getUserInfoFromCache } from '@/services/userApi';
 
 interface VideoReplicationProps {
   onNavigate?: (itemId: string) => void;
@@ -105,6 +106,91 @@ interface ProjectHistoryItem {
 }
 
 const HISTORY_STORAGE_KEY = 'video-replication-history';
+
+// 缓存数据结构定义
+interface VideoReplicationCache {
+  "upload-video": {
+    id: string;
+    name: string;
+    url: string;
+    [key: string]: any;
+  } | null;
+  "upload-img": {
+    id: string;
+    name: string;
+    url: string;
+    fileId: string;
+    [key: string]: any;
+  } | null;
+  "video": {
+    id: string;
+    name: string;
+    url: string;
+    [key: string]: any;
+  } | null;
+  timestamp: number;
+}
+
+// 生成缓存键
+function generateCacheKey(): string {
+  const userInfo = getUserInfoFromCache();
+  const userId = userInfo?.id || 'anonymous';
+  return `${userId}-reference-to-video`;
+}
+
+// 保存缓存
+function saveCache(cacheData: VideoReplicationCache): void {
+  try {
+    const cacheKey = generateCacheKey();
+    localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+  } catch (error) {
+    console.error('Failed to save cache:', error);
+  }
+}
+
+// 读取缓存
+function getCache(): VideoReplicationCache | null {
+  try {
+    const cacheKey = generateCacheKey();
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as VideoReplicationCache;
+    }
+  } catch (error) {
+    console.error('Failed to get cache:', error);
+  }
+  return null;
+}
+
+// 清除缓存
+function clearCache(): void {
+  try {
+    const cacheKey = generateCacheKey();
+    localStorage.removeItem(cacheKey);
+  } catch (error) {
+    console.error('Failed to clear cache:', error);
+  }
+}
+
+// 更新缓存中的特定字段
+function updateCacheField(field: keyof VideoReplicationCache, data: any): void {
+  try {
+    const currentCache = getCache() || {
+      "upload-video": null,
+      "upload-img": null,
+      "video": null,
+      timestamp: Date.now(),
+    };
+    const updatedCache = {
+      ...currentCache,
+      [field]: data,
+      timestamp: Date.now(),
+    };
+    saveCache(updatedCache);
+  } catch (error) {
+    console.error('Failed to update cache field:', error);
+  }
+}
 // Call same-origin endpoint to avoid browser CORS issues (dev uses Vite proxy; prod should use backend/reverse-proxy).
 const VIDEO_TO_PROMPT_API_URL = '/api/video-to-prompt';
 const VIDEO_TO_PROMPT_TIMEOUT_MS = 300_000;
@@ -118,7 +204,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [originalVideo, setOriginalVideo] = useState<UploadedFile | null>(null);
   const [referenceImage, setReferenceImage] = useState<UploadedFile | null>(null);
   const [sellingPoints, setSellingPoints] = useState<string>('');
-  const [isUploading, setIsUploading] = useState(false);
+  const [isVideoUploading, setIsVideoUploading] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [imageFileId, setImageFileId] = useState<string>(''); // 存储图片上传后的fileId
+  const [isReplicating, setIsReplicating] = useState(false); // 开始复刻的加载状态
   
   // Segmentation state
   const [segments, setSegments] = useState<VideoSegment[]>([]);
@@ -149,6 +238,113 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   
+  // 从缓存加载数据
+  useEffect(() => {
+    const loadFromCache = () => {
+      try {
+        const cachedData = getCache();
+        if (cachedData) {
+          // 检查缓存是否过期（24小时）
+          const cacheAge = Date.now() - cachedData.timestamp;
+          const maxCacheAge = 24 * 60 * 60 * 1000; // 24小时
+          
+          if (cacheAge > maxCacheAge) {
+            // 缓存过期，清除缓存
+            clearCache();
+            return;
+          }
+          
+          // 加载缓存的视频数据
+          if (cachedData["upload-video"]) {
+            const videoData = cachedData["upload-video"];
+            setOriginalVideo({
+              id: videoData.id,
+              type: 'video' as const,
+              name: videoData.name,
+              url: videoData.url,
+            });
+            
+            // 添加到画布
+            setCanvasItems(prev => {
+              const exists = prev.some(item => item.url === videoData.url);
+              if (!exists) {
+                return [...prev, {
+                  id: videoData.id,
+                  type: 'video' as const,
+                  url: videoData.url,
+                  name: videoData.name,
+                  x: 50,
+                  y: 50,
+                  width: 320,
+                  height: 180,
+                }];
+              }
+              return prev;
+            });
+          }
+          
+          // 加载缓存的图片数据
+          if (cachedData["upload-img"]) {
+            const imgData = cachedData["upload-img"];
+            setReferenceImage({
+              id: imgData.id,
+              type: 'image' as const,
+              name: imgData.name,
+              url: imgData.url,
+            });
+            setImageFileId(imgData.fileId);
+            
+            // 添加到画布
+            setCanvasItems(prev => {
+              const exists = prev.some(item => item.url === imgData.url);
+              if (!exists) {
+                return [...prev, {
+                  id: imgData.id,
+                  type: 'image' as const,
+                  url: imgData.url,
+                  name: imgData.name,
+                  x: 400,
+                  y: 50,
+                  width: 200,
+                  height: 200,
+                }];
+              }
+              return prev;
+            });
+          }
+          
+          // 加载缓存的生成视频数据
+          if (cachedData["video"]) {
+            const genVideoData = cachedData["video"];
+            setGeneratedVideo(genVideoData.url);
+            
+            // 添加到画布
+            setCanvasItems(prev => {
+              const exists = prev.some(item => item.url === genVideoData.url);
+              if (!exists) {
+                return [...prev, {
+                  id: genVideoData.id,
+                  type: 'video' as const,
+                  url: genVideoData.url,
+                  name: genVideoData.name,
+                  x: 50,
+                  y: 300,
+                  width: 320,
+                  height: 180,
+                }];
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load from cache:', error);
+      }
+    };
+    
+    loadFromCache();
+  }, []);
+
   // 从 sessionStorage 读取跨页面复制的数据
   useEffect(() => {
     const checkCopiedItems = () => {
@@ -239,7 +435,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       return;
     }
     
-    setIsUploading(true);
+    setIsVideoUploading(true);
     
     try {
       // 调用上传接口
@@ -254,6 +450,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       
       // 创建本地预览 URL
     const url = URL.createObjectURL(file);
+    const videoId = crypto.randomUUID();
     
     // Check if replacing an existing item
     if (replacingItemId) {
@@ -265,31 +462,37 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       ));
       // Update sidebar state if the replaced item was the original video
       if (oldItem && originalVideo && oldItem.url === originalVideo.url) {
-        setOriginalVideo({
-          id: crypto.randomUUID(),
-          type: 'video',
+        const updatedVideo = {
+          id: videoId,
+          type: 'video' as const,
           name: file.name,
           url,
-            file,
-        });
+          file,
+        };
+        setOriginalVideo(updatedVideo);
+        // 更新缓存
+        updateCacheField('upload-video', updatedVideo);
       }
       setReplacingItemId(null);
       toast.success(t('videoReplication.videoReplaced'));
     } else {
-      setOriginalVideo({
-        id: crypto.randomUUID(),
-        type: 'video',
+      const newVideo = {
+        id: videoId,
+        type: 'video' as const,
         name: file.name,
         url,
-          file,
-      });
+        file,
+      };
+      setOriginalVideo(newVideo);
+      
+      // 更新缓存
+      updateCacheField('upload-video', newVideo);
       
         // Add to canvas with animation
-        const newItemId = crypto.randomUUID();
-        setAddingItemIds(new Set([newItemId]));
+        setAddingItemIds(new Set([videoId]));
       setCanvasItems(prev => [...prev, {
-          id: newItemId,
-        type: 'video',
+          id: videoId,
+        type: 'video' as const,
         url,
         name: file.name,
         x: 50,
@@ -307,7 +510,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       console.error('Video upload error:', error);
       toast.error(error instanceof Error ? error.message : t('videoReplication.uploadVideo'));
     } finally {
-      setIsUploading(false);
+      setIsVideoUploading(false);
     // Reset input
     e.target.value = '';
     }
@@ -318,154 +521,192 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     
+    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error(t('videoReplication.uploadImageFirst'));
       return;
     }
     
-    setIsUploading(true);
+    // Validate specific image formats
+    const allowedFormats = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedFormats.includes(file.type)) {
+      toast.error('Only JPG, PNG, and WEBP images are allowed');
+      return;
+    }
+    
+    // Validate file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+    
+    setIsImageUploading(true);
     
     try {
       // 调用上传接口
-      const res = await uploadImageFile(file);
-      console.log('Upload response:', res);
+      const res = await uploadMediaFile(file);
+      console.log('Image upload response:', res);
+      
+      // 保存返回的 fileId
+      if (res && res.fileId) {
+        setImageFileId(res.fileId);
+      }
       
       // 创建本地预览 URL
-    const url = URL.createObjectURL(file);
-    
-    // Check if replacing an existing item
-    if (replacingItemId) {
-      const oldItem = canvasItems.find(i => i.id === replacingItemId);
-      setCanvasItems(prev => prev.map(item => 
-        item.id === replacingItemId 
-          ? { ...item, url, name: file.name }
-          : item
-      ));
-      // Update sidebar state if the replaced item was the reference image
-      if (oldItem && referenceImage && oldItem.url === referenceImage.url) {
-        setReferenceImage({
-          id: crypto.randomUUID(),
-          type: 'image',
+      const url = URL.createObjectURL(file);
+      const imgId = crypto.randomUUID();
+      const fileId = res.fileId;
+      
+      // Check if replacing an existing item
+      if (replacingItemId) {
+        const oldItem = canvasItems.find(i => i.id === replacingItemId);
+        setCanvasItems(prev => prev.map(item => 
+          item.id === replacingItemId 
+            ? { ...item, url, name: file.name }
+            : item
+        ));
+        // Update sidebar state if the replaced item was the reference image
+        if (oldItem && referenceImage && oldItem.url === referenceImage.url) {
+          const updatedImage = {
+            id: imgId,
+            type: 'image' as const,
+            name: file.name,
+            url,
+            file,
+          };
+          setReferenceImage(updatedImage);
+          setImageFileId(fileId);
+          // 更新缓存
+          updateCacheField('upload-img', {
+            id: imgId,
+            name: file.name,
+            url,
+            fileId,
+          });
+        }
+        setReplacingItemId(null);
+        toast.success(t('videoReplication.videoReplaced'));
+      } else {
+        const newImage = {
+          id: imgId,
+          type: 'image' as const,
           name: file.name,
           url,
-            file,
-        });
-      }
-      setReplacingItemId(null);
-      toast.success(t('videoReplication.videoReplaced'));
-    } else {
-      setReferenceImage({
-        id: crypto.randomUUID(),
-        type: 'image',
-        name: file.name,
-        url,
           file,
-      });
-      
-        // Add to canvas with animation
-        const newItemId = crypto.randomUUID();
-        setAddingItemIds(new Set([newItemId]));
-      setCanvasItems(prev => [...prev, {
-          id: newItemId,
-        type: 'image',
-        url,
-        name: file.name,
-        x: 400,
-        y: 50,
-        width: 200,
-        height: 200,
-      }]);
-        setTimeout(() => setAddingItemIds(new Set()), 300);
-      
-      toast.success(t('videoReplication.imageUploadSuccess'));
-    }
+        };
+        setReferenceImage(newImage);
+        setImageFileId(fileId);
+        
+        // 更新缓存
+        updateCacheField('upload-img', {
+          id: imgId,
+          name: file.name,
+          url,
+          fileId,
+        });
+        
+          // Add to canvas with animation
+          setAddingItemIds(new Set([imgId]));
+        setCanvasItems(prev => [...prev, {
+            id: imgId,
+          type: 'image' as const,
+          url,
+          name: file.name,
+          x: 400,
+          y: 50,
+          width: 200,
+          height: 200,
+        }]);
+          setTimeout(() => setAddingItemIds(new Set()), 300);
+        
+        toast.success(t('videoReplication.imageUploadSuccess'));
+      }
     } catch (error) {
       console.error('Image upload error:', error);
-      toast.error(error instanceof Error ? error.message : t('videoReplication.imageUploadSuccess'));
+      toast.error(error instanceof Error ? error.message : 'Failed to upload image');
     } finally {
-      setIsUploading(false);
-    // Reset input
-    e.target.value = '';
+      setIsImageUploading(false);
+      // Reset input
+      e.target.value = '';
     }
   }, [replacingItemId, canvasItems, referenceImage]);
 
-  // Analyze video and generate segments, then auto-generate new prompts
-  const handleAnalyzeVideo = useCallback(async () => {
-    if (!originalVideo) {
-      toast.error(t('videoReplication.uploadImageFirst'));
+  // Start replication process
+  const handleStartReplication = useCallback(async () => {
+    if (!imageFileId) {
+      toast.error('Please upload an image first');
       return;
     }
     
-    setViewState('analyzing');
-    
-    if (!originalVideo.file) {
-      toast.error(t('videoReplication.noVideoFile'));
-      setViewState('upload');
+    if (!sellingPoints.trim()) {
+      toast.error('Please enter selling points');
       return;
     }
-
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      controller.abort();
-    }, VIDEO_TO_PROMPT_TIMEOUT_MS);
-
+    
+    setIsReplicating(true);
+    
     try {
-      const formData = new FormData();
-      formData.append('file', originalVideo.file);
-
-      const response = await fetch(VIDEO_TO_PROMPT_API_URL, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
+      // Step 1: Call /aigc/create
+      const createResponse = await createVideoTask({
+        prompt: sellingPoints.trim(),
+        fileId: imageFileId,
       });
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        if (response.status === 401 || response.status === 403) {
-            throw new Error(t('videoReplication.apiKeyError'));
-          }
-          throw new Error(text || `Request failed: ${response.status}`);
+      
+      console.log('Create task response:', createResponse);
+      
+      if (!createResponse || !createResponse.task_id) {
+        throw new Error('Failed to create task');
       }
-
-      const result = (await response.json().catch(() => null)) as
-        | { prompt_text?: unknown }
-        | null;
-
-      const promptText =
-        typeof result?.prompt_text === 'string' ? result.prompt_text : '';
-      if (!promptText.trim()) {
-        throw new Error(t('videoReplication.noPromptTextError'));
-      }
-
-      const segmentsWithNewPrompts: VideoSegment[] = [
-      {
-        id: '1',
-        startTime: 0,
-          endTime: 0,
-          originalPrompt: promptText,
-          newPrompt: `[新商品] ${promptText}，融合${sellingPoints || '产品特色'}，参考商品图片风格`,
-        isEditing: false,
-        isSelected: false,
-      },
-    ];
-    
-    setSegments(segmentsWithNewPrompts);
-    setViewState('prompts');
-    toast.success(t('videoReplication.analysisComplete'));
-      return;
-    } catch (error) {
-      console.error('Video to prompt failed:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        toast.error(t('videoReplication.requestTimeout'));
+      
+      // Step 2: Poll /aigc/task until task completes
+      const finalStatus = await pollTaskUntilComplete(
+        createResponse.task_id,
+        (status) => {
+          console.log('Task progress:', status);
+        }
+      );
+      
+      console.log('Final task status:', finalStatus);
+      
+      // Check if video URL is available
+      if (finalStatus.video_url) {
+        const genVideoId = crypto.randomUUID();
+        const genVideoName = t('videoReplication.title') + '_' + new Date().toISOString().slice(0, 10);
+        
+        // Add generated video to canvas
+        setCanvasItems(prev => [...prev, {
+          id: genVideoId,
+          type: 'video' as const,
+          url: finalStatus.video_url,
+          name: genVideoName,
+          x: 50,
+          y: 300,
+          width: 320,
+          height: 180,
+        }]);
+        
+        // 更新缓存
+        updateCacheField('video', {
+          id: genVideoId,
+          name: genVideoName,
+          url: finalStatus.video_url,
+        });
+        
+        // Show success message with video URL
+        toast.success('Replication completed successfully!');
       } else {
-        toast.error(error instanceof Error ? error.message : t('videoReplication.analysisFailed'));
+        throw new Error('Video generation completed but no video URL available');
       }
-      setViewState('upload');
-      return;
+    } catch (error) {
+      console.error('Replication error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to start replication');
     } finally {
-      window.clearTimeout(timeoutId);
+      setIsReplicating(false);
     }
-  }, [originalVideo, sellingPoints]);
+  }, [imageFileId, sellingPoints, t]);
+
+
 
   // Handle prompt click - open dialog
   const handlePromptClick = useCallback((segmentId: string) => {
@@ -704,26 +945,36 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     setDeletingItemIds(new Set(idsToDelete));
     
     // Remove after animation
-    setTimeout(() => {
-      setCanvasItems(prev => {
-        const newItems = prev.filter(item => !idsToDelete.includes(item.id));
-        // Sync with sidebar state
-        idsToDelete.forEach(id => {
-          const item = prev.find(i => i.id === id);
-          if (item && originalVideo && item.url === originalVideo.url) {
-            setOriginalVideo(null);
-          }
-          if (item && referenceImage && item.url === referenceImage.url) {
-            setReferenceImage(null);
-          }
+      setTimeout(() => {
+        setCanvasItems(prev => {
+          const newItems = prev.filter(item => !idsToDelete.includes(item.id));
+          // Sync with sidebar state
+          idsToDelete.forEach(id => {
+            const item = prev.find(i => i.id === id);
+            if (item && originalVideo && item.url === originalVideo.url) {
+              setOriginalVideo(null);
+              // 清除视频缓存
+              updateCacheField('upload-video', null);
+            }
+            if (item && referenceImage && item.url === referenceImage.url) {
+              setReferenceImage(null);
+              setImageFileId('');
+              // 清除图片缓存
+              updateCacheField('upload-img', null);
+            }
+            // 检查是否是生成的视频
+            if (item && item.type === 'video' && !originalVideo?.url.includes(item.url) && !referenceImage?.url.includes(item.url)) {
+              // 清除生成视频缓存
+              updateCacheField('video', null);
+            }
+          });
+          return newItems;
         });
-        return newItems;
-      });
-      setSelectedCanvasItem(null);
-      setSelectedCanvasItemIds([]);
-      setDeletingItemIds(new Set());
-      toast.success(idsToDelete.length > 1 ? `${t('videoReplication.deletedItems')} ${idsToDelete.length} ${t('videoReplication.items')}` : t('videoReplication.deleted'));
-    }, 300);
+        setSelectedCanvasItem(null);
+        setSelectedCanvasItemIds([]);
+        setDeletingItemIds(new Set());
+        toast.success(idsToDelete.length > 1 ? `${t('videoReplication.deletedItems')} ${idsToDelete.length} ${t('videoReplication.items')}` : t('videoReplication.deleted'));
+      }, 300);
   }, [selectedCanvasItem, selectedCanvasItemIds, originalVideo, referenceImage]);
 
   // Handle copy canvas items
@@ -955,12 +1206,23 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             {/* Video Upload */}
             {!originalVideo ? (
               <div 
-                className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors relative min-h-[200px]"
+                onClick={() => !isVideoUploading && fileInputRef.current?.click()}
               >
-                <Video className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                <p className="font-medium mb-1">{t('videoReplication.uploadVideoSection')}</p>
-                <p className="text-sm text-muted-foreground">{t('videoReplication.uploadVideoHint')}</p>
+                {isVideoUploading ? (
+                  <div className="absolute inset-0 bg-background/90 flex items-center justify-center rounded-lg">
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
+                      <p className="font-medium text-sm">{t('videoReplication.uploading')}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Video className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="font-medium mb-1">{t('videoReplication.uploadVideoSection')}</p>
+                    <p className="text-sm text-muted-foreground">{t('videoReplication.uploadVideoHint')}</p>
+                  </>
+                )}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -994,14 +1256,25 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             )}
 
             {/* Reference Image Upload */}
-            {/* {!referenceImage ? (
+            {!referenceImage ? (
               <div 
-                className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => imageInputRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors relative min-h-[200px]"
+                onClick={() => !isImageUploading && imageInputRef.current?.click()}
               >
-                <ImageIcon className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                <p className="font-medium mb-1">{t('videoReplication.referenceImageSection')}</p>
-                <p className="text-sm text-muted-foreground">{t('videoReplication.referenceImageHint')}</p>
+                {isImageUploading ? (
+                  <div className="absolute inset-0 bg-background/90 flex items-center justify-center rounded-lg">
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
+                      <p className="font-medium text-sm">{t('videoReplication.uploading')}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <ImageIcon className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="font-medium mb-1">{t('videoReplication.referenceImageSection')}</p>
+                    <p className="text-sm text-muted-foreground">{t('videoReplication.referenceImageHint')}</p>
+                  </>
+                )}
                 <input
                   ref={imageInputRef}
                   type="file"
@@ -1032,7 +1305,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                   className="w-full h-32 object-cover rounded-md"
                 />
               </div>
-            )} */}
+            )}
 
             {/* Selling Points Input */}
             <div className="border border-border rounded-lg p-4">
@@ -1052,10 +1325,20 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             {originalVideo && referenceImage && sellingPoints.trim() && (
               <Button 
                 className="w-full"
-                onClick={handleAnalyzeVideo}
+                onClick={handleStartReplication}
+                disabled={isReplicating}
               >
-                <Sparkles className="w-4 h-4 mr-2" />
-                {t('videoReplication.startReplication')}
+                {isReplicating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {t('videoReplication.replicating')}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {t('videoReplication.startReplication')}
+                  </>
+                )}
               </Button>
             )}
           </div>

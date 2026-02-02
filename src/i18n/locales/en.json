@@ -255,7 +255,9 @@
     "editPromptDialogPlaceholder": "Enter new prompt...",
     "sendAndContinueEditing": "Send and Continue Editing",
     "apiKeyError": "API KEY is invalid or missing, please check proxy/backend configuration",
-    "noPromptTextError": "API did not return prompt_text"
+    "noPromptTextError": "API did not return prompt_text",
+    "uploading": "Uploading...",
+    "replicating": "Replicating..."
   },
   "login": {
     "title": "Please Login First",

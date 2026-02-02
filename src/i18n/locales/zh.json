@@ -277,7 +277,9 @@
     "editPromptDialogPlaceholder": "输入新的prompt...",
     "sendAndContinueEditing": "发送并继续编辑",
     "apiKeyError": "API KEY 无效或缺失，请检查代理/后端配置",
-    "noPromptTextError": "接口未返回 prompt_text"
+    "noPromptTextError": "接口未返回 prompt_text",
+    "uploading": "上传中...",
+    "replicating": "复刻中..."
   },
   "login": {
     "title": "请先登录",
