@@ -15,9 +15,9 @@ import {
   Copy,
   Clipboard,
   Trash2,
-  ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -40,6 +40,7 @@ interface TextToImageProps {
 
 export function TextToImage({ onNavigate }: TextToImageProps) {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   
   // 从业务逻辑层获取所有状态和处理函数
   const {
@@ -109,7 +110,6 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     handleCopyImageToClipboard,
     handleResizeStart,
     handleUploadImage,
-    handleTransferToVideo,
     // Utils
     cleanMessageContent,
     isZh,
@@ -122,14 +122,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   // 视图层辅助函数
   const getStatusText = (status?: string) => {
     if (!status) return '';
-    const statusMap: Record<string, { zh: string; en: string }> = {
-      thinking: { zh: '思考中...', en: 'Thinking...' },
-      analyzing: { zh: '图片理解', en: 'Image Understanding' },
-      designing: { zh: '正在设计', en: 'Designing...' },
-      optimizing: { zh: '优化细节...', en: 'Optimizing details...' },
-      complete: { zh: '任务已结束', en: 'Task Completed' },
-    };
-    return statusMap[status]?.[isZh ? 'zh' : 'en'] || status;
+    return t(`textToImage.status.${status}`, { defaultValue: status });
   };
 
   const selectedImage = canvasImages.find(img => img.id === selectedImageId);
@@ -142,7 +135,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100 mx-auto"></div>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {isZh ? '正在加载历史记录...' : 'Loading history...'}
+              {t('textToImage.loadingHistory')}
             </p>
           </div>
         </div>
@@ -169,7 +162,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           >
             <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
             <span className="text-base font-medium">
-              {isZh ? '文生图' : 'Text to Image'}
+              {t('textToImage.title')}
             </span>
           </button>
 
@@ -182,7 +175,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               onClick={handleNewConversation}
             >
               <Plus className="h-3.5 w-3.5" />
-              {isZh ? '新建' : 'New'}
+              {t('textToImage.actions.new')}
             </Button>
             <Button 
               variant="ghost" 
@@ -194,7 +187,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               onClick={() => setShowHistory(!showHistory)}
             >
               <Clock className="h-3.5 w-3.5" />
-              {isZh ? '历史' : 'History'}
+              {t('textToImage.history')}
             </Button>
             <Button 
               variant="ghost" 
@@ -217,7 +210,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             <div className="h-full flex flex-col overflow-hidden">
               {/* History Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
-                <h3 className="text-sm font-medium">{isZh ? '历史记录' : 'History'}</h3>
+                <h3 className="text-sm font-medium">{t('textToImage.historyRecords')}</h3>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -250,21 +243,21 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                         {session.title}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {session.timestamp.toLocaleDateString(isZh ? 'zh-CN' : 'en-US')} · {session.assetCount} {isZh ? '条消息' : 'messages'}
+                        {session.timestamp.toLocaleDateString(i18n.language === 'zh' ? 'zh-CN' : 'en-US')} · {session.assetCount} {t('textToImage.messages')}
                       </p>
                     </button>
                   ))}
                   {isLoadingHistory && (
                     <div className="flex items-center justify-center py-4">
                       <div className="text-sm text-muted-foreground">
-                        {isZh ? '加载中...' : 'Loading...'}
+                        {t('textToImage.loading')}
                       </div>
                     </div>
                   )}
                   {!hasMoreHistory && historySessions.length > 0 && (
                     <div className="flex items-center justify-center py-4">
                       <div className="text-xs text-muted-foreground">
-                        {isZh ? '已加载全部记录' : 'All records loaded'}
+                        {t('textToImage.allRecordsLoaded')}
                       </div>
                     </div>
                   )}
@@ -277,10 +270,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                 <div className="flex flex-col items-center justify-center h-full text-center py-12">
                   <ImageIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
                   <p className="text-sm text-muted-foreground">
-                    {isZh ? '开始一个新的对话' : 'Start a new conversation'}
+                    {t('textToImage.startConversation')}
                   </p>
                   <p className="text-xs text-muted-foreground/70 mt-1">
-                    {isZh ? '输入描述来生成图片' : 'Enter a description to generate images'}
+                    {t('textToImage.enterDescription')}
                   </p>
                 </div>
               ) : (
@@ -389,10 +382,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   <MessageSquare className="relative h-12 w-12 text-muted-foreground/30" />
                 </div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">
-                  {isZh ? '请先创建新会话' : 'Please create a new session first'}
+                  {t('textToImage.createSessionFirst')}
                 </p>
                 <p className="text-xs text-muted-foreground/70 mb-6">
-                  {isZh ? '创建会话后即可开始生成图片' : 'Create a session to start generating images'}
+                  {t('textToImage.createSessionToStart')}
                 </p>
                 <Button
                   variant="default"
@@ -401,7 +394,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   className="gap-2 shadow-sm hover:shadow transition-shadow"
                 >
                   <Plus className="h-4 w-4" />
-                  {isZh ? '新建会话' : 'New Session'}
+                  {t('textToImage.newSession')}
                 </Button>
               </div>
             ) : (
@@ -409,7 +402,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isZh ? '描述您想要生成的图片...' : 'Describe the image you want to generate...'}
+              placeholder={t('textToImage.describeImage')}
               rows={2}
               className={cn(
                 "w-full resize-none border-0 bg-transparent px-4 text-sm placeholder:text-muted-foreground focus:outline-none",
@@ -496,7 +489,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                 >
                     <span>
                   <Plus className="h-3.5 w-3.5" />
-                  {isZh ? '添加' : 'Add'}
+                  {t('textToImage.actions.add')}
                     </span>
                 </Button>
                 </label>
@@ -520,7 +513,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           
           {/* Footer note */}
           <p className="mt-2 text-center text-xs text-muted-foreground/70">
-            {isZh ? '请使用有权素材，并合法使用生成结果' : 'Please use authorized materials and use results legally'}
+            {t('textToImage.footerNote')}
           </p>
         </div>
       </div>
@@ -556,7 +549,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             onClick={handleToggleChatPanel}
           >
             <ChevronRight className="h-3.5 w-3.5" />
-            {isZh ? '展开' : 'Expand'}
+            {t('textToImage.actions.expand')}
           </Button>
         )}
 
@@ -584,7 +577,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm" style={{zIndex:999}}>
             <span className="max-w-[200px] truncate text-xs text-muted-foreground">
               {selectedImageIds.length > 1 
-                ? isZh ? `已选择 ${selectedImageIds.length} 张图片` : `${selectedImageIds.length} images selected`
+                ? `${t('textToImage.selected')} ${selectedImageIds.length} ${t('textToImage.images')}`
                 : selectedImage?.prompt ? cleanMessageContent(selectedImage.prompt) : ''}
             </span>
             <div className="h-4 w-px bg-border" />
@@ -593,7 +586,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               size="icon" 
               className="h-8 w-8 rounded-full"
               onClick={selectedImageIds.length > 1 ? handleBatchCopyImages : () => selectedImage && handleCopyImageToClipboard(selectedImage)}
-              title={isZh ? (selectedImageIds.length > 1 ? '批量复制' : '复制') : (selectedImageIds.length > 1 ? 'Copy All' : 'Copy')}
+              title={selectedImageIds.length > 1 ? t('textToImage.actions.copyAll') : t('textToImage.actions.copy')}
             >
               <Copy className="h-4 w-4" />
             </Button>
@@ -602,7 +595,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               size="icon" 
               className="h-8 w-8 rounded-full"
               onClick={handleBatchDownloadImages}
-              title={isZh ? (selectedImageIds.length > 1 ? '批量下载' : '下载') : (selectedImageIds.length > 1 ? 'Download All' : 'Download')}
+              title={selectedImageIds.length > 1 ? t('textToImage.actions.downloadAll') : t('textToImage.actions.download')}
             >
               <Download className="h-4 w-4" />
             </Button>
@@ -611,18 +604,9 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               size="icon" 
               className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
               onClick={handleDeleteImage}
-              title={isZh ? (selectedImageIds.length > 1 ? '批量删除' : '删除') : (selectedImageIds.length > 1 ? 'Delete All' : 'Delete')}
+              title={selectedImageIds.length > 1 ? t('textToImage.actions.deleteAll') : t('textToImage.actions.delete')}
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 rounded-full"
-              onClick={() => handleTransferToVideo(onNavigate)}
-              title={isZh ? (selectedImageIds.length > 1 ? '批量转移' : '转移') : (selectedImageIds.length > 1 ? 'Transfer All' : 'Transfer')}
-            >
-              <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         )}
@@ -632,7 +616,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           variant="secondary" 
           className="absolute right-4 top-4 shadow-sm"
         >
-          {canvasImages.length} {isZh ? '张图片' : 'images'}
+          {canvasImages.length} {t('textToImage.images')}
         </Badge>
       </div>
 

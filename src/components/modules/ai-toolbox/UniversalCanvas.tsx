@@ -169,11 +169,13 @@ export function UniversalCanvas({
       const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom + deltaZoom));
       
       setPan((currentPan) => {
+        // 使用更精确的坐标转换，避免精度损失
         const canvasX = (mouseX - currentPan.x) / currentZoom;
         const canvasY = (mouseY - currentPan.y) / currentZoom;
         
-        const newPanX = mouseX - canvasX * newZoom;
-        const newPanY = mouseY - canvasY * newZoom;
+        // 计算新的 pan 值，并四舍五入到最近的整数，确保像素对齐
+        const newPanX = Math.round(mouseX - canvasX * newZoom);
+        const newPanY = Math.round(mouseY - canvasY * newZoom);
         
         const newPan = { x: newPanX, y: newPanY };
         
@@ -315,8 +317,8 @@ export function UniversalCanvas({
       }
       
       // 计算鼠标移动的距离（屏幕坐标）
-      const deltaScreenX = e.clientX - resizeStartPos.current.x;
-      const deltaScreenY = e.clientY - resizeStartPos.current.y;
+      const deltaScreenX = Math.round(e.clientX - resizeStartPos.current.x);
+      const deltaScreenY = Math.round(e.clientY - resizeStartPos.current.y);
       
       // 转换为画布坐标
       const deltaCanvasX = deltaScreenX / zoom;
@@ -386,7 +388,11 @@ export function UniversalCanvas({
       const dx = e.clientX - lastMousePos.current.x;
       const dy = e.clientY - lastMousePos.current.y;
       setPan(prev => {
-        const newPan = { x: prev.x + dx, y: prev.y + dy };
+        // 四舍五入确保像素对齐，避免抖动
+        const newPan = { 
+          x: Math.round(prev.x + dx), 
+          y: Math.round(prev.y + dy) 
+        };
         // 用户交互时总是通知视图变化
         onViewChange?.(zoom, newPan);
         return newPan;
@@ -444,8 +450,9 @@ export function UniversalCanvas({
             return;
           }
           
-          const screenX = item.x * zoom + pan.x;
-          const screenY = item.y * zoom + pan.y;
+          // 四舍五入确保像素对齐
+          const screenX = Math.round(item.x * zoom + pan.x);
+          const screenY = Math.round(item.y * zoom + pan.y);
           const screenWidth = item.width * zoom;
           const screenHeight = item.height * zoom;
           
@@ -514,8 +521,8 @@ export function UniversalCanvas({
 
   // Handle item drag
   const handleDrag = (id: string) => (_e: DraggableEvent, data: DraggableData) => {
-    const canvasX = (data.x - pan.x) / zoom;
-    const canvasY = (data.y - pan.y) / zoom;
+    const canvasX = Math.round((data.x - pan.x) / zoom * 100) / 100;
+    const canvasY = Math.round((data.y - pan.y) / zoom * 100) / 100;
     onItemMove?.(id, canvasX, canvasY);
   };
 
@@ -536,8 +543,9 @@ export function UniversalCanvas({
     const canvasX = (centerX - pan.x) / zoom;
     const canvasY = (centerY - pan.y) / zoom;
     const newZoom = Math.min(MAX_ZOOM, zoom + ZOOM_STEP);
-    const newPanX = centerX - canvasX * newZoom;
-    const newPanY = centerY - canvasY * newZoom;
+    // 四舍五入确保像素对齐
+    const newPanX = Math.round(centerX - canvasX * newZoom);
+    const newPanY = Math.round(centerY - canvasY * newZoom);
     
     const newPan = { x: newPanX, y: newPanY };
     
@@ -564,8 +572,9 @@ export function UniversalCanvas({
     const canvasX = (centerX - pan.x) / zoom;
     const canvasY = (centerY - pan.y) / zoom;
     const newZoom = Math.max(MIN_ZOOM, zoom - ZOOM_STEP);
-    const newPanX = centerX - canvasX * newZoom;
-    const newPanY = centerY - canvasY * newZoom;
+    // 四舍五入确保像素对齐
+    const newPanX = Math.round(centerX - canvasX * newZoom);
+    const newPanY = Math.round(centerY - canvasY * newZoom);
     
     const newPan = { x: newPanX, y: newPanY };
     
@@ -605,7 +614,12 @@ export function UniversalCanvas({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onContextMenu={handleContextMenu}
-      style={{ touchAction: 'none' }}
+      style={{ 
+        touchAction: 'none',
+        // 启用 GPU 加速
+        transform: 'translateZ(0)',
+        willChange: 'transform',
+      }}
     >
       {/* Dot Pattern Background */}
       <div 
@@ -614,14 +628,29 @@ export function UniversalCanvas({
           backgroundImage: `radial-gradient(circle, hsl(var(--muted-foreground) / 0.15) 1px, transparent 1px)`,
           backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
           backgroundPosition: `${pan.x}px ${pan.y}px`,
+          // GPU 加速背景层
+          transform: 'translateZ(0)',
+          willChange: 'transform',
         }}
       />
 
-      {/* Canvas Layer */}
-      <div className="absolute inset-0">
+      {/* Canvas Layer - 使用 GPU 加速优化性能 */}
+      <div 
+        className="absolute inset-0"
+        style={{
+          // 强制启用 GPU 加速
+          transform: 'translate3d(0, 0, 0)',
+          // 使用 will-change 提示浏览器优化
+          willChange: (isPanning || isResizing) ? 'transform' : 'auto',
+          // 启用硬件加速
+          backfaceVisibility: 'hidden',
+          perspective: 1000,
+        }}
+      >
         {items.map((item, index) => {
-          const screenX = item.x * zoom + pan.x;
-          const screenY = item.y * zoom + pan.y;
+          // 使用 Math.round 确保像素对齐，避免子像素渲染导致的抖动
+          const screenX = Math.round(item.x * zoom + pan.x);
+          const screenY = Math.round(item.y * zoom + pan.y);
           const mediaType = getMediaType(item);
           const isVideo = mediaType === 'video';
           const isPlaceholder = mediaType === 'placeholder';
@@ -667,9 +696,15 @@ export function UniversalCanvas({
                   addingItemIds.includes(item.id) && 'opacity-0 scale-90'
                 )}
                 style={{ 
-                  width: item.width * zoom, 
-                  height: item.height * zoom,
+                  // 四舍五入尺寸，确保像素对齐
+                  width: Math.round(item.width * zoom), 
+                  height: Math.round(item.height * zoom),
                   zIndex: (selectedItemId === item.id || selectedItemIds.includes(item.id)) ? 50 : index + 1,
+                  // GPU 加速每个元素
+                  transform: 'translate3d(0, 0, 0)',
+                  willChange: (isPanning || isResizing) ? 'transform' : 'auto',
+                  // 启用硬件加速
+                  backfaceVisibility: 'hidden',
                 }}
                 onMouseDown={(e) => {
                   // 如果按住 Ctrl/Cmd 键，这是画布平移操作，不处理图层点击
@@ -952,6 +987,10 @@ export function UniversalCanvas({
           style={{
             left: selectionBox.x,
             top: selectionBox.y,
+            // GPU 加速选择框
+            transform: 'translate3d(0, 0, 0)',
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
             width: selectionBox.width,
             height: selectionBox.height,
           }}

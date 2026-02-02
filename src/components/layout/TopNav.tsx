@@ -90,7 +90,7 @@ export function TopNav() {
   };
 
   return (
-    <header className="h-14 border-b border-border bg-background flex items-center justify-between px-4 top-0 z-50 fixed left-0 w-screen">
+    <header className="h-14 border-b border-border bg-background flex items-center justify-between px-4 top-0 z-[100] fixed left-0 w-screen">
       {/* Left: Logo */}
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-foreground flex items-center justify-center">

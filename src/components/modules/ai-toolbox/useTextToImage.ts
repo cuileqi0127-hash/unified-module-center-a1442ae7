@@ -66,7 +66,7 @@ const mockHistory: ChatMessage[] = [];
 const initialCanvasImages: CanvasImage[] = [];
 
 export function useTextToImage() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isZh = i18n.language === 'zh';
 
   // Refs
@@ -208,7 +208,7 @@ export function useTextToImage() {
             
             return {
               id: session.id.toString(),
-              title: session.title || (isZh ? '未命名会话' : 'Untitled Session'),
+              title: session.title || t('common.untitledSession'),
               timestamp: new Date(session.createTime || Date.now()),
               assetCount,
             };
@@ -399,7 +399,7 @@ export function useTextToImage() {
         // 3. 如果历史记录列表数组长度 == 0，自动创建新会话
         try {
           const response = await createSession({
-            title: isZh ? '新会话' : 'New Session',
+            title: t('toast.newSession'),
             taskType: 'image',
             settings: {
               model,
@@ -418,7 +418,7 @@ export function useTextToImage() {
           }
         } catch (error) {
           console.error('Failed to create session:', error);
-          toast.error(isZh ? '创建会话失败' : 'Failed to create session');
+          toast.error(t('toast.createSessionFailed'));
         }
       }
       } finally {
@@ -641,11 +641,11 @@ export function useTextToImage() {
         }
         
         setShowHistory(false);
-        toast.success(isZh ? '会话加载成功' : 'Session loaded');
+        toast.success(t('toast.sessionLoaded'));
       }
     } catch (error) {
       console.error('Failed to load session:', error);
-      toast.error(isZh ? '加载会话失败' : 'Failed to load session');
+      toast.error(t('toast.loadSessionFailed'));
     }
   }, [isZh]);
 
@@ -693,14 +693,14 @@ export function useTextToImage() {
     
     setSelectedImages(prev => {
       if (prev.some(img => img.id === image.id)) {
-        toast.info(isZh ? '该图片已在输入框中' : 'Image already attached');
+        toast.info(t('toast.imageAlreadyAttached'));
         return prev;
       }
       return [...prev, selectedImage];
     });
     
     setHighlightedImageId(image.id);
-    toast.success(isZh ? '已添加到输入框' : 'Added to input');
+    toast.success(t('toast.addedToInput'));
     
     setTimeout(() => {
       setHighlightedImageId(null);
@@ -724,7 +724,7 @@ export function useTextToImage() {
       width: image.width,
       height: image.height,
     }]));
-    toast.success(isZh ? '已复制到剪贴板，可在新画布粘贴' : 'Copied to clipboard, can paste in new canvas');
+    toast.success(t('toast.copiedToClipboard'));
   }, [isZh]);
 
   // 判断URL是否为视频
@@ -916,11 +916,11 @@ export function useTextToImage() {
       const videoCount = newImages.filter(img => img.type === 'video' || isVideoUrl(img.url)).length;
       const imageCount = newImages.length - videoCount;
       if (videoCount > 0 && imageCount > 0) {
-        toast.success(isZh ? `已粘贴 ${imageCount} 张图片和 ${videoCount} 个视频到画布` : `${imageCount} images and ${videoCount} videos pasted to canvas`);
+        toast.success(`${t('toast.pastedImagesAndVideos')} ${imageCount} ${t('toast.images')} ${t('common.and')} ${videoCount} ${t('toast.videos')} ${t('toast.toCanvas')}`);
       } else if (videoCount > 0) {
-        toast.success(isZh ? `已粘贴 ${videoCount} 个视频到画布` : `${videoCount} videos pasted to canvas`);
+        toast.success(`${t('toast.pastedImagesAndVideos')} ${videoCount} ${t('toast.videos')} ${t('toast.toCanvas')}`);
       } else {
-        toast.success(isZh ? `已粘贴 ${imageCount} 张图片到画布` : `${imageCount} images pasted to canvas`);
+        toast.success(`${t('toast.pastedImagesAndVideos')} ${imageCount} ${t('toast.images')} ${t('toast.toCanvas')}`);
       }
       return;
     }
@@ -1014,7 +1014,7 @@ export function useTextToImage() {
         }
       }
       
-      toast.success(isZh ? '已粘贴图片到画布' : 'Image pasted to canvas');
+      toast.success(t('toast.pastedToCanvas'));
     }
   }, [copiedImage, copiedImages, isZh, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, loadSessions]);
 
@@ -1050,10 +1050,10 @@ export function useTextToImage() {
         });
       }, 300);
       
-      toast.success(isZh ? '图片已添加到画布' : 'Image added to canvas');
+      toast.success(t('toast.imageAddedToCanvas'));
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(isZh ? '图片上传失败' : 'Image upload failed');
+      toast.error(t('toast.imageUploadFailed'));
     }
   }, [isZh, getImageDimensions]);
 
@@ -1296,7 +1296,7 @@ export function useTextToImage() {
     } catch (error) {
       console.error('Generation error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(isZh ? `生成失败：${errorMessage}` : `Generation failed: ${errorMessage}`);
+      toast.error(`${t('toast.generationFailed')}: ${errorMessage}`);
       setIsGenerating(false);
       
       setMessages(prev => 
@@ -1364,7 +1364,7 @@ export function useTextToImage() {
         await loadSessions();
       } catch (error) {
         console.error('Failed to delete canvas items:', error);
-        toast.error(isZh ? '删除失败' : 'Delete failed');
+        toast.error(t('toast.deleteFailed'));
         // 删除失败时，取消删除状态
         setDeletingImageIds(new Set());
         return;
@@ -1389,7 +1389,7 @@ export function useTextToImage() {
     // 清除删除状态
     setDeletingImageIds(new Set());
     
-    toast.success(isZh ? `已删除 ${idsToDelete.length} 个图层` : `Deleted ${idsToDelete.length} items`);
+    toast.success(`${t('toast.deletedItems')} ${idsToDelete.length} ${t('toast.items')}`);
   }, [selectedImageIds, selectedImageId, isZh, loadSessions]);
 
   // 处理键盘删除快捷键
@@ -1413,25 +1413,6 @@ export function useTextToImage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedImageId, selectedImageIds, handleDeleteImage]);
 
-  // 处理转移图片到文生视频页面
-  const handleTransferToVideo = useCallback((onNavigate?: (itemId: string) => void) => {
-    if (selectedImageIds.length > 0 || selectedImageId) {
-      // 获取选中的图片
-      const imagesToTransfer = selectedImageIds.length > 0
-        ? canvasImages.filter(img => selectedImageIds.includes(img.id))
-        : selectedImageId
-          ? canvasImages.filter(img => img.id === selectedImageId)
-          : [];
-      
-      if (imagesToTransfer.length > 0) {
-        // 将图片数据存储到sessionStorage，供文生视频页面使用
-        sessionStorage.setItem('transferredImages', JSON.stringify(imagesToTransfer));
-        // 跳转到文生视频页面
-        onNavigate?.('text-to-video');
-        toast.success(isZh ? `已转移 ${imagesToTransfer.length} 张图片到文生视频页面` : `Transferred ${imagesToTransfer.length} images to video page`);
-      }
-    }
-  }, [selectedImageIds, selectedImageId, canvasImages, isZh]);
 
   // 处理批量复制图片
   const handleBatchCopyImages = useCallback(async () => {
@@ -1453,7 +1434,7 @@ export function useTextToImage() {
     try {
       const imageUrls = imagesToCopy.map(img => img.url);
       await navigator.clipboard.writeText(JSON.stringify(imageUrls));
-      toast.success(isZh ? `已复制 ${imagesToCopy.length} 张图片` : `Copied ${imagesToCopy.length} images`);
+      toast.success(`${t('toast.copiedImages')} ${imagesToCopy.length} ${t('toast.images')}`);
     } catch (err) {
       toast.error(isZh ? '复制失败' : 'Copy failed');
     }
@@ -1493,7 +1474,7 @@ export function useTextToImage() {
         JSZip = (await import('jszip')).default;
       } catch (err) {
         // 如果 jszip 未安装，提示用户并逐个下载
-        toast.error(isZh ? '请先安装 jszip: npm install jszip，将逐个下载文件' : 'Please install jszip: npm install jszip, will download files one by one');
+        toast.error(t('toast.jszipNotInstalled'));
         // 逐个下载
         for (const image of imagesToDownload) {
           const a = document.createElement('a');
@@ -1512,7 +1493,7 @@ export function useTextToImage() {
       const zip = new JSZip();
       
       // 显示加载提示
-      const loadingToast = toast.loading(isZh ? `正在打包 ${imagesToDownload.length} 张图片...` : `Packing ${imagesToDownload.length} images...`);
+      const loadingToast = toast.loading(`${t('common.packing')} ${imagesToDownload.length} ${t('toast.images')}...`);
       
       // 获取文件并添加到 zip
       let successCount = 0;
@@ -1546,7 +1527,7 @@ export function useTextToImage() {
       
       if (successCount === 0) {
         toast.dismiss(loadingToast);
-        toast.error(isZh ? '所有文件下载失败，请检查网络连接' : 'All files failed to download, please check network connection');
+        toast.error(t('toast.allDownloadsFailed'));
         return;
       }
       
@@ -1562,10 +1543,10 @@ export function useTextToImage() {
       URL.revokeObjectURL(zipUrl);
       
       toast.dismiss(loadingToast);
-      toast.success(isZh ? `已下载 ${successCount}/${imagesToDownload.length} 张图片（压缩包）` : `Downloaded ${successCount}/${imagesToDownload.length} images (zip)`);
+      toast.success(`${t('toast.downloadedZip')} ${successCount}/${imagesToDownload.length} ${t('toast.images')} (${t('common.zip')})`);
     } catch (err) {
       console.error('Download failed:', err);
-      toast.error(isZh ? `下载失败: ${err instanceof Error ? err.message : '未知错误'}` : `Download failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      toast.error(`${t('toast.downloadFailed')}: ${err instanceof Error ? err.message : t('toast.unknownError')}`);
     }
   }, [selectedImageIds, selectedImageId, canvasImages, isZh]);
 
@@ -1577,7 +1558,7 @@ export function useTextToImage() {
       await navigator.clipboard.write([
         new ClipboardItem({ [blob.type]: blob })
       ]);
-      toast.success(isZh ? '已复制图片' : 'Image copied');
+      toast.success(t('toast.imageCopied'));
     } catch (err) {
       toast.error(isZh ? '复制失败' : 'Copy failed');
     }
@@ -1716,7 +1697,6 @@ export function useTextToImage() {
     handleCopyImageToClipboard,
     handleResizeStart,
     handleUploadImage,
-    handleTransferToVideo,
     
     // Utils
     cleanMessageContent,
