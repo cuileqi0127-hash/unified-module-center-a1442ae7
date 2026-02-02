@@ -143,13 +143,15 @@ export async function generateImage(
     const response = await apiPost<ImageGenerationResponse>('/images/generations', requestBody, {
       baseURL: API_BASE_URL,
       useAuth: false, // 图片生成接口使用 API Key 认证，不使用用户 token
+      parseJson: true,
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json'
       },
     });
-
+    console.log(response,'response')
     // 验证响应数据
-    const data = response.data || response as ImageGenerationResponse;
+    const data = response as ImageGenerationResponse;
     if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
       throw new Error('Invalid response: missing image data');
     }
