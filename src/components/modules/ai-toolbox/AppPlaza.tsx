@@ -1,6 +1,13 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Eye, Copy, TrendingUp, Megaphone, UserCircle, Video } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // Import images
 import digitalHumanBanner from '@/assets/digital-human-banner.png';
@@ -19,13 +26,28 @@ interface ToolCardProps {
   onClick: () => void;
 }
 
-const ToolCard = ({ title, description, icon, views, copies, onClick }: ToolCardProps) => {
+interface ToolCardProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  views: number;
+  copies: number;
+  onClick: () => void;
+  isComingSoon?: boolean;
+}
+
+const ToolCard = ({ title, description, icon, views, copies, onClick, isComingSoon = false }: ToolCardProps) => {
   const { t } = useTranslation();
   
   return (
     <Card 
-      className="bg-card hover:shadow-md transition-all duration-200 cursor-pointer border border-border/50 hover:border-border"
-      onClick={onClick}
+      className={cn(
+        "bg-card transition-all duration-200 border border-border/50",
+        isComingSoon 
+          ? "opacity-50 cursor-not-allowed" 
+          : "hover:shadow-md cursor-pointer hover:border-border"
+      )}
+      onClick={!isComingSoon ? onClick : undefined}
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
@@ -45,6 +67,9 @@ const ToolCard = ({ title, description, icon, views, copies, onClick }: ToolCard
                 {copies}
               </span>
             </div>
+            {isComingSoon && (
+              <div className="mt-2 text-xs font-medium text-primary">Coming Soon</div>
+            )}
           </div>
         </div>
       </CardContent>
@@ -59,18 +84,27 @@ interface VisualCardProps {
   copies: number;
   image: string;
   onClick: () => void;
+  isComingSoon?: boolean;
 }
 
-const VisualCard = ({ title, description, views, copies, image, onClick }: VisualCardProps) => (
+const VisualCard = ({ title, description, views, copies, image, onClick, isComingSoon = false }: VisualCardProps) => (
   <Card 
-    className="bg-card hover:shadow-md transition-all duration-200 cursor-pointer border border-border/50 hover:border-border overflow-hidden"
-    onClick={onClick}
+    className={cn(
+      "bg-card transition-all duration-200 border border-border/50 overflow-hidden",
+      isComingSoon 
+        ? "opacity-50 cursor-not-allowed" 
+        : "hover:shadow-md cursor-pointer hover:border-border"
+    )}
+    onClick={!isComingSoon ? onClick : undefined}
   >
     <div className="h-32 overflow-hidden">
       <img 
         src={image} 
         alt={title} 
-        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+        className={cn(
+          "w-full h-full object-cover transition-transform duration-300",
+          !isComingSoon && "hover:scale-105"
+        )}
       />
     </div>
     <CardContent className="p-3">
@@ -86,6 +120,9 @@ const VisualCard = ({ title, description, views, copies, image, onClick }: Visua
           {copies}
         </span>
       </div>
+      {isComingSoon && (
+        <div className="mt-2 text-xs font-medium text-primary">Coming Soon</div>
+      )}
     </CardContent>
   </Card>
 );
@@ -96,6 +133,9 @@ interface AppPlazaProps {
 
 export function AppPlaza({ onNavigate }: AppPlazaProps) {
   const { t } = useTranslation();
+
+  // 定义 Coming Soon 的页面列表
+  const comingSoonItems = ['brand-health', 'campaign-planner', 'digital-human'];
 
   const marketInsightTools = [
     { id: 'brand-health', titleKey: 'appPlaza.tools.brandHealth.title', descKey: 'appPlaza.tools.brandHealth.description', icon: <TrendingUp className="w-5 h-5 text-muted-foreground" />, views: 561, copies: 141 },
@@ -132,15 +172,26 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
         {/* Hero Banner Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Digital Human Banner */}
+          <TooltipProvider>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
           <Card 
-            className="overflow-hidden cursor-pointer group"
-            onClick={() => onNavigate('digital-human')}
+                  className={cn(
+                    "overflow-hidden group",
+                    comingSoonItems.includes('digital-human')
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer"
+                  )}
+                  onClick={() => !comingSoonItems.includes('digital-human') && onNavigate('digital-human')}
           >
             <div className="relative h-48 overflow-hidden">
               <img 
                 src={digitalHumanBanner} 
                 alt="Digital Human" 
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                className={cn(
+                  "absolute inset-0 w-full h-full object-cover transition-transform duration-500",
+                  !comingSoonItems.includes('digital-human') && "group-hover:scale-110"
+                )}
               />
               <div className="absolute inset-0 bg-gradient-to-r from-violet-900/80 to-transparent" />
               <div className="relative z-10 h-full p-6 flex items-center">
@@ -152,10 +203,21 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                   <h2 className="text-2xl font-bold text-white mb-1">{t('appPlaza.digitalHuman.title')}</h2>
                   <p className="text-white/70 text-sm">{t('appPlaza.digitalHuman.subtitle')}</p>
                   <p className="text-white/60 text-xs mt-2 max-w-[200px]">{t('appPlaza.digitalHuman.description')}</p>
+                  {comingSoonItems.includes('digital-human') && (
+                    <div className="mt-2 text-xs font-medium text-white/90">Coming Soon</div>
+                  )}
                 </div>
               </div>
             </div>
           </Card>
+              </TooltipTrigger>
+              {comingSoonItems.includes('digital-human') && (
+                <TooltipContent>
+                  <p>Coming Soon</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Video Generation Banner */}
           <Card 
@@ -189,15 +251,28 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
           <h2 className="text-lg font-semibold text-foreground mb-4">{t('appPlaza.sections.marketInsights')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {marketInsightTools.map((tool) => (
+              <TooltipProvider key={tool.id}>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div>
               <ToolCard
-                key={tool.id}
                 title={t(tool.titleKey)}
                 description={t(tool.descKey)}
                 icon={tool.icon}
                 views={tool.views}
                 copies={tool.copies}
                 onClick={() => onNavigate(tool.id)}
-              />
+                        isComingSoon={comingSoonItems.includes(tool.id)}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  {comingSoonItems.includes(tool.id) && (
+                    <TooltipContent>
+                      <p>Coming Soon</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             ))}
           </div>
         </div>
@@ -207,15 +282,28 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
           <h2 className="text-lg font-semibold text-foreground mb-4">{t('appPlaza.sections.marketingPlanning')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {marketingPlanTools.map((tool) => (
+              <TooltipProvider key={tool.id}>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div>
               <ToolCard
-                key={tool.id}
                 title={t(tool.titleKey)}
                 description={t(tool.descKey)}
                 icon={tool.icon}
                 views={tool.views}
                 copies={tool.copies}
                 onClick={() => onNavigate(tool.id)}
-              />
+                        isComingSoon={comingSoonItems.includes(tool.id)}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  {comingSoonItems.includes(tool.id) && (
+                    <TooltipContent>
+                      <p>Coming Soon</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             ))}
           </div>
         </div>
@@ -265,15 +353,28 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
             <h3 className="text-sm font-medium text-muted-foreground mb-3">{t('appPlaza.sections.digitalHuman')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {digitalHumanTools.map((tool) => (
+                <TooltipProvider key={tool.id}>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <div>
                 <ToolCard
-                  key={tool.id}
                   title={t(tool.titleKey)}
                   description={t(tool.descKey)}
                   icon={tool.icon}
                   views={tool.views}
                   copies={tool.copies}
                   onClick={() => onNavigate(tool.id)}
-                />
+                          isComingSoon={comingSoonItems.includes(tool.id)}
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    {comingSoonItems.includes(tool.id) && (
+                      <TooltipContent>
+                        <p>Coming Soon</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
           </div>

@@ -8,6 +8,7 @@
 import { MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import { AnimatedText } from './AnimatedText';
 
 export interface ChatMessage {
@@ -46,15 +47,17 @@ export function GenerationChatPanel({
   findCanvasItem,
   chatEndRef,
 }: GenerationChatPanelProps) {
+  const { t } = useTranslation();
+  
   if (messages.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <p className="text-sm font-medium text-foreground">
-            {isZh ? '开始对话' : 'Start a conversation'}
+            {t('generationChatPanel.startConversation')}
           </p>
           <p className="text-xs text-muted-foreground/70 mt-1">
-            {isZh ? '输入描述来生成内容' : 'Enter a description to generate content'}
+            {t('generationChatPanel.enterDescription')}
           </p>
         </div>
       </div>
@@ -151,7 +154,7 @@ export function GenerationChatPanel({
                       className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
                     >
                       <MessageSquare className="h-3 w-3" />
-                      {isZh ? '反馈' : 'Feedback'}
+                      {t('generationChatPanel.feedback')}
                     </Button>
                   </div>
                 </div>
@@ -185,7 +188,7 @@ export function GenerationChatPanel({
                       className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
                     >
                       <MessageSquare className="h-3 w-3" />
-                      {isZh ? '反馈' : 'Feedback'}
+                      {t('generationChatPanel.feedback')}
                     </Button>
                   </div>
                 </div>
@@ -204,7 +207,7 @@ export function GenerationChatPanel({
                 <div className="flex items-center gap-1.5 pt-1">
                   <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
                   <span className="text-xs text-muted-foreground">
-                    {isZh ? '已完成' : 'Completed'}
+                    {t('generationChatPanel.completed')}
                   </span>
                 </div>
               )}

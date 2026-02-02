@@ -95,7 +95,7 @@ export interface Session {
   taskType: TaskType;
   settings: SessionSettings;
   canvasView: CanvasView;
-  messageCount?: number; // 消息数量（如果后端返回）
+  assetCount?: number; // 消息数量（如果后端返回）
 }
 
 // 会话详情（包含关联数据）
@@ -342,7 +342,7 @@ export async function batchDeleteCanvasItems(
 
 /**
  * 8. 更新画布元素
- * 移动/缩放画布元素
+ * 移动/缩放/放大缩小画布元素
  */
 export async function updateCanvasItem(
   canvasItemId: number,

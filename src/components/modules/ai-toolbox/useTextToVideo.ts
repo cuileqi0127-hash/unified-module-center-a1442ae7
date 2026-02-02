@@ -133,7 +133,7 @@ function updateTaskInQueue(taskId: string, updates: Partial<VideoTaskQueueItem>)
 }
 
 export function useTextToVideo() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isZh = i18n.language === 'zh';
 
   // Refs
@@ -174,7 +174,7 @@ export function useTextToVideo() {
   
   // 会话管理状态
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
-  const [historySessions, setHistorySessions] = useState<Array<{ id: string; title: string; timestamp: Date; messageCount: number }>>([]);
+  const [historySessions, setHistorySessions] = useState<Array<{ id: string; title: string; timestamp: Date; assetCount: number }>>([]);
   const [historyPage, setHistoryPage] = useState(1); // 当前页码
   const [hasMoreHistory, setHasMoreHistory] = useState(true); // 是否还有更多历史记录
   const [isLoadingHistory, setIsLoadingHistory] = useState(false); // 是否正在加载历史记录
@@ -287,29 +287,16 @@ export function useTextToVideo() {
         const total = response.data.total || 0;
         
         // 为每个会话获取消息数量
-        // 优化：如果后端已经返回 messageCount，直接使用；否则获取详情
+        // 优化：如果后端已经返回 assetCount，直接使用；否则获取详情
         const sessionsWithMessageCount = await Promise.all(
           sessions.map(async (session: Session) => {
-            let messageCount = session.messageCount ?? 0;
-            
-            // 如果后端没有返回 messageCount，则获取详情
-            // if (messageCount === 0 && session.messageCount === undefined) {
-            //   try {
-            //     const detailResponse = await getSessionDetail(session.id.toString());
-            //     if (detailResponse.success && detailResponse.data?.messages) {
-            //       messageCount = detailResponse.data.messages.length;
-            //     }
-            //   } catch (error) {
-            //     // 如果获取详情失败，消息数量保持为 0
-            //     console.error(`Failed to get message count for session ${session.id}:`, error);
-            //   }
-            // }
+            let assetCount = session.assetCount ?? 0;
             
             return {
               id: session.id.toString(),
-              title: session.title || (isZh ? '未命名会话' : 'Untitled Session'),
+              title: session.title || t('common.untitledSession'),
               timestamp: new Date(session.createTime || Date.now()),
-              messageCount,
+              assetCount,
             };
           })
         );
@@ -497,7 +484,7 @@ export function useTextToVideo() {
         // 3. 如果历史记录列表数组长度 == 0，自动创建新会话
         try {
           const response = await createSession({
-            title: isZh ? '新会话' : 'New Session',
+            title: t('toast.newSession'),
             taskType: 'video',
             settings: {
               model,
@@ -517,7 +504,7 @@ export function useTextToVideo() {
           }
         } catch (error) {
           console.error('Failed to create session:', error);
-          toast.error(isZh ? '创建会话失败' : 'Failed to create session');
+          toast.error(t('toast.createSessionFailed'));
         }
       }
       } finally {
@@ -567,44 +554,6 @@ export function useTextToVideo() {
     }
   }, [currentSessionId, debouncedUpdateSession]);
 
-  // 从sessionStorage读取转移的图片
-  useEffect(() => {
-    const transferredData = sessionStorage.getItem('transferredImages');
-    if (transferredData) {
-      try {
-        const transferredImages = JSON.parse(transferredData) as CanvasVideo[];
-        if (transferredImages.length > 0) {
-          // 异步处理每个图片，获取其尺寸
-          Promise.all(
-            transferredImages.map(async (img) => {
-              const dimensions = await getImageDimensions(img.url);
-              return {
-                ...img,
-                id: `img-${Date.now()}-${Math.random()}`,
-                type: 'image' as const,
-                x: img.x || (300 + Math.random() * 100),
-                y: img.y || (200 + Math.random() * 100),
-                width: dimensions.width,
-                height: dimensions.height,
-              };
-            })
-          ).then((newVideos) => {
-            setCanvasVideos(prev => [...prev, ...newVideos]);
-            if (newVideos.length > 0) {
-              setSelectedVideoId(newVideos[0].id);
-              setSelectedVideoIds(newVideos.map(v => v.id));
-            }
-            // 清除sessionStorage
-            sessionStorage.removeItem('transferredImages');
-            toast.success(isZh ? `已接收 ${transferredImages.length} 张图片` : `Received ${transferredImages.length} images`);
-          });
-        }
-      } catch (error) {
-        console.error('Failed to parse transferred images:', error);
-        sessionStorage.removeItem('transferredImages');
-      }
-    }
-  }, [isZh, getImageDimensions]);
 
   // 从 sessionStorage 读取跨页面复制的数据
   useEffect(() => {
@@ -682,7 +631,7 @@ export function useTextToVideo() {
     try {
       // 创建新会话
       const response = await createSession({
-        title: isZh ? '新会话' : 'New Session',
+        title: t('toast.newSession'),
         taskType: 'video',
         settings: {
           model,
@@ -845,11 +794,11 @@ export function useTextToVideo() {
         }
         
         setShowHistory(false);
-        toast.success(isZh ? '会话加载成功' : 'Session loaded');
+        toast.success(t('toast.sessionLoaded'));
       }
     } catch (error) {
       console.error('Failed to load session:', error);
-      toast.error(isZh ? '加载会话失败' : 'Failed to load session');
+      toast.error(t('toast.loadSessionFailed'));
     }
   }, [isZh]);
 
@@ -897,14 +846,14 @@ export function useTextToVideo() {
     
     setSelectedImages(prev => {
       if (prev.some(img => img.id === video.id)) {
-        toast.info(isZh ? '该视频已在输入框中' : 'Video already attached');
+        toast.info(t('toast.videoAlreadyAttached'));
         return prev;
       }
       return [...prev, selectedImage];
     });
     
     setHighlightedVideoId(video.id);
-    toast.success(isZh ? '已添加到输入框' : 'Added to input');
+    toast.success(t('toast.addedToInput'));
     
     setTimeout(() => {
       setHighlightedVideoId(null);
@@ -932,7 +881,7 @@ export function useTextToVideo() {
     sessionStorage.setItem('canvasCopiedItems', JSON.stringify([item]));
     // 触发自定义事件，通知同页面内的其他组件
     window.dispatchEvent(new Event('canvasCopiedItemsChanged'));
-    toast.success(isZh ? '已复制到剪贴板，可在新画布粘贴' : 'Copied to clipboard, can paste in new canvas');
+    toast.success(t('toast.copiedToClipboard'));
   }, [isZh, isVideoUrl]);
 
   // 处理粘贴视频
@@ -1044,7 +993,7 @@ export function useTextToVideo() {
         }
       }
       
-      toast.success(isZh ? `已粘贴 ${newVideos.length} 个项目到画布` : `Pasted ${newVideos.length} items to canvas`);
+      toast.success(`${t('toast.pastedItemsToCanvas')} ${newVideos.length} ${t('toast.items')} ${t('toast.toCanvas')}`);
       return;
     }
 
@@ -1125,7 +1074,7 @@ export function useTextToVideo() {
         }
       }
       
-      toast.success(isZh ? '已粘贴到画布' : 'Pasted to canvas');
+      toast.success(t('toast.pastedToCanvas'));
     }
   }, [copiedVideo, copiedVideos, isZh, getVideoDimensions, getImageDimensions, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions]);
 
@@ -1150,10 +1099,10 @@ export function useTextToVideo() {
       
       setCanvasVideos(prev => [...prev, newVideo]);
       setSelectedVideoId(newVideo.id);
-      toast.success(isZh ? '图片已添加到画布' : 'Image added to canvas');
+      toast.success(t('toast.imageAddedToCanvas'));
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(isZh ? '图片上传失败' : 'Image upload failed');
+      toast.error(t('toast.imageUploadFailed'));
     }
   }, [isZh, getImageDimensions]);
 
@@ -1263,7 +1212,7 @@ export function useTextToVideo() {
             fileId = uploadResponse.fileId;
           } catch (uploadError) {
             console.error('Failed to upload image:', uploadError);
-            toast.error(isZh ? '图片上传失败，将使用无参考图模式' : 'Image upload failed, using no reference mode');
+            toast.error(t('toast.imageUploadFailedNoRef'));
           }
         }
       }
@@ -1319,7 +1268,7 @@ export function useTextToVideo() {
     } catch (error) {
       console.error('Generation error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(isZh ? `生成失败：${errorMessage}` : `Generation failed: ${errorMessage}`);
+      toast.error(`${t('toast.generationFailed')}: ${errorMessage}`);
       setIsGenerating(false);
       
       setMessages(prev => 
@@ -1886,7 +1835,7 @@ export function useTextToVideo() {
       activePollingTasksRef.current.delete(task.taskId);
       
       // 显示错误提示
-      toast.error(isZh ? `任务失败：${userFriendlyMessage}` : `Task failed: ${userFriendlyMessage}`);
+      toast.error(`${t('toast.taskFailed')}: ${userFriendlyMessage}`);
       
       // 继续处理下一个任务
       processTaskQueueRef.current?.();
@@ -2081,7 +2030,7 @@ export function useTextToVideo() {
         await loadSessions(1, false);
       } catch (error) {
         console.error('Failed to delete canvas items:', error);
-        toast.error(isZh ? '删除失败' : 'Delete failed');
+        toast.error(t('toast.deleteFailed'));
         // 删除失败时，取消删除状态
         setDeletingVideoIds(new Set());
         return;
@@ -2106,7 +2055,7 @@ export function useTextToVideo() {
     // 清除删除状态
     setDeletingVideoIds(new Set());
     
-    toast.success(isZh ? `已删除 ${idsToDelete.length} 个图层` : `Deleted ${idsToDelete.length} items`);
+    toast.success(`${t('toast.deletedItems')} ${idsToDelete.length} ${t('toast.items')}`);
   }, [selectedVideoIds, selectedVideoId, isZh, loadSessions]);
 
   // 处理键盘删除快捷键
@@ -2176,9 +2125,9 @@ export function useTextToVideo() {
     try {
       const videoUrls = videosToCopy.map(v => v.url);
       await navigator.clipboard.writeText(JSON.stringify(videoUrls));
-      toast.success(isZh ? `已复制 ${videosToCopy.length} 个视频` : `Copied ${videosToCopy.length} videos`);
+      toast.success(`${t('toast.copiedVideos')} ${videosToCopy.length} ${t('toast.videos')}`);
     } catch (err) {
-      toast.error(isZh ? '复制失败' : 'Copy failed');
+      toast.error(t('toast.copyFailed'));
     }
   }, [selectedVideoIds, canvasVideos, isZh, isVideoUrl]);
 
@@ -2192,24 +2141,104 @@ export function useTextToVideo() {
     
     if (videosToDownload.length === 0) return;
     
-    for (const video of videosToDownload) {
-      try {
-        const response = await fetch(video.url);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
+    try {
+      // 如果只有一个文件，直接下载
+      if (videosToDownload.length === 1) {
+        const video = videosToDownload[0];
         const a = document.createElement('a');
-        a.href = url;
+        a.href = video.url;
         a.download = `video-${video.id}.mp4`;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error('Download failed:', err);
+        toast.success(t('toast.downloadVideoStarted'));
+        return;
       }
+      
+      // 多个文件，打包成 zip 下载
+      // @ts-ignore - JSZip 类型定义
+      let JSZip: any;
+      try {
+        // @ts-ignore - JSZip 动态导入
+        JSZip = (await import('jszip')).default;
+      } catch (err) {
+        // 如果 jszip 未安装，提示用户并逐个下载
+        toast.error(t('toast.jszipNotInstalled'));
+        // 逐个下载
+        for (const video of videosToDownload) {
+          const a = document.createElement('a');
+          a.href = video.url;
+          a.download = `video-${video.id}.mp4`;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        return;
+      }
+      
+      const zip = new JSZip();
+      
+      // 显示加载提示
+      const loadingToast = toast.loading(isZh ? `正在打包 ${videosToDownload.length} 个视频...` : `Packing ${videosToDownload.length} videos...`);
+      
+      // 获取文件并添加到 zip
+      let successCount = 0;
+      for (let i = 0; i < videosToDownload.length; i++) {
+        const video = videosToDownload[i];
+        try {
+          // 使用 XMLHttpRequest 获取文件（可以处理 CORS）
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', video.url, true);
+            xhr.responseType = 'blob';
+            xhr.onload = () => {
+              if (xhr.status === 200) {
+                resolve(xhr.response);
+              } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.ontimeout = () => reject(new Error('Request timeout'));
+            xhr.timeout = 30000; // 30秒超时
+            xhr.send();
+          });
+          zip.file(`video-${video.id}.mp4`, blob);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to fetch video ${video.id}:`, err);
+          // 继续处理其他文件
+        }
+      }
+      
+      if (successCount === 0) {
+        toast.dismiss(loadingToast);
+        toast.error(t('toast.allDownloadsFailed'));
+        return;
+      }
+      
+      // 生成 zip 文件
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = zipUrl;
+      a.download = `videos-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(zipUrl);
+      
+      toast.dismiss(loadingToast);
+      toast.success(`${t('toast.downloadedVideosZip')} ${successCount}/${videosToDownload.length} ${t('toast.videos')} (${t('common.zip')})`);
+    } catch (err) {
+      console.error('Download failed:', err);
+      toast.error(`${t('toast.downloadFailed')}: ${err instanceof Error ? err.message : t('toast.unknownError')}`);
     }
-    
-    toast.success(isZh ? `已下载 ${videosToDownload.length} 个视频` : `Downloaded ${videosToDownload.length} videos`);
   }, [selectedVideoIds, selectedVideoId, canvasVideos, isZh]);
 
   // 处理调整聊天栏宽度

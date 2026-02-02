@@ -212,15 +212,22 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     setOpenSections((prev) => ({ ...prev, [titleKey]: !prev[titleKey] }));
   };
 
+  // 定义 Coming Soon 的页面列表
+  const comingSoonItems = ['brand-health', 'campaign-planner', 'digital-human'];
+
   const renderItem = (item: SidebarItem) => {
+    const isComingSoon = comingSoonItems.includes(item.id);
+    
     const button = (
       <button
         key={item.id}
-        onClick={() => handleItemClick(item.id)}
+        onClick={() => !isComingSoon && handleItemClick(item.id)}
+        disabled={isComingSoon}
         className={cn(
           'sidebar-menu-item w-full',
           activeItem === item.id && 'active',
-          sidebarCollapsed && 'justify-center px-2'
+          sidebarCollapsed && 'justify-center px-2',
+          isComingSoon && 'opacity-50 cursor-not-allowed'
         )}
       >
         {item.icon}
@@ -235,7 +242,21 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
             {button}
           </TooltipTrigger>
           <TooltipContent side="right" className="font-medium">
-            {t(item.labelKey)}
+            {isComingSoon ? 'Coming Soon' : t(item.labelKey)}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    // 非折叠状态下，为 Coming Soon 项添加 Tooltip
+    if (isComingSoon) {
+      return (
+        <Tooltip key={item.id} delayDuration={0}>
+          <TooltipTrigger asChild>
+            {button}
+          </TooltipTrigger>
+          <TooltipContent side="right" className="font-medium">
+            Coming Soon
           </TooltipContent>
         </Tooltip>
       );
@@ -248,7 +269,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     <TooltipProvider>
       <aside
         className={cn(
-          'bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out fixed h-screen top-0 pt-14 box-border',
+          'z-[99] bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out fixed h-screen top-0 pt-14 box-border',
           sidebarCollapsed ? 'w-[68px]' : 'w-64'
         )}
       >

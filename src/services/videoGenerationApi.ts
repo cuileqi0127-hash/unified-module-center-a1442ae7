@@ -5,17 +5,13 @@
  * 提供视频生成接口封装，包括任务创建和状态轮询
  */
 
-import { handleApiResponse } from './apiInterceptor';
+import { apiPost, type ApiResponse } from './apiClient';
 
 // 根据环境变量判断使用代理还是直接访问
 // 注意：vod/upload 使用端口 8000，aigc 接口使用端口 8001
 // 生产环境也使用相对路径，通过 Nginx 代理转发
-const VOD_BASE_URL = '';  // 使用相对路径，通过 Nginx 代理到 /vod
-const AIGC_BASE_URL = '';  // 使用相对路径，通过 Nginx 代理到 /aigc
-
-const VOD_UPLOAD_URL = `${VOD_BASE_URL}/vod/upload`;
-const AIGC_CREATE_URL = `${AIGC_BASE_URL}/aigc/create`;
-const AIGC_TASK_URL = `${AIGC_BASE_URL}/aigc/task`;
+const VOD_BASE_URL = '/vod';  // 使用相对路径，通过 Nginx 代理到 /vod
+const AIGC_BASE_URL = '/aigc';  // 使用相对路径，通过 Nginx 代理到 /aigc
 
 // 支持的模型类型
 export type VideoModel = 'OS' | 'Kling';
@@ -129,25 +125,19 @@ export async function uploadMediaFile(
   formData.append('media', file);
   formData.append('cover', '');
 
-  const response = await fetch(VOD_UPLOAD_URL, {
-    method: 'POST',
-    body: formData,
+  const response = await apiPost<MediaUploadResponse>('/upload', formData, {
+    baseURL: VOD_BASE_URL,
+    useAuth: false, // VOD 上传接口不使用用户认证
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Media upload failed: ${response.status} - ${errorText}`);
-  }
-
-  const data: MediaUploadResponse = await response.json();
-  return data;
+  return response.data || response as MediaUploadResponse;
 }
 
 /**
  * 创建视频生成任务
  */
 export async function createVideoTask(request: VideoGenerationRequest): Promise<VideoTaskResponse> {
-  console.log(request,'request')
+  console.log(request, 'request');
   const requestBody: any = {
     model_name: request.model,
     prompt: request.prompt,
@@ -170,27 +160,14 @@ export async function createVideoTask(request: VideoGenerationRequest): Promise<
   //   requestBody.watermark = request.watermark;
   // }
 
-  const response = await fetch(AIGC_CREATE_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
+  const response = await apiPost<AigcCreateResponse>('/create', requestBody, {
+    baseURL: AIGC_BASE_URL,
+    useAuth: false, // AIGC 接口不使用用户认证
   });
 
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Video generation failed: ${handledResponse.status} - ${errorText}`);
-  }
-
-  // 解析返回数据
-  const data: AigcCreateResponse = await handledResponse.json();
-  
   // 转换为统一格式
   const taskResponse: VideoTaskResponse = {
-    task_id: data.Response.TaskId,
+    task_id: response.data?.Response?.TaskId || (response as any).Response?.TaskId,
     status: 'queued', // 创建任务时默认为排队状态
   };
   
@@ -219,25 +196,15 @@ function mapStatusToUnifiedStatus(apiStatus: string): 'queued' | 'processing' | 
  * 轮询任务状态
  */
 export async function pollTaskStatus(taskId: string): Promise<VideoTaskResponse> {
-  const response = await fetch(AIGC_TASK_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      task_id: taskId,
-    }),
+  const response = await apiPost<AigcTaskResponse>('/task', {
+    task_id: taskId,
+  }, {
+    baseURL: AIGC_BASE_URL,
+    useAuth: false, // AIGC 接口不使用用户认证
   });
 
-  const handledResponse = await handleApiResponse(response);
-  
-  if (!handledResponse.ok) {
-    const errorText = await handledResponse.text();
-    throw new Error(`Task status check failed: ${handledResponse.status} - ${errorText}`);
-  }
-
   // 解析返回数据
-  const data: AigcTaskResponse = await handledResponse.json();
+  const data = response.data || response as AigcTaskResponse;
   
   // 提取 AigcVideoTask 信息
   const aigcTask = data.AigcVideoTask;

@@ -5,7 +5,7 @@
  * 提供高可用、可维护、可扩展的图片生成接口封装
  */
 
-import { handleApiResponse, handle401Error } from './apiInterceptor';
+import { apiPost, type ApiResponse } from './apiClient';
 
 // 根据环境选择 API 地址：开发环境和生产环境都使用相对路径，通过 Nginx 代理
 const API_BASE_URL = '/api/tu-zi/v1';
@@ -140,45 +140,16 @@ export async function generateImage(
   };
 
   try {
-    let response = await fetch(`${API_BASE_URL}/images/generations`, {
-      method: 'POST',
+    const response = await apiPost<ImageGenerationResponse>('/images/generations', requestBody, {
+      baseURL: API_BASE_URL,
+      useAuth: false, // 图片生成接口使用 API Key 认证，不使用用户 token
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
     });
 
-    // 检查 401 错误（即使不使用认证，也要检查）
-    response = await handleApiResponse(response);
-
-    // 检查响应状态
-    if (!response.ok) {
-      let errorMessage = `API error: ${response.status}`;
-      
-      try {
-        const errorData: ApiError = await response.json();
-        errorMessage = errorData.error?.message || errorMessage;
-      } catch {
-        // 如果无法解析错误响应，使用默认错误消息
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    // 解析响应
-    const data: ImageGenerationResponse = await response.json();
-    
-    // 检查 JSON 响应中的 code 字段是否为 401
-    const code = (data as any)?.code;
-    const isCode401 = (typeof code === 'number' && code === 401) || 
-                     (typeof code === 'string' && code === '401');
-    if (isCode401) {
-      handle401Error();
-      throw new Error('Token expired or invalid, please login again');
-    }
-    
     // 验证响应数据
+    const data = response.data || response as ImageGenerationResponse;
     if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
       throw new Error('Invalid response: missing image data');
     }

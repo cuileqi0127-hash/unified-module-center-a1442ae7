@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -109,6 +110,7 @@ const VIDEO_TO_PROMPT_API_URL = '/api/video-to-prompt';
 const VIDEO_TO_PROMPT_TIMEOUT_MS = 300_000;
 
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
+  const { t } = useTranslation();
   // View state
   const [viewState, setViewState] = useState<ViewState>('upload');
   
@@ -187,7 +189,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         }
     } catch (error) {
         console.error('Failed to parse copied items:', error);
-      }
+    }
     };
 
     checkCopiedItems();
@@ -213,7 +215,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   
   // Panel resize
-  const [chatPanelWidth, setChatPanelWidth] = useState(35);
+  const [chatPanelWidth, setChatPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
   
   // Refs
@@ -233,7 +235,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     if (!file) return;
     
     if (!file.type.startsWith('video/')) {
-      toast.error('请上传视频文件');
+      toast.error(t('videoReplication.uploadVideo'));
       return;
     }
     
@@ -247,7 +249,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       // 如果返回数据中有 prompt_text，自动填充到商品卖点输入框
       if (res && res.prompt_text && typeof res.prompt_text === 'string') {
         setSellingPoints(res.prompt_text);
-        toast.success('视频上传成功，已自动填充商品卖点');
+        toast.success(t('videoReplication.uploadSuccess'));
       }
       
       // 创建本地预览 URL
@@ -272,7 +274,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         });
       }
       setReplacingItemId(null);
-      toast.success('视频已替换');
+      toast.success(t('videoReplication.videoReplaced'));
     } else {
       setOriginalVideo({
         id: crypto.randomUUID(),
@@ -298,12 +300,12 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         setTimeout(() => setAddingItemIds(new Set()), 300);
       
         if (!res || !res.prompt_text) {
-      toast.success('视频上传成功');
+      toast.success(t('videoReplication.uploadSuccess'));
     }
       }
     } catch (error) {
       console.error('Video upload error:', error);
-      toast.error(error instanceof Error ? error.message : '视频上传失败');
+      toast.error(error instanceof Error ? error.message : t('videoReplication.uploadVideo'));
     } finally {
       setIsUploading(false);
     // Reset input
@@ -317,7 +319,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     if (!file) return;
     
     if (!file.type.startsWith('image/')) {
-      toast.error('请上传图片文件');
+      toast.error(t('videoReplication.uploadImageFirst'));
       return;
     }
     
@@ -350,7 +352,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         });
       }
       setReplacingItemId(null);
-      toast.success('图片已替换');
+      toast.success(t('videoReplication.videoReplaced'));
     } else {
       setReferenceImage({
         id: crypto.randomUUID(),
@@ -375,11 +377,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       }]);
         setTimeout(() => setAddingItemIds(new Set()), 300);
       
-      toast.success('参考图上传成功');
+      toast.success(t('videoReplication.imageUploadSuccess'));
     }
     } catch (error) {
       console.error('Image upload error:', error);
-      toast.error(error instanceof Error ? error.message : '图片上传失败');
+      toast.error(error instanceof Error ? error.message : t('videoReplication.imageUploadSuccess'));
     } finally {
       setIsUploading(false);
     // Reset input
@@ -390,14 +392,14 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   // Analyze video and generate segments, then auto-generate new prompts
   const handleAnalyzeVideo = useCallback(async () => {
     if (!originalVideo) {
-      toast.error('请先上传原视频');
+      toast.error(t('videoReplication.uploadImageFirst'));
       return;
     }
     
     setViewState('analyzing');
     
     if (!originalVideo.file) {
-      toast.error('未获取到视频文件，请重新上传');
+      toast.error(t('videoReplication.noVideoFile'));
       setViewState('upload');
       return;
     }
@@ -420,9 +422,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       if (!response.ok) {
         const text = await response.text().catch(() => '');
         if (response.status === 401 || response.status === 403) {
-          throw new Error('API KEY 无效或缺失，请检查代理/后端配置');
-        }
-        throw new Error(text || `Request failed: ${response.status}`);
+            throw new Error(t('videoReplication.apiKeyError'));
+          }
+          throw new Error(text || `Request failed: ${response.status}`);
       }
 
       const result = (await response.json().catch(() => null)) as
@@ -432,7 +434,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       const promptText =
         typeof result?.prompt_text === 'string' ? result.prompt_text : '';
       if (!promptText.trim()) {
-        throw new Error('接口未返回 prompt_text');
+        throw new Error(t('videoReplication.noPromptTextError'));
       }
 
       const segmentsWithNewPrompts: VideoSegment[] = [
@@ -449,14 +451,14 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     
     setSegments(segmentsWithNewPrompts);
     setViewState('prompts');
-    toast.success('复刻分析完成');
+    toast.success(t('videoReplication.analysisComplete'));
       return;
     } catch (error) {
       console.error('Video to prompt failed:', error);
       if (error instanceof Error && error.name === 'AbortError') {
-        toast.error('请求超时，请稍后再试');
+        toast.error(t('videoReplication.requestTimeout'));
       } else {
-        toast.error(error instanceof Error ? error.message : '分析失败');
+        toast.error(error instanceof Error ? error.message : t('videoReplication.analysisFailed'));
       }
       setViewState('upload');
       return;
@@ -495,12 +497,12 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'user',
-        content: `修改片段 ${dialogSegmentId} 的prompt为: ${dialogPromptText}`,
+        content: `${t('videoReplication.modifySegment')} ${dialogSegmentId} ${t('videoReplication.prompt')} ${dialogPromptText}`,
         timestamp: new Date(),
       }, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: '已更新prompt。您可以继续修改其他片段或直接生成视频。',
+        content: t('videoReplication.promptUpdated'),
         timestamp: new Date(),
       }]);
       
@@ -510,7 +512,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       setDialogPromptText('');
       setViewState('chat');
       
-      toast.success('已保存修改');
+      toast.success(t('videoReplication.saved'));
     }
   }, [dialogSegmentId, dialogPromptText]);
 
@@ -567,7 +569,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       ));
       setEditingSegmentId(null);
       setEditingPromptText('');
-      toast.success('已保存修改');
+      toast.success(t('videoReplication.saved'));
     }
   }, [editingSegmentId, editingPromptText]);
 
@@ -598,24 +600,24 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Update selected segments' prompts
-    if (selectedIds.length > 0) {
-      setSegments(prev => prev.map(s => 
-        selectedIds.includes(s.id)
-          ? { ...s, newPrompt: `${s.newPrompt} [用户修改: ${inputMessage}]` }
-          : s
-      ));
-    }
-    
-    const assistantMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: selectedIds.length === segments.length
-        ? '已根据您的要求更新所有片段的prompt。您可以继续优化或直接生成视频。'
-        : selectedIds.length > 0
-          ? `已根据您的要求更新 ${selectedIds.length} 个片段的prompt。您可以继续优化或选择其他片段。`
-          : '收到您的反馈。请在时间轴选择片段进行修改，或者直接点击"生成视频"按钮。',
-      timestamp: new Date(),
-    };
+      if (selectedIds.length > 0) {
+        setSegments(prev => prev.map(s => 
+          selectedIds.includes(s.id)
+            ? { ...s, newPrompt: `${s.newPrompt} [${t('videoReplication.modifySegment')}: ${inputMessage}]` }
+            : s
+        ));
+      }
+      
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: selectedIds.length === segments.length
+          ? t('videoReplication.updateAllSegments')
+          : selectedIds.length > 0
+            ? `${t('videoReplication.updateSelectedSegments')} ${selectedIds.length} ${t('videoReplication.segmentsPrompt')}`
+            : t('videoReplication.receivedFeedback'),
+        timestamp: new Date(),
+      };
     
     setMessages(prev => [...prev, assistantMessage]);
     setIsGenerating(false);
@@ -624,7 +626,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   // Handle video generation
   const handleGenerateVideo = useCallback(async () => {
     if (segments.length === 0 || !segments.some(s => s.newPrompt)) {
-      toast.error('请先生成新的prompt');
+      toast.error(t('videoReplication.generatePromptFirst'));
       return;
     }
     
@@ -638,27 +640,27 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     setGeneratedVideo(mockGeneratedUrl);
     
     // Add to canvas
-    setCanvasItems(prev => [...prev, {
-      id: crypto.randomUUID(),
-      type: 'video',
-      url: mockGeneratedUrl,
-      name: '复刻视频_' + new Date().toISOString().slice(0, 10),
-      x: 50,
-      y: 300,
-      width: 320,
-      height: 180,
-    }]);
+      setCanvasItems(prev => [...prev, {
+        id: crypto.randomUUID(),
+        type: 'video',
+        url: mockGeneratedUrl,
+        name: t('videoReplication.title') + '_' + new Date().toISOString().slice(0, 10),
+        x: 50,
+        y: 300,
+        width: 320,
+        height: 180,
+      }]);
     
     setIsGenerating(false);
     
     setMessages(prev => [...prev, {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: '视频生成完成！您可以在右侧画布查看生成的复刻视频。',
+      content: t('videoReplication.videoGenerated'),
       timestamp: new Date(),
     }]);
     
-    toast.success('视频生成完成');
+    toast.success(t('videoReplication.videoGenerationComplete'));
   }, [segments, originalVideo]);
 
   // Handle resize
@@ -720,7 +722,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       setSelectedCanvasItem(null);
       setSelectedCanvasItemIds([]);
       setDeletingItemIds(new Set());
-      toast.success(idsToDelete.length > 1 ? `已删除 ${idsToDelete.length} 个项目` : '已删除');
+      toast.success(idsToDelete.length > 1 ? `${t('videoReplication.deletedItems')} ${idsToDelete.length} ${t('videoReplication.items')}` : t('videoReplication.deleted'));
     }, 300);
   }, [selectedCanvasItem, selectedCanvasItemIds, originalVideo, referenceImage]);
 
@@ -765,7 +767,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       })).catch(() => {});
     }
 
-    toast.success(validItems.length > 1 ? `已复制 ${validItems.length} 个项目` : '已复制');
+    toast.success(validItems.length > 1 ? `${t('videoReplication.copiedItems')} ${validItems.length} ${t('videoReplication.items')}` : t('videoReplication.copied'));
   }, [selectedCanvasItem, selectedCanvasItemIds, canvasItems]);
 
   // Handle paste canvas items
@@ -794,7 +796,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       setAddingItemIds(new Set());
     }, 300);
 
-    toast.success('已粘贴');
+    toast.success(t('videoReplication.pasted'));
   }, [copiedItem]);
 
   // Handle download canvas items
@@ -807,24 +809,105 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
 
     const validItems = itemsToDownload.filter((item): item is CanvasItem => item !== undefined);
     
-    for (const item of validItems) {
-      try {
-        const response = await fetch(item.url);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+    try {
+      // 如果只有一个文件，直接下载
+      if (validItems.length === 1) {
+        const item = validItems[0];
         const a = document.createElement('a');
-        a.href = url;
+        a.href = item.url;
         a.download = item.name || `${item.type}-${item.id}`;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error('Failed to download:', error);
+        toast.success(t('videoReplication.downloadStarted'));
+        return;
       }
+      
+      // 多个文件，打包成 zip 下载
+      // @ts-ignore - JSZip 类型定义
+      let JSZip: any;
+      try {
+        // @ts-ignore - JSZip 动态导入
+        JSZip = (await import('jszip')).default;
+      } catch (err) {
+        // 如果 jszip 未安装，提示用户并逐个下载
+        toast.error(t('videoReplication.jszipNotInstalled'));
+        // 逐个下载
+        for (const item of validItems) {
+          const a = document.createElement('a');
+          a.href = item.url;
+          a.download = item.name || `${item.type}-${item.id}`;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        return;
+      }
+      
+      const zip = new JSZip();
+      
+      // 显示加载提示
+      const loadingToast = toast.loading(`${t('common.packing')} ${validItems.length} ${t('videoReplication.items')}...`);
+      
+      // 获取文件并添加到 zip
+      let successCount = 0;
+      for (let i = 0; i < validItems.length; i++) {
+        const item = validItems[i];
+        try {
+          // 使用 XMLHttpRequest 获取文件（可以处理 CORS）
+          const blob = await new Promise<Blob>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', item.url, true);
+            xhr.responseType = 'blob';
+            xhr.onload = () => {
+              if (xhr.status === 200) {
+                resolve(xhr.response);
+              } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network error'));
+            xhr.ontimeout = () => reject(new Error('Request timeout'));
+            xhr.timeout = 30000; // 30秒超时
+            xhr.send();
+          });
+          const extension = item.type === 'video' ? 'mp4' : 'png';
+          zip.file(`${item.name || `${item.type}-${item.id}`}.${extension}`, blob);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to fetch item ${item.id}:`, err);
+          // 继续处理其他文件
+        }
+      }
+      
+      if (successCount === 0) {
+        toast.dismiss(loadingToast);
+        toast.error(t('toast.allDownloadsFailed'));
+        return;
+      }
+      
+      // 生成 zip 文件
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = zipUrl;
+      a.download = `canvas-items-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(zipUrl);
+      
+      toast.dismiss(loadingToast);
+      toast.success(`${t('toast.downloadedZip')} ${successCount}/${validItems.length} ${t('videoReplication.items')} (${t('common.zip')})`);
+    } catch (err) {
+      console.error('Download failed:', err);
+      toast.error(`${t('toast.downloadFailed')}: ${err instanceof Error ? err.message : t('toast.unknownError')}`);
     }
-
-    toast.success(validItems.length > 1 ? `已下载 ${validItems.length} 个项目` : '已下载');
   }, [selectedCanvasItem, selectedCanvasItemIds, canvasItems]);
 
   // Handle keyboard shortcuts
@@ -862,7 +945,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <Video className="w-5 h-5 text-primary" />
-            <span className="font-medium">复刻视频</span>
+            <span className="font-medium">{t('videoReplication.title')}</span>
           </div>
         </div>
 
@@ -876,8 +959,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Video className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                <p className="font-medium mb-1">上传原视频</p>
-                <p className="text-sm text-muted-foreground">点击或拖拽上传需要复刻的视频</p>
+                <p className="font-medium mb-1">{t('videoReplication.uploadVideoSection')}</p>
+                <p className="text-sm text-muted-foreground">{t('videoReplication.uploadVideoHint')}</p>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -917,8 +1000,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 onClick={() => imageInputRef.current?.click()}
               >
                 <ImageIcon className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                <p className="font-medium mb-1">上传参考图（商品图）</p>
-                <p className="text-sm text-muted-foreground">上传您的商品图片作为风格参考</p>
+                <p className="font-medium mb-1">{t('videoReplication.referenceImageSection')}</p>
+                <p className="text-sm text-muted-foreground">{t('videoReplication.referenceImageHint')}</p>
                 <input
                   ref={imageInputRef}
                   type="file"
@@ -945,7 +1028,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 </div>
                 <img 
                   src={referenceImage.url} 
-                  alt="参考图预览"
+                  alt={t('videoReplication.referenceImageSection')}
                   className="w-full h-32 object-cover rounded-md"
                 />
               </div>
@@ -955,10 +1038,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             <div className="border border-border rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="w-5 h-5 text-muted-foreground" />
-                <span className="font-medium">商品卖点</span>
+                <span className="font-medium">{t('videoReplication.sellingPointsSection')}</span>
               </div>
               <Textarea
-                placeholder="输入您的商品核心卖点，例如：高品质材料、独特设计、功能创新..."
+                placeholder={t('videoReplication.sellingPointsPlaceholder')}
                 value={sellingPoints}
                 onChange={(e) => setSellingPoints(e.target.value)}
                 className="min-h-[100px] resize-none"
@@ -972,7 +1055,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 onClick={handleAnalyzeVideo}
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                开始复刻
+                {t('videoReplication.startReplication')}
               </Button>
             )}
           </div>
@@ -986,9 +1069,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin" />
               <Sparkles className="absolute inset-0 m-auto w-10 h-10 text-primary animate-pulse" />
             </div>
-            <h3 className="text-lg font-medium mb-2">正在分析视频...</h3>
+            <h3 className="text-lg font-medium mb-2">{t('videoReplication.analyzingVideo')}</h3>
             <p className="text-sm text-muted-foreground text-center">
-              AI正在识别视频片段并生成新的prompt
+              {t('videoReplication.analyzingVideoHint')}
             </p>
           </div>
         )}
@@ -997,8 +1080,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         {viewState === 'prompts' && (
           <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4 overflow-y-auto">
             <div className="text-center mb-2">
-              <h3 className="font-medium">生成的Prompt列表</h3>
-              <p className="text-sm text-muted-foreground">点击任意片段进行修改</p>
+              <h3 className="font-medium">{t('videoReplication.promptsList')}</h3>
+              <p className="text-sm text-muted-foreground">{t('videoReplication.promptsListHint')}</p>
             </div>
             
             {/* Prompt Cards */}
@@ -1011,7 +1094,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-primary">
-                      片段 {segment.id} • {segment.startTime}s - {segment.endTime}s
+                      {t('videoReplication.segment')} {segment.id} • {segment.startTime}s - {segment.endTime}s
                     </span>
                     <Edit3 className="w-4 h-4 text-muted-foreground" />
                   </div>
@@ -1028,7 +1111,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               disabled={isGenerating}
             >
               <Edit3 className="w-4 h-4 mr-2" />
-              修改prompt
+              {t('videoReplication.modifyPrompt')}
             </Button>
             
             {/* Direct Generate Button */}
@@ -1040,12 +1123,12 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               {isGenerating ? (
                 <>
                   <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
-                  生成中...
+                  {t('videoReplication.generatingVideo')}
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4 mr-2" />
-                  直接生成视频
+                  {t('videoReplication.generateVideoDirectly')}
                 </>
               )}
             </Button>
@@ -1057,24 +1140,24 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>
-                编辑片段 {dialogSegmentId} 的Prompt
+                {t('videoReplication.editPromptDialogTitle', { segmentId: dialogSegmentId })}
               </DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <Textarea
                 value={dialogPromptText}
                 onChange={(e) => setDialogPromptText(e.target.value)}
-                placeholder="输入新的prompt..."
+                placeholder={t('videoReplication.editPromptDialogPlaceholder')}
                 className="min-h-[150px]"
               />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                取消
+                {t('videoReplication.cancel')}
               </Button>
               <Button onClick={handleDialogSend}>
                 <Send className="w-4 h-4 mr-2" />
-                发送并继续编辑
+                {t('videoReplication.sendAndContinueEditing')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1089,7 +1172,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               <div className="px-4 py-3 border-b border-border shrink-0">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">
-                    时间轴（单击选中，Ctrl+单击多选，双击编辑）
+                    {t('videoReplication.timelineHint')}
                   </p>
                   <button
                     className={cn(
@@ -1100,7 +1183,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                     )}
                     onClick={handleSelectAll}
                   >
-                    {selectedSegments.size === segments.length ? '取消全选' : '全选'}
+                    {selectedSegments.size === segments.length ? t('videoReplication.deselectAll') : t('videoReplication.selectAll')}
                   </button>
                 </div>
                 
@@ -1123,7 +1206,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                         {/* Time indicator */}
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[10px] font-medium text-primary">
-                            {segment.startTime}s - {segment.endTime}s
+                            {t('videoReplication.timeRange', { start: segment.startTime, end: segment.endTime })}
                           </span>
                           {segment.newPrompt && (
                             <Check className="w-3 h-3 text-green-500" />
@@ -1142,22 +1225,22 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                             <div className="flex gap-1">
                               <Button size="sm" className="h-6 text-xs flex-1" onClick={handleSaveEdit}>
                                 <Check className="w-3 h-3 mr-1" />
-                                保存
+                                {t('videoReplication.saved')}
                               </Button>
                               <Button size="sm" variant="outline" className="h-6 text-xs flex-1" onClick={handleCancelEdit}>
                                 <X className="w-3 h-3 mr-1" />
-                                取消
+                                {t('videoReplication.cancel')}
                               </Button>
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-1">
                             <p className="text-[10px] text-muted-foreground line-clamp-2" title={segment.originalPrompt}>
-                              原: {segment.originalPrompt}
+                              {t('videoReplication.originalPrompt', { prompt: segment.originalPrompt })}
                             </p>
                             {segment.newPrompt && (
                               <p className="text-[10px] text-foreground line-clamp-2" title={segment.newPrompt}>
-                                新: {segment.newPrompt}
+                                {t('videoReplication.newPrompt', { prompt: segment.newPrompt })}
                               </p>
                             )}
                           </div>
@@ -1177,7 +1260,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 {/* Selection hint */}
                 {selectedSegments.size > 0 && (
                   <p className="text-xs text-primary mt-2">
-                    已选中 {selectedSegments.size} 个片段，在下方输入修改建议
+                    {t('videoReplication.selectedSegmentsHint', { count: selectedSegments.size })}
                   </p>
                 )}
               </div>
@@ -1228,7 +1311,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                     )}
                     
                     <p className="text-[10px] opacity-60 mt-1">
-                      {message.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                      {message.timestamp.toLocaleTimeString(i18n.language === 'zh' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
@@ -1255,8 +1338,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                   onChange={(e) => setInputMessage(e.target.value)}
                   placeholder={
                     selectedSegments.size > 0 
-                      ? `对 ${selectedSegments.size} 个片段提出修改建议...` 
-                      : "选择片段后输入修改建议..."
+                      ? t('videoReplication.messagePlaceholderSingle', { count: selectedSegments.size }) 
+                      : t('videoReplication.messagePlaceholderMultiple')
                   }
                   className="min-h-[44px] max-h-[120px] resize-none"
                   onKeyDown={(e) => {
@@ -1286,12 +1369,12 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                   {isGenerating ? (
                     <>
                       <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
-                      生成中...
+                      {t('videoReplication.generatingVideo')}
                     </>
                   ) : (
                     <>
                       <Play className="w-4 h-4 mr-2" />
-                      生成视频
+                      {t('videoReplication.generateVideo')}
                     </>
                   )}
                 </Button>
@@ -1377,7 +1460,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm" style={{zIndex:999}}>
             <span className="max-w-[200px] truncate text-xs text-muted-foreground">
               {selectedCanvasItemIds.length > 1 
-                ? `已选择 ${selectedCanvasItemIds.length} 个项目`
+                ? t('videoReplication.selectedSegmentsHint', { count: selectedCanvasItemIds.length })
                 : canvasItems.find(item => item.id === selectedCanvasItem)?.name || ''}
             </span>
             <div className="h-4 w-px bg-border" />
@@ -1386,7 +1469,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               size="icon" 
               className="h-8 w-8 rounded-full"
               onClick={handleCopyCanvasItems}
-              title={selectedCanvasItemIds.length > 1 ? '批量复制' : '复制'}
+              title={selectedCanvasItemIds.length > 1 ? t('videoReplication.batchCopy') : t('videoReplication.copied')}
             >
               <Copy className="h-4 w-4" />
             </Button>
@@ -1395,7 +1478,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               size="icon" 
               className="h-8 w-8 rounded-full"
               onClick={handleDownloadCanvasItems}
-              title={selectedCanvasItemIds.length > 1 ? '批量下载' : '下载'}
+              title={selectedCanvasItemIds.length > 1 ? t('videoReplication.batchDownload') : t('videoReplication.downloadStarted')}
             >
               <Download className="h-4 w-4" />
             </Button>
@@ -1404,24 +1487,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               size="icon" 
               className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
               onClick={handleDeleteCanvasItems}
-              title={selectedCanvasItemIds.length > 1 ? '批量删除' : '删除'}
+              title={selectedCanvasItemIds.length > 1 ? t('videoReplication.batchDelete') : t('videoReplication.deleted')}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
       </div>
-        )}
-
-        {/* Paste Button */}
-        {copiedItem && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute left-4 top-4 gap-1.5 shadow-sm z-50"
-            onClick={handlePasteCanvasItems}
-          >
-            <Clipboard className="h-4 w-4" />
-            粘贴项目
-          </Button>
         )}
 
         {/* Item Count Badge */}
@@ -1430,7 +1500,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             variant="secondary" 
             className="absolute right-4 top-4 shadow-sm z-50"
           >
-            {canvasItems.length} 个项目
+            {t('videoReplication.canvasItemsCount', { count: canvasItems.length })}
           </Badge>
         )}
       </div>
