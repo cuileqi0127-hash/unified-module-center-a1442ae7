@@ -598,7 +598,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm" style={{zIndex:999}}>
             <span className="max-w-[200px] truncate text-xs text-muted-foreground">
               {selectedVideoIds.length > 1 
-                ? `${t('textToVideo.selected')} ${selectedVideoIds.length} ${t('textToVideo.videos')}`
+                ? `${t('textToVideo.selected')} ${selectedVideoIds.length} ${t('textToVideo.items')}`
                 : selectedVideo?.prompt ? cleanMessageContent(selectedVideo.prompt) : ''}
             </span>
             <div className="h-4 w-px bg-border" />
@@ -637,7 +637,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           variant="secondary" 
           className="absolute right-4 top-4 shadow-sm"
         >
-          {canvasVideos.length} {t('textToVideo.videos')}
+          {canvasVideos.length} {t('textToVideo.items')}
         </Badge>
       </div>
 

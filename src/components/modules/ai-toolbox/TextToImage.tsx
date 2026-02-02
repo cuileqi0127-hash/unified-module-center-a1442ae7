@@ -577,7 +577,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-lg backdrop-blur-sm" style={{zIndex:999}}>
             <span className="max-w-[200px] truncate text-xs text-muted-foreground">
               {selectedImageIds.length > 1 
-                ? `${t('textToImage.selected')} ${selectedImageIds.length} ${t('textToImage.images')}`
+                ? `${t('textToImage.selected')} ${selectedImageIds.length} ${t('textToImage.items')}`
                 : selectedImage?.prompt ? cleanMessageContent(selectedImage.prompt) : ''}
             </span>
             <div className="h-4 w-px bg-border" />
@@ -616,7 +616,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           variant="secondary" 
           className="absolute right-4 top-4 shadow-sm"
         >
-          {canvasImages.length} {t('textToImage.images')}
+          {canvasImages.length} {t('textToImage.items')}
         </Badge>
       </div>
 
