@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => ({
       },
       // 上传文件接口代理（端口 8000）
       '/common': {
-        target: 'http://192.168.112.253:8000',
+        target: 'http://94.74.101.163:28080',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/common/, '/common'),
       },
