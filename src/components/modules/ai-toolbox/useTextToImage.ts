@@ -31,6 +31,10 @@ import {
   getModelList,
   getModelSizes,
   getModelDefaultSize,
+  getModelQualityOptions,
+  getModelDefaultQuality,
+  getModelStyleOptions,
+  getModelDefaultStyle,
   isValidSizeForModel,
   getWorkModes,
   DEFAULT_MODEL,
@@ -88,6 +92,9 @@ export function useTextToImage() {
   const [showHistory, setShowHistory] = useState(false);
   const [model, setModel] = useState<ImageModel>(DEFAULT_MODEL);
   const [aspectRatio, setAspectRatio] = useState<string>(getModelDefaultSize(DEFAULT_MODEL));
+  const [quality, setQuality] = useState<string>(getModelDefaultQuality(DEFAULT_MODEL) ?? '');
+  const [style, setStyle] = useState<string>(getModelDefaultStyle(DEFAULT_MODEL) ?? '');
+  const [outputNumber, setOutputNumber] = useState(1); // 单次生成数量 1–4
   const [messages, setMessages] = useState<ChatMessage[]>(mockHistory);
   const [isGenerating, setIsGenerating] = useState(false);
   const [canvasImages, setCanvasImages] = useState<CanvasImage[]>(initialCanvasImages);
@@ -120,6 +127,8 @@ export function useTextToImage() {
   const workModes = getWorkModes(isZh);
   const models = getModelList();
   const aspectRatios = getModelSizes(model);
+  const qualityOptions = getModelQualityOptions(model);
+  const styleOptions = getModelStyleOptions(model);
 
   // 工具函数：获取图片尺寸
   const getImageDimensions = useCallback(async (url: string): Promise<{ width: number; height: number }> => {
@@ -184,6 +193,18 @@ export function useTextToImage() {
       setAspectRatio(defaultSize);
     }
   }, [model, aspectRatio]);
+
+  // 当模型切换时，重置质量为对应模型的默认值（或无）
+  useEffect(() => {
+    const defaultQuality = getModelDefaultQuality(model);
+    setQuality(defaultQuality ?? '');
+  }, [model]);
+
+  // 当模型切换时，重置风格为对应模型的默认值（或无）
+  useEffect(() => {
+    const defaultStyle = getModelDefaultStyle(model);
+    setStyle(defaultStyle ?? '');
+  }, [model]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -407,6 +428,9 @@ export function useTextToImage() {
             settings: {
               model,
               size: aspectRatio,
+              outputNumber,
+              ...(quality && { quality }),
+              ...(style && { style }),
             },
             canvasView: {
               zoom: 1,
@@ -491,6 +515,9 @@ export function useTextToImage() {
         settings: {
           model,
           size: aspectRatio,
+          outputNumber,
+          ...(quality && { quality }),
+          ...(style && { style }),
         },
         canvasView: {
           zoom: 1,
@@ -507,7 +534,7 @@ export function useTextToImage() {
       console.error('Failed to create session:', error);
       toast.error(isZh ? '创建会话失败' : 'Failed to create session');
     }
-  }, [model, aspectRatio, isZh, loadSessions]);
+  }, [model, aspectRatio, quality, style, outputNumber, isZh, loadSessions]);
 
   // 处理加载历史会话（获取指定会话的聊天内容和画布内容）
   const handleLoadSession = useCallback(async (sessionId: string) => {
@@ -1284,6 +1311,8 @@ export function useTextToImage() {
         image: referenceImages,
         n: 1,
         size: aspectRatio as any,
+        ...(quality && { quality: quality as 'standard' | 'hd' | '1k' | '2k' | '4k' }),
+        ...(style && { style: style as 'vivid' | 'natural' }),
         response_format: 'url',
       });
 
@@ -1292,17 +1321,50 @@ export function useTextToImage() {
         throw new Error('No image URL in response');
       }
 
-      const imageUrl = imageUrls[0];
       const revisedPrompt = extractRevisedPrompt(response) || currentPrompt;
-      const dimensions = await getImageDimensions(imageUrl);
+      let existingRects = canvasImages.map(img => ({
+        x: img.x,
+        y: img.y,
+        width: img.width,
+        height: img.height,
+      }));
+      const newImages: CanvasImage[] = [];
 
+      for (let i = 0; i < imageUrls.length; i++) {
+        const imageUrl = imageUrls[i];
+        const dimensions = await getImageDimensions(imageUrl);
+        const position = findNonOverlappingPosition(
+          { width: dimensions.width, height: dimensions.height },
+          existingRects,
+          300,
+          200,
+          50,
+          50,
+          100,
+          30
+        );
+        const newImage: CanvasImage = {
+          id: `img-${Date.now()}-${i}`,
+          url: imageUrl,
+          x: position.x,
+          y: position.y,
+          width: dimensions.width,
+          height: dimensions.height,
+          prompt: revisedPrompt,
+          type: 'image',
+        };
+        newImages.push(newImage);
+        existingRects = [...existingRects, { x: position.x, y: position.y, width: dimensions.width, height: dimensions.height }];
+      }
+
+      const firstImage = newImages[0];
       setMessages(prev => 
         prev.map(msg => 
           msg.id === systemMessage.id 
             ? { 
                 ...msg, 
                 status: 'complete',
-                image: imageUrl,
+                image: firstImage.url,
                 designThoughts: [
                   isZh ? `图片理解：${revisedPrompt}` : `Image Understanding: ${revisedPrompt}`,
                   model === 'doubao-seedream-4-5-251128'
@@ -1310,51 +1372,21 @@ export function useTextToImage() {
                     : (isZh ? `画面比例：${aspectRatio}` : `Aspect Ratio: ${aspectRatio}`),
                 ],
                 resultSummary: isZh 
-                  ? `已完成图片生成，${model === 'doubao-seedream-4-5-251128' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
-                  : `Image generation complete, output ${model === 'doubao-seedream-4-5-251128' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
+                  ? `已完成图片生成，${newImages.length > 1 ? `共${newImages.length}张，` : ''}${model === 'doubao-seedream-4-5-251128' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
+                  : `Image generation complete${newImages.length > 1 ? `, ${newImages.length} images` : ''}, output ${model === 'doubao-seedream-4-5-251128' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
               }
             : msg
         )
       );
-      
-      // 计算不重叠的位置
-      const existingRects = canvasImages.map(img => ({
-        x: img.x,
-        y: img.y,
-        width: img.width,
-        height: img.height,
-      }));
-      const position = findNonOverlappingPosition(
-        { width: dimensions.width, height: dimensions.height },
-        existingRects,
-        300,
-        200,
-        50,
-        50,
-        100,
-        30 // 图片之间的间隔 30 像素
-      );
 
-      const newImage: CanvasImage = {
-        id: `img-${Date.now()}`,
-        url: imageUrl,
-        x: position.x,
-        y: position.y,
-        width: dimensions.width,
-        height: dimensions.height,
-        prompt: revisedPrompt,
-        type: 'image',
-      };
-      setCanvasImages(prev => [...prev, newImage]);
-      setSelectedImageId(newImage.id);
-      
+      setCanvasImages(prev => [...prev, ...newImages]);
+      setSelectedImageId(firstImage.id);
       handleAddSelectedImage({
-        id: newImage.id,
-        url: newImage.url,
-        prompt: newImage.prompt,
+        id: firstImage.id,
+        url: firstImage.url,
+        prompt: firstImage.prompt,
       });
-      
-      // 保存生成结果到数据库
+
       if (currentSessionId) {
         try {
           const saveResponse = await saveGenerationResult(currentSessionId, {
@@ -1366,10 +1398,10 @@ export function useTextToImage() {
             },
             asset: {
               type: 'image',
-              sourceUrl: imageUrl,
+              sourceUrl: firstImage.url,
               seq: 1,
-              width: dimensions.width,
-              height: dimensions.height,
+              width: firstImage.width,
+              height: firstImage.height,
             },
             message: {
               type: 'system',
@@ -1380,10 +1412,10 @@ export function useTextToImage() {
                 : `Image generation complete, output ${model === 'doubao-seedream-4-5-251128' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
             },
             canvasItem: {
-              x: position.x,
-              y: position.y,
-              width: dimensions.width,
-              height: dimensions.height,
+              x: firstImage.x,
+              y: firstImage.y,
+              width: firstImage.width,
+              height: firstImage.height,
               rotate: 0,
               visible: true,
               zindex: canvasImages.length,
@@ -1404,14 +1436,11 @@ export function useTextToImage() {
           });
 
           if (saveResponse.success && saveResponse.data) {
-            // 保存画布元素ID映射
-            canvasItemIdMap.current.set(newImage.id, saveResponse.data.canvasItemId);
-            // 刷新历史记录
+            canvasItemIdMap.current.set(firstImage.id, saveResponse.data.canvasItemId);
             await loadSessions(1, false);
           }
         } catch (error) {
           console.error('Failed to save generation result:', error);
-          // 不阻止用户继续使用，只记录错误
         }
       }
       
@@ -1434,7 +1463,7 @@ export function useTextToImage() {
         )
       );
     }
-  }, [prompt, isGenerating, model, aspectRatio, selectedImages, selectedImageIds, selectedImageId, canvasImages, isZh, getImageDimensions, handleAddSelectedImage, currentSessionId, loadSessions]);
+  }, [prompt, isGenerating, model, aspectRatio, quality, style, selectedImages, selectedImageIds, selectedImageId, canvasImages, isZh, getImageDimensions, handleAddSelectedImage, currentSessionId, loadSessions, t]);
 
   // 处理键盘事件
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -1687,6 +1716,11 @@ export function useTextToImage() {
     setModel,
     aspectRatio,
     setAspectRatio,
+    quality,
+    setQuality,
+    style,
+    setStyle,
+    styleOptions,
     messages,
     isGenerating,
     canvasImages,
@@ -1712,6 +1746,8 @@ export function useTextToImage() {
     workModes,
     models,
     aspectRatios,
+    qualityOptions,
+    styleOptions,
     historySessions,
     hasMoreHistory,
     isLoadingHistory,

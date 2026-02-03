@@ -13,8 +13,8 @@ import {
   RatioIcon,
   X,
   Copy,
-  Clipboard,
-  Trash2
+  Trash2,
+  LayoutGrid,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
@@ -36,6 +41,25 @@ import { GenerationChatPanel } from './GenerationChatPanel';
 
 interface TextToVideoProps {
   onNavigate?: (itemId: string) => void;
+}
+
+/** 根据尺寸 id 解析出用于小图标的宽高比（如 "1"、"16/9"） */
+function getRatioForIcon(sizeId: string): string {
+  const normalized = sizeId.replace(':', 'x').toLowerCase();
+  if (/^\d+x\d+$/.test(normalized)) {
+    const [a, b] = normalized.split('x').map(Number);
+    if (a === b) return '1';
+    return `${a}/${b}`;
+  }
+  return '1';
+}
+
+/** 判断是否为横版比例（宽≥高） */
+function isLandscapeRatio(ratio: string): boolean {
+  if (ratio === '1') return true;
+  const parts = ratio.split('/').map(Number);
+  if (parts.length !== 2) return true;
+  return parts[0] >= parts[1];
 }
 
 export function TextToVideo({ onNavigate }: TextToVideoProps) {
@@ -405,7 +429,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
               />
             )}
             
-            {/* Bottom toolbar */}
+            {/* Bottom toolbar：与文生图一致 - 模型 + 设置 Popover（时长 + 尺寸网格） */}
             <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">
               <div className="flex items-center gap-2">
                 {/* Model Dropdown */}
@@ -414,7 +438,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
                     >
                       <VideoIcon className="h-3.5 w-3.5" />
                       {models.find(m => m.id === model)?.label}
@@ -434,57 +458,106 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Seconds Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                {/* Settings Popover - Mac 风格：时长分段 + 尺寸网格（参考文生图） */}
+                <Popover>
+                  <PopoverTrigger asChild>
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
                     >
                       <Clock className="h-3.5 w-3.5" />
-                      {seconds}s
-                      <ChevronDown className="h-3 w-3 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {secondsOptions.map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() => setSeconds(s)}
-                        className={cn(seconds === s && 'bg-accent')}
-                      >
-                        {s}s
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Size Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
-                    >
+                      <span>{seconds}s</span>
+                      <span className="opacity-60">·</span>
                       <RatioIcon className="h-3.5 w-3.5" />
-                      {size}
+                      <span>{size}</span>
                       <ChevronDown className="h-3 w-3 opacity-50" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {sizesOptions.map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() => setSize(s)}
-                        className={cn(size === s && 'bg-accent')}
-                      >
-                        {s}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    align="center" 
+                    side="top-end"
+                    className={cn(
+                      "ml-[80px] w-[340px] p-0 rounded-2xl border-0",
+                      "bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl",
+                      "shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.05),0_12px_24px_rgba(0,0,0,0.08)]",
+                      "dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.4)]"
+                    )}
+                  >
+                    <div className="p-4 space-y-5">
+                      {/* 时长 - 左右滑块选中动画 */}
+                      <div>
+                        <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
+                          {t('textToVideo.seconds')}
+                        </p>
+                        <div className="relative flex p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] w-full">
+                          <div
+                            className="absolute top-1 bottom-1 rounded-lg bg-white dark:bg-white/10 shadow-sm transition-[left] duration-200 ease-out"
+                            style={{
+                              left: `calc(${secondsOptions.indexOf(seconds)} * (100% - 8px) / ${secondsOptions.length} + 4px)`,
+                              width: `calc((100% - 8px) / ${secondsOptions.length} - 0px)`,
+                            }}
+                          />
+                          {secondsOptions.map((sec) => (
+                            <button
+                              key={sec}
+                              type="button"
+                              onClick={() => setSeconds(sec)}
+                              className={cn(
+                                "relative z-10 flex-1 min-w-0 py-2 rounded-lg text-sm font-medium transition-colors duration-200",
+                                seconds === sec ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {sec}s
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* 尺寸 - 网格 + 比例图标（与文生图一致） */}
+                      <div>
+                        <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
+                          {t('textToVideo.size')}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {sizesOptions.map((sz) => {
+                            const ratio = getRatioForIcon(sz);
+                            const isSelected = size === sz;
+                            const fillByWidth = isLandscapeRatio(ratio);
+                            return (
+                              <button
+                                key={sz}
+                                type="button"
+                                onClick={() => setSize(sz)}
+                                className={cn(
+                                  "flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all duration-200",
+                                  isSelected
+                                    ? "bg-blue-500/10 dark:bg-blue-400/15 ring-1 ring-blue-500/25 dark:ring-blue-400/30 text-foreground"
+                                    : "bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                <div className="w-10 h-10 flex items-center justify-center shrink-0 overflow-hidden rounded-[4px]">
+                                  <div
+                                    className={cn(
+                                      "rounded-[4px] transition-colors",
+                                      isSelected ? "bg-blue-500/40 dark:bg-blue-400/50" : "bg-black/20 dark:bg-white/20"
+                                    )}
+                                    style={{
+                                      aspectRatio: ratio,
+                                      ...(fillByWidth
+                                        ? { width: '100%', height: 'auto', maxHeight: '100%' }
+                                        : { height: '100%', width: 'auto', maxWidth: '100%' }),
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-medium truncate w-full text-center tabular-nums">{sz}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Add Button - Upload Image */}
                 <label>

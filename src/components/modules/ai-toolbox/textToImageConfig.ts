@@ -13,12 +13,28 @@ export interface SizeOption {
   label: string;
 }
 
+// 质量选项接口（与 SizeOption 结构一致便于复用 UI）
+export interface QualityOption {
+  id: string;
+  label: string;
+}
+
+// 风格选项接口
+export interface StyleOption {
+  id: string;
+  label: string;
+}
+
 // 模型配置接口
 export interface ModelConfig {
   id: ImageModel;
   label: string;
   sizes: SizeOption[];
   defaultSize: string;
+  qualities?: QualityOption[];
+  defaultQuality?: string;
+  styles?: StyleOption[]; // 风格：gpt、gemini 为 vivid/natural；即梦、可灵无
+  defaultStyle?: string;
 }
 
 // 工作模式配置
@@ -29,17 +45,8 @@ export interface WorkModeConfig {
 
 // 模型配置映射
 export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
-  'gpt-image-1.5': {
-    label: 'GPT-Image',
-    sizes: [
-      { id: '2:3', label: '2:3' },
-      { id: '3:2', label: '3:2' },
-      { id: '1:1', label: '1:1' },
-    ],
-    defaultSize: '1:1',
-  },
-  'gemini-3-pro-image-preview-2k': {
-    label: 'Nano Banana Pro',
+  'gemini-3-pro-image-preview-hd': {
+    label: 'Nano Banana 2',
     sizes: [
       { id: '1x1', label: '1x1' },
       { id: '2x3', label: '2x3' },
@@ -53,16 +60,56 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
       { id: '21x9', label: '21x9' },
     ],
     defaultSize: '1x1',
+    qualities: [
+      { id: '1k', label: '1K' },
+      { id: '2k', label: '2K' },
+      { id: '4k', label: '4K' },
+    ],
+    defaultQuality: '2k',
+  },
+  'gpt-image-1.5': {
+    label: 'GPT-Image',
+    sizes: [
+      { id: '2:3', label: '2:3' },
+      { id: '3:2', label: '3:2' },
+      { id: '1:1', label: '1:1' },
+    ],
+    defaultSize: '1:1',
+    qualities: [
+      { id: 'standard', label: 'Standard' },
+      { id: 'hd', label: 'HD' },
+    ],
+    defaultQuality: 'standard',
+    styles: [
+      { id: 'vivid', label: 'Vivid' },
+      { id: 'natural', label: 'Natural' },
+    ],
+    defaultStyle: 'vivid',
   },
   'doubao-seedream-4-5-251128': {
     label: '即梦',
     sizes: [
-      { id: '1K', label: '1K' },
-      { id: '2K', label: '2K' },
-      { id: '4K', label: '4K' },
+      // { id: '1024x1024', label: '1K' },
+      { id: '2048x2048', label: '2K' },
+      { id: '4096x4096', label: '4K' },
     ],
-    defaultSize: '2K',
+    defaultSize: '2048x2048',
   },
+  // 'kling-v1-5': {
+  //   label: '可灵',
+  //   sizes: [
+  //     { id: '1:1', label: '1:1' },
+  //     { id: '2:3', label: '2:3' },
+  //     { id: '3:2', label: '3:2' },
+  //     { id: '3:4', label: '3:4' },
+  //     { id: '4:3', label: '4:3' },
+  //     { id: '4:5', label: '4:5' },
+  //     { id: '5:4', label: '5:4' },
+  //     { id: '9:16', label: '9:16' },
+  //     { id: '16:9', label: '16:9' },
+  //   ],
+  //   defaultSize: '1:1',
+  // },
 };
 
 // 默认模型配置（用于其他未定义的模型）
@@ -108,6 +155,30 @@ export function isValidSizeForModel(model: ImageModel, size: string): boolean {
   return sizes.some(s => s.id === size);
 }
 
+// 获取模型的质量选项（无则返回空数组）
+export function getModelQualityOptions(model: ImageModel): QualityOption[] {
+  const config = getModelConfig(model);
+  return config.qualities ?? [];
+}
+
+// 获取模型默认质量（无则返回 null）
+export function getModelDefaultQuality(model: ImageModel): string | null {
+  const config = getModelConfig(model);
+  return config.defaultQuality ?? null;
+}
+
+// 获取模型的风格选项（无则返回空数组）
+export function getModelStyleOptions(model: ImageModel): StyleOption[] {
+  const config = getModelConfig(model);
+  return config.styles ?? [];
+}
+
+// 获取模型默认风格（无则返回 null）
+export function getModelDefaultStyle(model: ImageModel): string | null {
+  const config = getModelConfig(model);
+  return config.defaultStyle ?? null;
+}
+
 // 工作模式配置（支持国际化）
 export function getWorkModes(isZh: boolean): WorkModeConfig[] {
   return [
@@ -116,7 +187,7 @@ export function getWorkModes(isZh: boolean): WorkModeConfig[] {
 }
 
 // 默认模型
-export const DEFAULT_MODEL: ImageModel = 'gpt-image-1.5';
+export const DEFAULT_MODEL: ImageModel = 'gemini-3-pro-image-preview-hd';
 
 // 默认尺寸（会根据模型自动调整）
 export const DEFAULT_SIZE = '1:1';

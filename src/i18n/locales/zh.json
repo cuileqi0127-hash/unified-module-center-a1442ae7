@@ -144,7 +144,10 @@
     "messages": "条消息",
     "model": "模型",
     "aspectRatio": "宽高比",
+    "outputNumber": "输出数量",
+    "quality": "质量",
     "style": "风格",
+    "settings": "设置",
     "workModes": {
       "sceneFusion": "场景融合",
       "textToImage": "文生图",

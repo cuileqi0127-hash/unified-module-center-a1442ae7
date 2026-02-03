@@ -161,16 +161,16 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
   ];
 
   return (
-    <div className="min-h-full bg-muted/30 p-6 animate-fade-in">
+    <div className="min-h-full bg-muted/30 p-6 animate-page-enter">
       <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header */}
-        <div>
+        {/* Header - 入场错峰 */}
+        <div className="animate-fade-in opacity-0 [animation-fill-mode:forwards]" style={{ animationDelay: '0.05s' }}>
           <h1 className="text-2xl font-bold text-foreground">{t('appPlaza.title')}</h1>
           <p className="text-muted-foreground mt-1">{t('appPlaza.subtitle')}</p>
         </div>
 
-        {/* Hero Banner Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Hero Banner Cards - 入场错峰 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in opacity-0 [animation-fill-mode:forwards]" style={{ animationDelay: '0.12s' }}>
           {/* Digital Human Banner */}
           <TooltipProvider>
             <Tooltip delayDuration={0}>
@@ -246,8 +246,8 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
           </Card>
         </div>
 
-        {/* 市场洞察 Section */}
-        <div>
+        {/* 市场洞察 Section - 入场错峰 */}
+        <div className="animate-fade-in opacity-0 [animation-fill-mode:forwards]" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-lg font-semibold text-foreground mb-4">{t('appPlaza.sections.marketInsights')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {marketInsightTools.map((tool) => (
@@ -308,8 +308,8 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
           </div>
         </div>
 
-        {/* 素材生成 Section */}
-        <div>
+        {/* 素材生成 Section - 入场错峰 */}
+        <div className="animate-fade-in opacity-0 [animation-fill-mode:forwards]" style={{ animationDelay: '0.36s' }}>
           <h2 className="text-lg font-semibold text-foreground mb-4">{t('appPlaza.sections.materialGeneration')}</h2>
           
           {/* 图片生成 */}

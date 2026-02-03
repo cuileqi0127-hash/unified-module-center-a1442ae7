@@ -13,8 +13,8 @@ import {
   RatioIcon,
   X,
   Copy,
-  Clipboard,
   Trash2,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
@@ -36,6 +41,26 @@ import { GenerationChatPanel } from './GenerationChatPanel';
 
 interface TextToImageProps {
   onNavigate?: (itemId: string) => void;
+}
+
+/** 根据尺寸 id 解析出用于小图标的宽高比（如 "1"、"2/3"、"16/9"） */
+function getRatioForIcon(sizeId: string): string {
+  const normalized = sizeId.replace(':', 'x').toLowerCase();
+  if (/^\d+x\d+$/.test(normalized)) {
+    const [a, b] = normalized.split('x').map(Number);
+    if (a === b) return '1';
+    if (a > b) return `${a}/${b}`;
+    return `${a}/${b}`;
+  }
+  return '1';
+}
+
+/** 判断是否为横版比例（宽≥高），用于图标填满正方形容器时选哪一边为 100% */
+function isLandscapeRatio(ratio: string): boolean {
+  if (ratio === '1') return true;
+  const parts = ratio.split('/').map(Number);
+  if (parts.length !== 2) return true;
+  return parts[0] >= parts[1];
 }
 
 export function TextToImage({ onNavigate }: TextToImageProps) {
@@ -59,6 +84,12 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     setModel,
     aspectRatio,
     setAspectRatio,
+    quality,
+    setQuality,
+    qualityOptions,
+    style,
+    setStyle,
+    styleOptions,
     messages,
     isGenerating,
     canvasImages,
@@ -411,7 +442,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             />
             )}
             
-            {/* Bottom toolbar */}
+            {/* Bottom toolbar：图2 风格 - 模型 + 设置 Popover（宽高比网格 + 输出数量）+ 添加 + 发送 */}
             <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">
               <div className="flex items-center gap-2">
                 {/* Model Dropdown */}
@@ -420,7 +451,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
                     >
                       <ImageIcon className="h-3.5 w-3.5" />
                       {models.find(m => m.id === model)?.label}
@@ -440,31 +471,144 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Aspect Ratio Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                {/* Settings Popover - Mac 风格：毛玻璃、柔和阴影、分段式选项 */}
+                <Popover>
+                  <PopoverTrigger asChild>
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
                     >
                       <RatioIcon className="h-3.5 w-3.5" />
-                      {aspectRatio}
+                      <span>{aspectRatio}</span>
                       <ChevronDown className="h-3 w-3 opacity-50" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {aspectRatios.map((ar) => (
-                      <DropdownMenuItem
-                        key={ar.id}
-                        onClick={() => setAspectRatio(ar.id)}
-                        className={cn(aspectRatio === ar.id && 'bg-accent')}
-                      >
-                        {ar.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    align="center" 
+                    side="top-end"
+                    className={cn(
+                      "ml-[68px] w-[450px] p-0 rounded-2xl border-0",
+                      "bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl",
+                      "shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.05),0_12px_24px_rgba(0,0,0,0.08)]",
+                      "dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.4)]"
+                    )}
+                  >
+                    <div className="p-4 space-y-5">
+                      {/* 宽高比 - 网格卡片，选中为浅蓝高亮（Mac 蓝） */}
+                      <div>
+                        <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
+                          {t('textToImage.aspectRatio')}
+                        </p>
+                        <div className="grid grid-cols-5 gap-2">
+                          {aspectRatios.map((ar) => {
+                            const ratio = getRatioForIcon(ar.id);
+                            const isSelected = aspectRatio === ar.id;
+                            const fillByWidth = isLandscapeRatio(ratio);
+                            return (
+                              <button
+                                key={ar.id}
+                                type="button"
+                                onClick={() => setAspectRatio(ar.id)}
+                                className={cn(
+                                  "flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all duration-200",
+                                  isSelected
+                                    ? "bg-blue-500/10 dark:bg-blue-400/15 ring-1 ring-blue-500/25 dark:ring-blue-400/30 text-foreground"
+                                    : "bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                {/* 固定正方形容器，图标用显式宽/高填满并保持比例（避免 w-auto h-auto 坍缩为 0） */}
+                                <div className="w-10 h-10 flex items-center justify-center shrink-0 overflow-hidden rounded-[4px]">
+                                  <div
+                                    className={cn(
+                                      "rounded-[4px] transition-colors",
+                                      isSelected ? "bg-blue-500/40 dark:bg-blue-400/50" : "bg-black/20 dark:bg-white/20"
+                                    )}
+                                    style={{
+                                      aspectRatio: ratio,
+                                      ...(fillByWidth
+                                        ? { width: '100%', height: 'auto', maxHeight: '100%' }
+                                        : { height: '100%', width: 'auto', maxWidth: '100%' }),
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-medium truncate w-full text-center tabular-nums">{ar.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      {/* 质量 - 左右滑块选中动画 */}
+                      {qualityOptions.length > 0 && (() => {
+                        const qualityIndex = qualityOptions.findIndex((q) => q.id === quality);
+                        const n = qualityOptions.length;
+                        return (
+                          <div>
+                            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
+                              {t('textToImage.quality')}
+                            </p>
+                            <div className="relative flex p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] w-full">
+                              <div
+                                className="absolute top-1 bottom-1 rounded-lg bg-white dark:bg-white/10 shadow-sm transition-[left] duration-200 ease-out"
+                                style={{
+                                  left: `calc(${qualityIndex} * (100% - 8px) / ${n} + 4px)`,
+                                  width: `calc((100% - 8px) / ${n} - 0px)`,
+                                }}
+                              />
+                              {qualityOptions.map((q) => (
+                                <button
+                                  key={q.id}
+                                  type="button"
+                                  onClick={() => setQuality(q.id)}
+                                  className={cn(
+                                    "relative z-10 flex-1 min-w-0 py-2 rounded-lg text-sm font-medium transition-colors duration-200",
+                                    quality === q.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {q.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {/* 风格 - 左右滑块选中动画 */}
+                      {styleOptions.length > 0 && (() => {
+                        const styleIndex = styleOptions.findIndex((s) => s.id === style);
+                        const n = styleOptions.length;
+                        return (
+                          <div>
+                            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
+                              {t('textToImage.style')}
+                            </p>
+                            <div className="relative flex p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] w-full">
+                              <div
+                                className="absolute top-1 bottom-1 rounded-lg bg-white dark:bg-white/10 shadow-sm transition-[left] duration-200 ease-out"
+                                style={{
+                                  left: `calc(${styleIndex} * (100% - 8px) / ${n} + 4px)`,
+                                  width: `calc((100% - 8px) / ${n} - 0px)`,
+                                }}
+                              />
+                              {styleOptions.map((s) => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => setStyle(s.id)}
+                                  className={cn(
+                                    "relative z-10 flex-1 min-w-0 py-2 rounded-lg text-sm font-medium transition-colors duration-200",
+                                    style === s.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {s.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Add Button - Upload Image */}
                 <label>

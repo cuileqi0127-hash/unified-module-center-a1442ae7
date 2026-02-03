@@ -121,7 +121,10 @@
     "messages": "messages",
     "model": "Model",
     "aspectRatio": "Aspect Ratio",
+    "outputNumber": "Output Number",
+    "quality": "Quality",
     "style": "Style",
+    "settings": "Settings",
     "workModes": {
       "sceneFusion": "Scene Fusion",
       "textToImage": "Text to Image",
