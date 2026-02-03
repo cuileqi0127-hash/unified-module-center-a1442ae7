@@ -103,7 +103,6 @@ export async function apiPost<T = any>(
   const isFormData = data instanceof FormData;
   
   const headers: HeadersInit = {};
-  
   if (useAuth) {
     const authHeaders = getAuthHeaders();
     Object.assign(headers, authHeaders);

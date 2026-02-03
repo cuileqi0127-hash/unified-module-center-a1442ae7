@@ -65,7 +65,7 @@
         "description": "Intelligently generate marketing plans to improve marketing efficiency and effectiveness"
       },
       "textToImage": {
-        "title": "Text to Image",
+        "title": "Image Generation",
         "description": "Generate beautiful images from text descriptions"
       },
       "ecommerceAssets": {
@@ -77,7 +77,7 @@
         "description": "Generate new images based on reference library image styles"
       },
       "textToVideo": {
-        "title": "Text to Video",
+        "title": "Video Generation",
         "description": "Generate short videos from text descriptions"
       },
       "referenceToVideo": {
@@ -91,7 +91,7 @@
     }
   },
   "textToImage": {
-    "title": "Text to Image",
+    "title": "Image Generation",
     "subtitle": "Enter a text description and AI will generate beautiful images for you",
     "inputPlaceholder": "Describe the image you want to generate...",
     "generate": "Generate Image",
@@ -148,7 +148,7 @@
     "footerNote": "Please use authorized materials and use results legally"
   },
   "textToVideo": {
-    "title": "Text to Video",
+    "title": "Video Generation",
     "subtitle": "Enter a text description and AI will generate beautiful videos for you",
     "inputPlaceholder": "Describe the video you want to generate...",
     "generate": "Generate Video",
@@ -224,7 +224,7 @@
     "uploadVideoHint": "Click or drag to upload the video you want to replicate",
     "referenceImageSection": "Upload Reference Image (Product Image)",
     "referenceImageHint": "Upload your product image as style reference",
-    "sellingPointsSection": "Product Selling Points",
+    "sellingPointsSection": "Original Video Prompt",
     "sellingPointsPlaceholder": "Enter your product's core selling points, e.g.: high-quality materials, unique design, functional innovation...",
     "startReplication": "Start Replication",
     "analyzingVideo": "Analyzing Video...",
@@ -344,7 +344,9 @@
     "downloadVideoStarted": "Started downloading video",
     "downloadedVideosZip": "Downloaded",
     "newSession": "New Session",
-    "untitledSession": "Untitled Session"
+    "untitledSession": "Untitled Session",
+    "invalidFileFormat": "Invalid file format",
+    "fileTooLarge": "File too large"
   },
   "common": {
     "views": "Views",
@@ -383,5 +385,58 @@
     "enterDescription": "Enter a description to generate content",
     "feedback": "Feedback",
     "completed": "Completed"
+  },
+  "videoReplication": {
+    "title": "Video Replication",
+    "subtitle": "Upload a video, generate a description, add product image, replicate similar style video",
+    "uploadVideoSection": "Upload Video",
+    "uploadVideo": "Upload Video",
+    "uploadVideoHint": "Click or drag video file here",
+    "selectVideo": "Select Video",
+    "uploadSuccess": "Video uploaded successfully",
+    "generatePrompt": "Generate Prompt",
+    "analyzingVideo": "Analyzing Video",
+    "analyzingVideoHint": "AI is analyzing video content and extracting key information",
+    "generatedPrompt": "Generated Prompt",
+    "sellingPointsSection": "Original Video Prompt",
+    "sellingPointsPlaceholder": "Please modify the Prompt...",
+    "copy": "Copy",
+    "uploadImage": "Upload Image",
+    "referenceImageSection": "Product Image Reference",
+    "referenceImageHint": "Click or drag image file here",
+    "selectImage": "Select Image",
+    "startReplication": "Start Replication",
+    "generatingVideo": "Generating Video",
+    "generatingVideoHint": "AI is generating video based on prompt and reference image",
+    "generatedVideo": "Generated Video",
+    "download": "Download",
+    "createAnother": "Create Another",
+    "error": "Error",
+    "retry": "Retry",
+    "startOver": "Start Over",
+    "uploading": "Uploading...",
+    "replicating": "Replicating...",
+    "errors": {
+      "generatePrompt": "Failed to generate prompt",
+      "uploadImage": "Failed to upload image",
+      "createTask": "Failed to create task",
+      "noVideoUrl": "Video generation completed but no video URL available",
+      "generateVideo": "Failed to generate video",
+      "enterSellingPoints": "Please enter selling points",
+      "uploadImageFirst": "Please upload an image first",
+      "videoSizeLimit": "File size must be less than 50MB",
+      "imageSizeLimit": "File size must be less than 5MB",
+      "imageFormatLimit": "Only JPG, PNG, and WEBP images are allowed"
+    },
+    "formats": {
+      "video": "Supported formats: MP4, MOV, AVI, WMV (max 50MB)",
+      "image": "Supported formats: JPG, PNG, WEBP (max 5MB)"
+    },
+    "success": {
+      "imageUploaded": "Image uploaded successfully",
+      "promptCopied": "Prompt copied to clipboard",
+      "videoDownloadStarted": "Video download started",
+      "videoGenerated": "Video generated successfully!"
+    }
   }
 }

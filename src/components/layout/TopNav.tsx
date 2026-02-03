@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useOAuth } from '@/contexts/OAuthContext';
+import { clearOAuthCache, redirectToLogin } from '@/services/oauthApi';
+import { clearUserInfoCache } from '@/services/userApi';
 
 const moduleIcons: Record<ModuleType, React.ReactNode> = {
   'geo-insights': <BarChart3 className="w-4 h-4" />,
@@ -89,6 +91,12 @@ export function TopNav() {
     setActiveModule(moduleId);
   };
 
+  const handleLogout = () => {
+    clearOAuthCache();
+    clearUserInfoCache();
+    redirectToLogin();
+  };
+
   return (
     <header className="h-14 border-b border-border bg-background flex items-center justify-between px-4 top-0 z-[100] fixed left-0 w-screen">
       {/* Left: Logo */}
@@ -154,7 +162,7 @@ export function TopNav() {
             <DropdownMenuItem>{t('common.billing')}</DropdownMenuItem>
             <DropdownMenuItem>{t('common.team')}</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>{t('common.logout')}</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>{t('common.logout')}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
