@@ -111,7 +111,7 @@ export function isValidSizeForModel(model: ImageModel, size: string): boolean {
 // 工作模式配置（支持国际化）
 export function getWorkModes(isZh: boolean): WorkModeConfig[] {
   return [
-    { id: 'text-to-image', label: isZh ? '文生图' : 'Text to Image' },
+    { id: 'text-to-image', label: isZh ? '图片生成' : 'Image Generation' },
   ];
 }
 

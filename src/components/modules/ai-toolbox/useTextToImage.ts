@@ -36,6 +36,8 @@ import {
   DEFAULT_MODEL,
 } from './textToImageConfig';
 import { type SelectedImage } from './ImageCapsule';
+import { batchDownload, MediaItem } from '@/utils/batchDownloader';
+import { uploadFile, validateFileFormat, validateFileSize } from '@/services/fileUploadApi';
 
 // 类型定义
 export interface ChatMessage {
@@ -60,6 +62,7 @@ export interface CanvasImage {
   height: number;
   prompt?: string;
   type?: 'image' | 'video'; // 媒体类型
+  ossKey?: string; // OSS存储密钥
 }
 
 const mockHistory: ChatMessage[] = [];
@@ -1018,16 +1021,39 @@ export function useTextToImage() {
     }
   }, [copiedImage, copiedImages, isZh, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, loadSessions]);
 
+  // 上传状态管理
+  const [uploadingFiles, setUploadingFiles] = useState<Map<string, { progress: number; id: string }>>(new Map());
+
   // 处理上传图片到画布
   const handleUploadImage = useCallback(async (file: File) => {
     try {
-      // 创建本地URL用于预览
-      const imageUrl = URL.createObjectURL(file);
-      const dimensions = await getImageDimensions(imageUrl);
+      // 文件验证
+      const allowedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
       
-      const newImage: CanvasImage = {
-        id: `img-${Date.now()}`,
-        url: imageUrl,
+      // 验证文件格式
+      if (!validateFileFormat(file, allowedFormats)) {
+        toast.error(t('toast.invalidFileFormat'));
+        return;
+      }
+      
+      // 验证文件大小
+      if (!validateFileSize(file, maxSize)) {
+        toast.error(t('toast.fileTooLarge'));
+        return;
+      }
+      
+      // 生成临时ID
+      const tempId = `img-${Date.now()}`;
+      
+      // 创建本地URL用于预览
+      const previewUrl = URL.createObjectURL(file);
+      const dimensions = await getImageDimensions(previewUrl);
+      
+      // 创建临时图片对象
+      const tempImage: CanvasImage = {
+        id: tempId,
+        url: previewUrl,
         x: 300 + Math.random() * 100,
         y: 200 + Math.random() * 100,
         width: dimensions.width,
@@ -1037,25 +1063,107 @@ export function useTextToImage() {
       };
       
       // 先标记为新增中，触发动画
-      setAddingImageIds(new Set([newImage.id]));
-      setCanvasImages(prev => [...prev, newImage]);
-      setSelectedImageId(newImage.id);
+      setAddingImageIds(new Set([tempId]));
+      setCanvasImages(prev => [...prev, tempImage]);
+      setSelectedImageId(tempId);
+      
+      // 标记为上传中
+      setUploadingFiles(prev => new Map(prev.set(tempId, { progress: 0, id: tempId })));
+      
+      // 上传文件到OSS
+      const uploadResult = await uploadFile(file, (progress) => {
+        // 更新上传进度
+        setUploadingFiles(prev => new Map(prev.set(tempId, { progress, id: tempId })));
+      });
+      
+      // 上传成功，更新图片URL为OSS返回的URL
+      setCanvasImages(prev =>
+        prev.map(img => {
+          if (img.id === tempId) {
+            // 释放本地URL
+            URL.revokeObjectURL(img.url);
+            return {
+              ...img,
+              url: uploadResult.url,
+              // 存储ossKey，便于后续使用
+              ossKey: uploadResult.ossKey,
+            };
+          }
+          return img;
+        })
+      );
       
       // 动画完成后清除新增状态
       setTimeout(() => {
         setAddingImageIds(prev => {
           const next = new Set(prev);
-          next.delete(newImage.id);
+          next.delete(tempId);
           return next;
         });
       }, 300);
       
+      // 清除上传状态
+      setUploadingFiles(prev => {
+        const next = new Map(prev);
+        next.delete(tempId);
+        return next;
+      });
+      
+      // 保存生成结果到数据库
+      if (currentSessionId) {
+        try {
+          const saveResponse = await saveGenerationResult(currentSessionId, {
+            generation: {
+              model: model,
+              size: aspectRatio,
+              prompt: file.name,
+              status: 'success',
+            },
+            asset: {
+              type: 'image',
+              sourceUrl: uploadResult.url,
+              seq: 1,
+              width: dimensions.width,
+              height: dimensions.height,
+            },
+            message: {
+              type: 'system',
+              content: isZh ? '生成完成' : 'Generation complete',
+              status: 'complete',
+              resultSummary: isZh ? '图片已添加到画布' : 'Image added to canvas',
+            },
+            canvasItem: {
+              x: tempImage.x,
+              y: tempImage.y,
+              width: dimensions.width,
+              height: dimensions.height,
+              rotate: 0,
+              visible: true,
+              zindex: canvasImages.length + 1,
+            },
+          });
+          
+          // 存储canvasItemId，便于后续更新
+          if (saveResponse.success && saveResponse.data) {
+            canvasItemIdMap.current.set(tempId, saveResponse.data.canvasItemId);
+          }
+          
+          // 刷新历史记录
+          await loadSessions(1, false);
+        } catch (error) {
+          console.error('Failed to save uploaded image:', error);
+        }
+      }
+      
       toast.success(t('toast.imageAddedToCanvas'));
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(t('toast.imageUploadFailed'));
+      toast.error(error instanceof Error ? error.message : t('toast.imageUploadFailed'));
+      
+      // 清除上传状态
+      setUploadingFiles(prev => new Map());
     }
-  }, [isZh, getImageDimensions]);
+  }, [isZh, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, saveGenerationResult, loadSessions]);
 
   // 处理键盘快捷键（复制粘贴）
   useEffect(() => {
@@ -1088,6 +1196,21 @@ export function useTextToImage() {
     e.preventDefault();
     setIsDragOver(false);
     
+    // 检查是否有文件
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      // 处理所有拖放的文件
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // 只处理图片文件
+        if (file.type.startsWith('image/')) {
+          handleUploadImage(file);
+        }
+      }
+      return;
+    }
+    
+    // 处理从画布拖拽的元素
     try {
       const data = e.dataTransfer.getData('application/json');
       if (data) {
@@ -1097,7 +1220,7 @@ export function useTextToImage() {
     } catch (err) {
       console.error('Failed to parse dropped image data:', err);
     }
-  }, [handleAddSelectedImage]);
+  }, [handleAddSelectedImage, handleUploadImage]);
 
   // 处理生成图片
   const handleGenerate = useCallback(async () => {
@@ -1451,104 +1574,24 @@ export function useTextToImage() {
     if (imagesToDownload.length === 0) return;
     
     try {
-      // 如果只有一个文件，直接下载
-      if (imagesToDownload.length === 1) {
-        const image = imagesToDownload[0];
-        const a = document.createElement('a');
-        a.href = image.url;
-        a.download = `image-${image.id}.png`;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        toast.success(isZh ? '已开始下载图片' : 'Started downloading image');
-        return;
-      }
+      // 转换为 MediaItem 格式
+      const mediaItems: MediaItem[] = imagesToDownload.map(img => ({
+        id: img.id,
+        url: img.url,
+        type: img.type || 'image',
+        name: `image-${img.id}`,
+      }));
       
-      // 多个文件，打包成 zip 下载
-      // @ts-ignore - JSZip 类型定义
-      let JSZip: any;
-      try {
-        // @ts-ignore - JSZip 动态导入
-        JSZip = (await import('jszip')).default;
-      } catch (err) {
-        // 如果 jszip 未安装，提示用户并逐个下载
-        toast.error(t('toast.jszipNotInstalled'));
-        // 逐个下载
-        for (const image of imagesToDownload) {
-          const a = document.createElement('a');
-          a.href = image.url;
-          a.download = `image-${image.id}.png`;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-        return;
-      }
-      
-      const zip = new JSZip();
-      
-      // 显示加载提示
-      const loadingToast = toast.loading(`${t('common.packing')} ${imagesToDownload.length} ${t('toast.images')}...`);
-      
-      // 获取文件并添加到 zip
-      let successCount = 0;
-      for (let i = 0; i < imagesToDownload.length; i++) {
-        const image = imagesToDownload[i];
-        try {
-          // 使用 XMLHttpRequest 获取文件（可以处理 CORS）
-          const blob = await new Promise<Blob>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', image.url, true);
-            xhr.responseType = 'blob';
-            xhr.onload = () => {
-              if (xhr.status === 200) {
-                resolve(xhr.response);
-              } else {
-                reject(new Error(`HTTP ${xhr.status}`));
-              }
-            };
-            xhr.onerror = () => reject(new Error('Network error'));
-            xhr.ontimeout = () => reject(new Error('Request timeout'));
-            xhr.timeout = 30000; // 30秒超时
-            xhr.send();
-          });
-          zip.file(`image-${image.id}.png`, blob);
-          successCount++;
-        } catch (err) {
-          console.error(`Failed to fetch image ${image.id}:`, err);
-          // 继续处理其他文件
-        }
-      }
-      
-      if (successCount === 0) {
-        toast.dismiss(loadingToast);
-        toast.error(t('toast.allDownloadsFailed'));
-        return;
-      }
-      
-      // 生成 zip 文件
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const zipUrl = URL.createObjectURL(zipBlob);
-      const a = document.createElement('a');
-      a.href = zipUrl;
-      a.download = `images-${Date.now()}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(zipUrl);
-      
-      toast.dismiss(loadingToast);
-      toast.success(`${t('toast.downloadedZip')} ${successCount}/${imagesToDownload.length} ${t('toast.images')} (${t('common.zip')})`);
+      // 使用批量下载工具
+      await batchDownload(mediaItems, {
+        zip: mediaItems.length > 1,
+        folderName: 'images',
+      });
     } catch (err) {
       console.error('Download failed:', err);
       toast.error(`${t('toast.downloadFailed')}: ${err instanceof Error ? err.message : t('toast.unknownError')}`);
     }
-  }, [selectedImageIds, selectedImageId, canvasImages, isZh]);
+  }, [selectedImageIds, selectedImageId, canvasImages, t]);
 
   // 处理复制单个图片
   const handleCopyImageToClipboard = useCallback(async (image: CanvasImage) => {

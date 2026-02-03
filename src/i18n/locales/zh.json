@@ -87,7 +87,7 @@
         "description": "智能生成营销策划方案，提升营销效率与效果"
       },
       "textToImage": {
-        "title": "文生图",
+        "title": "图片生成",
         "description": "根据文字描述生成精美图片"
       },
       "ecommerceAssets": {
@@ -99,7 +99,7 @@
         "description": "参考素材库图片风格生成新图"
       },
       "textToVideo": {
-        "title": "文生视频",
+        "title": "视频生成",
         "description": "根据文字描述生成短视频"
       },
       "referenceToVideo": {
@@ -113,7 +113,7 @@
     }
   },
   "textToImage": {
-    "title": "文生图",
+    "title": "图片生成",
     "subtitle": "输入文字描述，AI为您生成精美图片",
     "inputPlaceholder": "发送指令，让遥鲟为您处理商品链接和图片",
     "generate": "生成图片",
@@ -171,7 +171,7 @@
     "footerNote": "请使用有权素材，并合法使用生成结果"
   },
   "textToVideo": {
-    "title": "文生视频",
+    "title": "视频生成",
     "subtitle": "输入文字描述，AI为您生成精美视频",
     "inputPlaceholder": "描述您想要生成的视频...",
     "generate": "生成视频",
@@ -248,7 +248,7 @@
     "uploadVideoHint": "点击或拖拽上传需要复刻的视频",
     "referenceImageSection": "上传参考图（商品图）",
     "referenceImageHint": "上传您的商品图片作为风格参考",
-    "sellingPointsSection": "商品卖点",
+    "sellingPointsSection": "原视频Prompt",
     "sellingPointsPlaceholder": "输入您的商品核心卖点，例如：高品质材料、独特设计、功能创新...",
     "startReplication": "开始复刻",
     "analyzingVideo": "正在分析视频...",
@@ -368,12 +368,67 @@
     "downloadVideoStarted": "已开始下载视频",
     "downloadedVideosZip": "已下载",
     "newSession": "新会话",
-    "untitledSession": "未命名会话"
+    "untitledSession": "未命名会话",
+    "invalidFileFormat": "无效的文件格式",
+    "fileTooLarge": "文件过大"
   },
   "generationChatPanel": {
     "startConversation": "开始对话",
     "enterDescription": "输入描述来生成内容",
     "feedback": "反馈",
     "completed": "已完成"
+  },
+  "videoReplication": {
+    "title": "复刻视频",
+    "subtitle": "上传视频，生成描述，添加商品图片，复刻相似风格视频",
+    "uploadVideoSection": "上传视频",
+    "uploadVideo": "上传视频",
+    "uploadVideoHint": "点击或拖拽视频文件到此处",
+    "selectVideo": "选择视频",
+    "uploadSuccess": "视频上传成功",
+    "generatePrompt": "生成Prompt",
+    "analyzingVideo": "正在分析视频",
+    "analyzingVideoHint": "AI正在分析视频内容，提取关键信息",
+    "generatedPrompt": "生成的Prompt",
+    "sellingPointsSection": "原视频Prompt",
+    "sellingPointsPlaceholder": "请修改Prompt...",
+    "copy": "复制",
+    "uploadImage": "上传图片",
+    "referenceImageSection": "商品图片参考",
+    "referenceImageHint": "点击或拖拽图片文件到此处",
+    "selectImage": "选择图片",
+    "startReplication": "开始复刻",
+    "generatingVideo": "正在生成视频",
+    "generatingVideoHint": "AI正在根据Prompt和参考图片生成视频",
+    "generatedVideo": "生成的视频",
+    "download": "下载",
+    "createAnother": "重新生成",
+    "error": "错误",
+    "retry": "重试",
+    "startOver": "重新开始",
+    "uploading": "上传中...",
+    "replicating": "复刻中...",
+    "errors": {
+      "generatePrompt": "生成Prompt失败",
+      "uploadImage": "上传图片失败",
+      "createTask": "创建任务失败",
+      "noVideoUrl": "视频生成完成但未获取到视频URL",
+      "generateVideo": "生成视频失败",
+      "enterSellingPoints": "请输入商品卖点",
+      "uploadImageFirst": "请先上传图片",
+      "videoSizeLimit": "视频大小必须小于50MB",
+      "imageSizeLimit": "图片大小必须小于5MB",
+      "imageFormatLimit": "只允许上传JPG、PNG和WEBP格式的图片"
+    },
+    "formats": {
+      "video": "支持格式: MP4, MOV, AVI, WMV (最大50MB)",
+      "image": "支持格式: JPG, PNG, WEBP (最大5MB)"
+    },
+    "success": {
+      "imageUploaded": "图片上传成功",
+      "promptCopied": "Prompt已复制到剪贴板",
+      "videoDownloadStarted": "视频下载已开始",
+      "videoGenerated": "视频生成成功！"
+    }
   }
 }

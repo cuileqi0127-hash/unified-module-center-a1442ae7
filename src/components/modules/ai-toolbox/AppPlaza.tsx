@@ -67,9 +67,9 @@ const ToolCard = ({ title, description, icon, views, copies, onClick, isComingSo
                 {copies}
               </span>
             </div>
-            {isComingSoon && (
+            {/* {isComingSoon && (
               <div className="mt-2 text-xs font-medium text-primary">Coming Soon</div>
-            )}
+            )} */}
           </div>
         </div>
       </CardContent>
@@ -120,9 +120,9 @@ const VisualCard = ({ title, description, views, copies, image, onClick, isComin
           {copies}
         </span>
       </div>
-      {isComingSoon && (
+      {/* {isComingSoon && (
         <div className="mt-2 text-xs font-medium text-primary">Coming Soon</div>
-      )}
+      )} */}
     </CardContent>
   </Card>
 );
@@ -135,7 +135,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
   const { t } = useTranslation();
 
   // 定义 Coming Soon 的页面列表
-  const comingSoonItems = ['brand-health', 'campaign-planner', 'digital-human'];
+  const comingSoonItems = ['brand-health', 'campaign-planner', 'digital-human', 'ecommerce-assets', 'reference-to-image', 'reference-to-video'];
 
   const marketInsightTools = [
     { id: 'brand-health', titleKey: 'appPlaza.tools.brandHealth.title', descKey: 'appPlaza.tools.brandHealth.description', icon: <TrendingUp className="w-5 h-5 text-muted-foreground" />, views: 561, copies: 141 },
@@ -317,15 +317,29 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
             <h3 className="text-sm font-medium text-muted-foreground mb-3">{t('appPlaza.sections.imageGeneration')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {imageGenTools.map((tool) => (
-                <VisualCard
-                  key={tool.id}
-                  title={t(tool.titleKey)}
-                  description={t(tool.descKey)}
-                  image={tool.image}
-                  views={tool.views}
-                  copies={tool.copies}
-                  onClick={() => onNavigate(tool.id)}
-                />
+                <TooltipProvider key={tool.id}>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <VisualCard
+                          key={tool.id}
+                          title={t(tool.titleKey)}
+                          description={t(tool.descKey)}
+                          image={tool.image}
+                          views={tool.views}
+                          copies={tool.copies}
+                          onClick={() => onNavigate(tool.id)}
+                          isComingSoon={comingSoonItems.includes(tool.id)}
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    {comingSoonItems.includes(tool.id) && (
+                      <TooltipContent>
+                        <p>Coming Soon</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
           </div>
@@ -335,15 +349,29 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
             <h3 className="text-sm font-medium text-muted-foreground mb-3">{t('appPlaza.sections.videoGeneration')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {videoGenTools.map((tool) => (
-                <VisualCard
-                  key={tool.id}
-                  title={t(tool.titleKey)}
-                  description={t(tool.descKey)}
-                  image={tool.image}
-                  views={tool.views}
-                  copies={tool.copies}
-                  onClick={() => onNavigate(tool.id)}
-                />
+                <TooltipProvider key={tool.id}>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <VisualCard
+                          key={tool.id}
+                          title={t(tool.titleKey)}
+                          description={t(tool.descKey)}
+                          image={tool.image}
+                          views={tool.views}
+                          copies={tool.copies}
+                          onClick={() => onNavigate(tool.id)}
+                          isComingSoon={comingSoonItems.includes(tool.id)}
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    {comingSoonItems.includes(tool.id) && (
+                      <TooltipContent>
+                        <p>Coming Soon</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
           </div>

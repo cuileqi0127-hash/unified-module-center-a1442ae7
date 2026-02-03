@@ -39,6 +39,8 @@ import {
   DEFAULT_VIDEO_MODEL,
 } from './textToVideoConfig';
 import { type SelectedImage } from './ImageCapsule';
+import { batchDownload, MediaItem } from '@/utils/batchDownloader';
+import { uploadFile, validateFileFormat, validateFileSize } from '@/services/fileUploadApi';
 
 // 类型定义
 export interface ChatMessage {
@@ -67,6 +69,7 @@ export interface CanvasVideo {
   type?: 'image' | 'video' | 'placeholder'; // 媒体类型
   progress?: number; // 占位符进度 0-100
   status?: 'queued' | 'processing' | 'completed' | 'failed'; // 占位符状态
+  ossKey?: string; // OSS存储密钥
 }
 
 // 任务队列项
@@ -1078,17 +1081,39 @@ export function useTextToVideo() {
     }
   }, [copiedVideo, copiedVideos, isZh, getVideoDimensions, getImageDimensions, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions]);
 
+  // 上传状态管理
+  const [uploadingFiles, setUploadingFiles] = useState<Map<string, { progress: number; id: string }>>(new Map());
+
   // 处理上传图片到画布
   const handleUploadImage = useCallback(async (file: File) => {
     try {
-      // 创建本地URL用于预览
-      const imageUrl = URL.createObjectURL(file);
-      const dimensions = await getImageDimensions(imageUrl);
+      // 文件验证
+      const allowedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
       
-      // 将图片作为CanvasVideo添加到画布（虽然类型是Video，但可以显示图片）
-      const newVideo: CanvasVideo = {
-        id: `img-${Date.now()}`,
-        url: imageUrl,
+      // 验证文件格式
+      if (!validateFileFormat(file, allowedFormats)) {
+        toast.error(t('toast.invalidFileFormat'));
+        return;
+      }
+      
+      // 验证文件大小
+      if (!validateFileSize(file, maxSize)) {
+        toast.error(t('toast.fileTooLarge'));
+        return;
+      }
+      
+      // 生成临时ID
+      const tempId = `img-${Date.now()}`;
+      
+      // 创建本地URL用于预览
+      const previewUrl = URL.createObjectURL(file);
+      const dimensions = await getImageDimensions(previewUrl);
+      
+      // 将图片作为CanvasVideo添加到画布
+      const tempVideo: CanvasVideo = {
+        id: tempId,
+        url: previewUrl,
         x: 300 + Math.random() * 100,
         y: 200 + Math.random() * 100,
         width: dimensions.width,
@@ -1097,14 +1122,98 @@ export function useTextToVideo() {
         type: 'image',
       };
       
-      setCanvasVideos(prev => [...prev, newVideo]);
-      setSelectedVideoId(newVideo.id);
+      // 添加到画布
+      setCanvasVideos(prev => [...prev, tempVideo]);
+      setSelectedVideoId(tempId);
+      
+      // 标记为上传中
+      setUploadingFiles(prev => new Map(prev.set(tempId, { progress: 0, id: tempId })));
+      
+      // 上传文件到OSS
+      const uploadResult = await uploadFile(file, (progress) => {
+        // 更新上传进度
+        setUploadingFiles(prev => new Map(prev.set(tempId, { progress, id: tempId })));
+      });
+      
+      // 上传成功，更新图片URL为OSS返回的URL
+      setCanvasVideos(prev =>
+        prev.map(video => {
+          if (video.id === tempId) {
+            // 释放本地URL
+            URL.revokeObjectURL(video.url);
+            return {
+              ...video,
+              url: uploadResult.url,
+              // 存储ossKey，便于后续使用
+              ossKey: uploadResult.ossKey,
+            };
+          }
+          return video;
+        })
+      );
+      
+      // 清除上传状态
+      setUploadingFiles(prev => {
+        const next = new Map(prev);
+        next.delete(tempId);
+        return next;
+      });
+      
+      // 保存生成结果到数据库
+      if (currentSessionId) {
+        try {
+          const saveResponse = await saveGenerationResult(currentSessionId, {
+            generation: {
+              model: model,
+              size: size,
+              prompt: file.name,
+              status: 'success',
+            },
+            asset: {
+              type: 'image',
+              sourceUrl: uploadResult.url,
+              seq: 1,
+              width: dimensions.width,
+              height: dimensions.height,
+            },
+            message: {
+              type: 'system',
+              content: isZh ? '生成完成' : 'Generation complete',
+              status: 'complete',
+              resultSummary: isZh ? '图片已添加到画布' : 'Image added to canvas',
+            },
+            canvasItem: {
+              x: tempVideo.x,
+              y: tempVideo.y,
+              width: dimensions.width,
+              height: dimensions.height,
+              rotate: 0,
+              visible: true,
+              zindex: canvasVideos.length + 1,
+            },
+          });
+          
+          // 存储canvasItemId，便于后续更新
+          if (saveResponse.success && saveResponse.data) {
+            canvasItemIdMap.current.set(tempId, saveResponse.data.canvasItemId);
+          }
+          
+          // 刷新历史记录
+          await loadSessions(1, false);
+        } catch (error) {
+          console.error('Failed to save uploaded image:', error);
+        }
+      }
+      
       toast.success(t('toast.imageAddedToCanvas'));
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(t('toast.imageUploadFailed'));
+      toast.error(error instanceof Error ? error.message : t('toast.imageUploadFailed'));
+      
+      // 清除上传状态
+      setUploadingFiles(prev => new Map());
     }
-  }, [isZh, getImageDimensions]);
+  }, [isZh, getImageDimensions, currentSessionId, model, size, canvasVideos, saveGenerationResult, loadSessions]);
 
   // 处理键盘快捷键（复制粘贴）
   useEffect(() => {
@@ -1137,6 +1246,21 @@ export function useTextToVideo() {
     e.preventDefault();
     setIsDragOver(false);
     
+    // 检查是否有文件
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      // 处理所有拖放的文件
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // 只处理图片文件
+        if (file.type.startsWith('image/')) {
+          handleUploadImage(file);
+        }
+      }
+      return;
+    }
+    
+    // 处理从画布拖拽的元素
     try {
       const data = e.dataTransfer.getData('application/json');
       if (data) {
@@ -1154,7 +1278,7 @@ export function useTextToVideo() {
     } catch (err) {
       console.error('Failed to parse dropped video data:', err);
     }
-  }, [handleAddSelectedVideo]);
+  }, [handleAddSelectedVideo, handleUploadImage]);
 
   // 处理生成视频
   const handleGenerate = useCallback(async () => {
@@ -2142,104 +2266,25 @@ export function useTextToVideo() {
     if (videosToDownload.length === 0) return;
     
     try {
-      // 如果只有一个文件，直接下载
-      if (videosToDownload.length === 1) {
-        const video = videosToDownload[0];
-        const a = document.createElement('a');
-        a.href = video.url;
-        a.download = `video-${video.id}.mp4`;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        toast.success(t('toast.downloadVideoStarted'));
-        return;
-      }
+      console.log(videosToDownload,'videosToDownload')
+      // 转换为 MediaItem 格式
+      const mediaItems: MediaItem[] = videosToDownload.map(video => ({
+        id: video.id,
+        url: video.url,
+        type: video.type || 'video',
+        name: `video-${video.id}`,
+      }));
       
-      // 多个文件，打包成 zip 下载
-      // @ts-ignore - JSZip 类型定义
-      let JSZip: any;
-      try {
-        // @ts-ignore - JSZip 动态导入
-        JSZip = (await import('jszip')).default;
-      } catch (err) {
-        // 如果 jszip 未安装，提示用户并逐个下载
-        toast.error(t('toast.jszipNotInstalled'));
-        // 逐个下载
-        for (const video of videosToDownload) {
-          const a = document.createElement('a');
-          a.href = video.url;
-          a.download = `video-${video.id}.mp4`;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-        return;
-      }
-      
-      const zip = new JSZip();
-      
-      // 显示加载提示
-      const loadingToast = toast.loading(isZh ? `正在打包 ${videosToDownload.length} 个视频...` : `Packing ${videosToDownload.length} videos...`);
-      
-      // 获取文件并添加到 zip
-      let successCount = 0;
-      for (let i = 0; i < videosToDownload.length; i++) {
-        const video = videosToDownload[i];
-        try {
-          // 使用 XMLHttpRequest 获取文件（可以处理 CORS）
-          const blob = await new Promise<Blob>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', video.url, true);
-            xhr.responseType = 'blob';
-            xhr.onload = () => {
-              if (xhr.status === 200) {
-                resolve(xhr.response);
-              } else {
-                reject(new Error(`HTTP ${xhr.status}`));
-              }
-            };
-            xhr.onerror = () => reject(new Error('Network error'));
-            xhr.ontimeout = () => reject(new Error('Request timeout'));
-            xhr.timeout = 30000; // 30秒超时
-            xhr.send();
-          });
-          zip.file(`video-${video.id}.mp4`, blob);
-          successCount++;
-        } catch (err) {
-          console.error(`Failed to fetch video ${video.id}:`, err);
-          // 继续处理其他文件
-        }
-      }
-      
-      if (successCount === 0) {
-        toast.dismiss(loadingToast);
-        toast.error(t('toast.allDownloadsFailed'));
-        return;
-      }
-      
-      // 生成 zip 文件
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const zipUrl = URL.createObjectURL(zipBlob);
-      const a = document.createElement('a');
-      a.href = zipUrl;
-      a.download = `videos-${Date.now()}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(zipUrl);
-      
-      toast.dismiss(loadingToast);
-      toast.success(`${t('toast.downloadedVideosZip')} ${successCount}/${videosToDownload.length} ${t('toast.videos')} (${t('common.zip')})`);
+      // 使用批量下载工具
+      await batchDownload(mediaItems, {
+        zip: mediaItems.length > 1,
+        folderName: 'videos',
+      });
     } catch (err) {
       console.error('Download failed:', err);
       toast.error(`${t('toast.downloadFailed')}: ${err instanceof Error ? err.message : t('toast.unknownError')}`);
     }
-  }, [selectedVideoIds, selectedVideoId, canvasVideos, isZh]);
+  }, [selectedVideoIds, selectedVideoId, canvasVideos, t]);
 
   // 处理调整聊天栏宽度
   useEffect(() => {

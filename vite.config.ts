@@ -22,6 +22,19 @@ export default defineConfig(({ mode }) => ({
         secure: false,
         rewrite: (path) => path.replace(/^\/api\/process/, '/api/process'),
       },
+      // 视频转提示词接口代理
+      "/api/video-to-prompt": {
+        target: 'http://183.87.33.181:8001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/video-to-prompt/, ''),
+      },
+      // 文件代理（用于下载跨域文件）
+      "/api/proxy": {
+        target: 'http://94.74.101.163:28080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/proxy/, '/api/proxy'),
+      },
       '/api': {
         target: 'http://94.74.101.163:28080',
         changeOrigin: true,
@@ -39,18 +52,11 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/vod/, '/vod'),
       },
-      // 视频转提示词接口代理
-      "/api/video-to-prompt": {
-        target: 'http://183.87.33.181:8001',
+      // 上传文件接口代理（端口 8000）
+      '/common': {
+        target: 'http://192.168.112.253:8000',
         changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api\/video-to-prompt/, ''),
-      },
-      // 文件代理（用于下载跨域文件）
-      "/api/proxy": {
-        target: 'http://94.74.101.163:28080',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/proxy/, '/api/proxy'),
+        rewrite: (path) => path.replace(/^\/common/, '/common'),
       },
     },
   },
