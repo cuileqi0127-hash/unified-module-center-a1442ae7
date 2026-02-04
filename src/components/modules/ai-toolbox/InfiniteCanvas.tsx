@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Draggable, { DraggableEvent, DraggableData } from 'react-draggable';
 import { ZoomIn, ZoomOut, Maximize, Move, Trash2, RefreshCw, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ export function InfiniteCanvas({
   onImageReplace,
   onImageCopy,
 }: InfiniteCanvasProps) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -630,7 +632,7 @@ export function InfiniteCanvas({
                         e.stopPropagation();
                         onImageDelete?.(image.id);
                       }}
-                      title="删除"
+                      title={t('infiniteCanvas.delete')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -642,7 +644,7 @@ export function InfiniteCanvas({
                         e.stopPropagation();
                         onImageReplace?.(image.id);
                       }}
-                      title="替换"
+                      title={t('infiniteCanvas.replace')}
                     >
                       <RefreshCw className="h-4 w-4" />
                     </Button>
@@ -654,7 +656,7 @@ export function InfiniteCanvas({
                         e.stopPropagation();
                         onImageCopy?.(image);
                       }}
-                      title="复制"
+                      title={t('infiniteCanvas.copy')}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>

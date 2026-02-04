@@ -104,7 +104,7 @@ export function TopNav() {
         <div className="w-8 h-8 rounded-lg bg-foreground flex items-center justify-center">
           <span className="text-background font-bold text-sm">S</span>
         </div>
-        <span className="font-semibold text-lg">Oran Gen</span>
+        <span className="font-semibold text-lg">{t('topNav.appName')}</span>
       </div>
 
       {/* Center: Module Switcher */}
@@ -133,7 +133,7 @@ export function TopNav() {
           onClick={toggleLanguage}
         >
           <Globe className="w-4 h-4" />
-          <span className="text-xs font-medium">{i18n.language === 'zh' ? '中文' : 'EN'}</span>
+          <span className="text-xs font-medium">{i18n.language === 'zh' ? t('topNav.langZh') : t('topNav.langEn')}</span>
         </Button>
 
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">

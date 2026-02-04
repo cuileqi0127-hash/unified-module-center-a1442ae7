@@ -950,7 +950,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                 data-item-id={item.id}
                 data-is-placeholder={isPlaceholder ? 'true' : undefined}
                 className={cn(
-                  'absolute rounded-lg bg-background shadow-lg',
+                  'absolute rounded-lg bg-background shadow-lg overflow-hidden',
                   // 只在删除和新增时应用过渡动画，不影响拖拽和缩放
                   (deletingItemIds.includes(item.id) || addingItemIds.includes(item.id)) && 'transition-[opacity,transform] duration-300 ease-in-out',
                   isPlaceholderDisabled 
@@ -964,6 +964,18 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                   deletingItemIds.includes(item.id) && 'opacity-0 scale-75 pointer-events-none',
                   addingItemIds.includes(item.id) && 'opacity-0 scale-90'
                 )}
+                onMouseEnter={() => {
+                  if (isVideo) {
+                    const video = videoRefs.current.get(item.id);
+                    if (video) video.play().catch(() => {});
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (isVideo) {
+                    const video = videoRefs.current.get(item.id);
+                    if (video) video.pause();
+                  }
+                }}
                 style={{ 
                   // 四舍五入尺寸，确保像素对齐
                   width: Math.round(item.width * zoom), 
@@ -1153,12 +1165,14 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                     }}
                   />
                 ) : (
-                  <img
-                    src={item.url}
-                    alt={item.prompt || 'Canvas item'}
-                    className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
-                    draggable={false}
-                  />
+                  <div className="h-full w-full overflow-hidden rounded-lg origin-center transition-transform duration-200 ease-out hover:scale-105">
+                    <img
+                      src={item.url}
+                      alt={item.prompt || 'Canvas item'}
+                      className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
+                      draggable={false}
+                    />
+                  </div>
                 )}
 
                 {/* Drag handle */}
@@ -1336,7 +1350,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
         createPortal(
           <div
             ref={contextMenuRef}
-            className="fixed z-[10000] min-w-[180px] rounded-lg border border-gray-700/80 bg-black py-1 text-gray-100 shadow-xl outline-none transition-opacity duration-150 ease-out"
+            className="fixed z-[10000] min-w-[180px] rounded-lg border border-gray-700/80 bg-[#171717eb] py-1 text-gray-100 shadow-xl outline-none transition-opacity duration-150 ease-out"
             style={{ left: contextMenu.x + MENU_OFFSET, top: contextMenu.y + MENU_OFFSET }}
             role="menu"
             onContextMenu={(e) => e.preventDefault()}

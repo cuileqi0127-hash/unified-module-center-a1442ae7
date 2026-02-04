@@ -68,7 +68,7 @@ const ToolCard = ({ title, description, icon, views, copies, onClick, isComingSo
               </span>
             </div>
             {/* {isComingSoon && (
-              <div className="mt-2 text-xs font-medium text-primary">Coming Soon</div>
+              <div className="mt-2 text-xs font-medium text-primary">{t('common.comingSoon')}</div>
             )} */}
           </div>
         </div>
@@ -121,7 +121,7 @@ const VisualCard = ({ title, description, views, copies, image, onClick, isComin
         </span>
       </div>
       {/* {isComingSoon && (
-        <div className="mt-2 text-xs font-medium text-primary">Coming Soon</div>
+        <div className="mt-2 text-xs font-medium text-primary">{t('common.comingSoon')}</div>
       )} */}
     </CardContent>
   </Card>
@@ -134,7 +134,7 @@ interface AppPlazaProps {
 export function AppPlaza({ onNavigate }: AppPlazaProps) {
   const { t } = useTranslation();
 
-  // 定义 Coming Soon 的页面列表
+  // 定义「即将上线」的页面列表
   const comingSoonItems = ['brand-health', 'campaign-planner', 'digital-human', 'ecommerce-assets', 'reference-to-image', 'reference-to-video'];
 
   const marketInsightTools = [
@@ -204,7 +204,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                   <p className="text-white/70 text-sm">{t('appPlaza.digitalHuman.subtitle')}</p>
                   <p className="text-white/60 text-xs mt-2 max-w-[200px]">{t('appPlaza.digitalHuman.description')}</p>
                   {comingSoonItems.includes('digital-human') && (
-                    <div className="mt-2 text-xs font-medium text-white/90">Coming Soon</div>
+                    <div className="mt-2 text-xs font-medium text-white/90">{t('common.comingSoon')}</div>
                   )}
                 </div>
               </div>
@@ -213,7 +213,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
               </TooltipTrigger>
               {comingSoonItems.includes('digital-human') && (
                 <TooltipContent>
-                  <p>Coming Soon</p>
+                  <p>{t('common.comingSoon')}</p>
                 </TooltipContent>
               )}
             </Tooltip>
@@ -268,7 +268,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                   </TooltipTrigger>
                   {comingSoonItems.includes(tool.id) && (
                     <TooltipContent>
-                      <p>Coming Soon</p>
+                      <p>{t('common.comingSoon')}</p>
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -299,7 +299,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                   </TooltipTrigger>
                   {comingSoonItems.includes(tool.id) && (
                     <TooltipContent>
-                      <p>Coming Soon</p>
+                      <p>{t('common.comingSoon')}</p>
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -335,7 +335,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                     </TooltipTrigger>
                     {comingSoonItems.includes(tool.id) && (
                       <TooltipContent>
-                        <p>Coming Soon</p>
+                        <p>{t('common.comingSoon')}</p>
                       </TooltipContent>
                     )}
                   </Tooltip>
@@ -367,7 +367,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                     </TooltipTrigger>
                     {comingSoonItems.includes(tool.id) && (
                       <TooltipContent>
-                        <p>Coming Soon</p>
+                        <p>{t('common.comingSoon')}</p>
                       </TooltipContent>
                     )}
                   </Tooltip>
@@ -398,7 +398,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                     </TooltipTrigger>
                     {comingSoonItems.includes(tool.id) && (
                       <TooltipContent>
-                        <p>Coming Soon</p>
+                        <p>{t('common.comingSoon')}</p>
                       </TooltipContent>
                     )}
                   </Tooltip>

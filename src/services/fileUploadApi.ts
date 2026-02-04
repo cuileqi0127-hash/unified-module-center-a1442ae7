@@ -3,6 +3,7 @@
  * 文件上传服务 - 处理文件上传到OSS
  */
 
+import i18n from '@/i18n';
 import { getCachedToken } from './oauthApi';
 
 // 接口响应类型
@@ -76,7 +77,7 @@ export async function uploadFile(
 
     // 检查响应状态
     if (!data.success || (typeof data.code === 'number' && data.code !== 0) || (typeof data.code === 'string' && data.code !== '0')) {
-      throw new Error(data.msg || '上传失败');
+      throw new Error(data.msg || i18n.t('errors.uploadFailed'));
     }
 
     // 返回ossKey和url

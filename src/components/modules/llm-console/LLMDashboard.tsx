@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Wallet, Send, Coins, Gauge, BarChart3, RefreshCw } from 'lucide-react';
 import { StatCard } from './StatCard';
 import { Button } from '@/components/ui/button';
@@ -5,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export function LLMDashboard() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6 p-6 animate-fade-in">
       {/* Header */}
@@ -77,20 +79,20 @@ export function LLMDashboard() {
           <CardContent>
             <Tabs defaultValue="distribution" className="w-full">
               <TabsList className="mb-4">
-                <TabsTrigger value="distribution">Cost Distribution</TabsTrigger>
-                <TabsTrigger value="trend">Usage Trend</TabsTrigger>
-                <TabsTrigger value="calls">API Calls</TabsTrigger>
-                <TabsTrigger value="ranking">Model Ranking</TabsTrigger>
+                <TabsTrigger value="distribution">{t('llmConsole.costDistribution')}</TabsTrigger>
+                <TabsTrigger value="trend">{t('llmConsole.usageTrend')}</TabsTrigger>
+                <TabsTrigger value="calls">{t('llmConsole.apiCalls')}</TabsTrigger>
+                <TabsTrigger value="ranking">{t('llmConsole.modelRanking')}</TabsTrigger>
               </TabsList>
               <TabsContent value="distribution" className="mt-0">
                 <div className="h-64 flex items-center justify-center border border-dashed border-border rounded-lg bg-muted/30">
                   <div className="text-center">
-                    <p className="text-lg font-semibold">Model Cost Distribution</p>
+                    <p className="text-lg font-semibold">{t('llmConsole.modelCostDistribution')}</p>
                     <p className="text-sm text-muted-foreground mt-1">Total: $0.00</p>
                     <div className="mt-6 text-muted-foreground">
                       <div className="inline-flex items-center gap-2 text-sm">
                         <div className="w-3 h-3 bg-foreground rounded-sm" />
-                        <span>No data available</span>
+                        <span>{t('llmConsole.noDataAvailable')}</span>
                       </div>
                     </div>
                   </div>
@@ -98,17 +100,17 @@ export function LLMDashboard() {
               </TabsContent>
               <TabsContent value="trend">
                 <div className="h-64 flex items-center justify-center border border-dashed border-border rounded-lg bg-muted/30">
-                  <p className="text-muted-foreground">Usage trend chart</p>
+                  <p className="text-muted-foreground">{t('llmConsole.usageTrendChart')}</p>
                 </div>
               </TabsContent>
               <TabsContent value="calls">
                 <div className="h-64 flex items-center justify-center border border-dashed border-border rounded-lg bg-muted/30">
-                  <p className="text-muted-foreground">API calls chart</p>
+                  <p className="text-muted-foreground">{t('llmConsole.apiCallsChart')}</p>
                 </div>
               </TabsContent>
               <TabsContent value="ranking">
                 <div className="h-64 flex items-center justify-center border border-dashed border-border rounded-lg bg-muted/30">
-                  <p className="text-muted-foreground">Model ranking chart</p>
+                  <p className="text-muted-foreground">{t('llmConsole.modelRankingChart')}</p>
                 </div>
               </TabsContent>
             </Tabs>
@@ -131,7 +133,7 @@ export function LLMDashboard() {
                   <path d="M25 85 Q25 55 50 55 Q75 55 75 85" />
                 </svg>
               </div>
-              <p className="text-muted-foreground text-sm">No API key configured</p>
+              <p className="text-muted-foreground text-sm">{t('llmConsole.noApiKeyConfigured')}</p>
               <Button variant="outline" size="sm" className="mt-4">
                 Create API Key
               </Button>

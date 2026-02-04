@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { BarChart3, TrendingUp, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,13 +16,14 @@ interface GEOInsightsModuleProps {
 }
 
 export function GEOInsightsModule({ activeItem }: GEOInsightsModuleProps) {
+  const { t } = useTranslation();
   if (activeItem !== 'dashboard') {
     return (
       <div className="text-center py-20">
         <h2 className="text-xl font-semibold mb-2 capitalize">
           {activeItem.replace('-', ' ')}
         </h2>
-        <p className="text-muted-foreground">This section is coming soon.</p>
+        <p className="text-muted-foreground">{t('common.comingSoon')}</p>
       </div>
     );
   }
@@ -31,7 +33,7 @@ export function GEOInsightsModule({ activeItem }: GEOInsightsModuleProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl font-bold">{t('geoInsights.dashboardTitle')}</h1>
           <p className="text-muted-foreground mt-1">
             Real-time Visibility for{' '}
             <Button variant="link" className="px-0 underline">
@@ -100,17 +102,17 @@ export function GEOInsightsModule({ activeItem }: GEOInsightsModuleProps) {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-3xl font-bold">0</span>
-                <span className="text-xs text-muted-foreground uppercase">Calculating</span>
+                <span className="text-xs text-muted-foreground uppercase">{t('geoInsights.calculating')}</span>
               </div>
             </div>
             <div className="flex gap-8 mt-4 text-sm">
               <div className="text-center">
-                <p className="text-muted-foreground">Visibility</p>
+                <p className="text-muted-foreground">{t('geoInsights.visibility')}</p>
                 <p className="font-semibold">0%</p>
               </div>
               <div className="text-center">
-                <p className="text-muted-foreground">Trend</p>
-                <p className="font-semibold text-success">Stable</p>
+                <p className="text-muted-foreground">{t('geoInsights.trend')}</p>
+                <p className="font-semibold text-success">{t('geoInsights.stable')}</p>
               </div>
             </div>
           </CardContent>
@@ -128,7 +130,7 @@ export function GEOInsightsModule({ activeItem }: GEOInsightsModuleProps) {
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center h-48">
             <p className="text-4xl font-bold">0</p>
-            <p className="text-sm text-muted-foreground uppercase">Citations</p>
+            <p className="text-sm text-muted-foreground uppercase">{t('geoInsights.citations')}</p>
           </CardContent>
         </Card>
 
@@ -143,10 +145,10 @@ export function GEOInsightsModule({ activeItem }: GEOInsightsModuleProps) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Source Name</TableHead>
-                  <TableHead>Used</TableHead>
-                  <TableHead>Sentiment</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>{t('geoInsights.sourceName')}</TableHead>
+                  <TableHead>{t('geoInsights.used')}</TableHead>
+                  <TableHead>{t('geoInsights.sentiment')}</TableHead>
+                  <TableHead>{t('geoInsights.type')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

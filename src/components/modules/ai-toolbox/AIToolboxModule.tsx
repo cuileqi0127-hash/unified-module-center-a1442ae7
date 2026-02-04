@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { TextToImage } from './TextToImage';
 import { TextToVideo } from './TextToVideo';
 import { AppPlaza } from './AppPlaza';
@@ -17,6 +18,7 @@ const PlaceholderPage = ({ title, description }: { title: string; description: s
 );
 
 export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps) {
+  const { t } = useTranslation();
   switch (activeItem) {
     // Home
     case 'app-plaza':
@@ -26,23 +28,23 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
     case 'brand-health':
       return <BrandHealth onNavigate={onNavigate} />;
     case 'trend-analysis':
-      return <PlaceholderPage title="Trend Analysis" description="Analyze market trends and discover emerging opportunities." />;
+      return <PlaceholderPage title={t('placeholder.trendAnalysis')} description={t('placeholder.trendAnalysisDesc')} />;
     case 'competitor-monitor':
-      return <PlaceholderPage title="Competitor Monitor" description="Track and monitor competitor activities and strategies." />;
+      return <PlaceholderPage title={t('placeholder.competitorMonitor')} description={t('placeholder.competitorMonitorDesc')} />;
     
     // Marketing Planning
     case 'campaign-planner':
-      return <PlaceholderPage title="Campaign Planner" description="Plan and organize your marketing campaigns." />;
+      return <PlaceholderPage title={t('placeholder.campaignPlanner')} description={t('placeholder.campaignPlannerDesc')} />;
     case 'copywriting-assistant':
-      return <PlaceholderPage title="Copywriting Assistant" description="AI-powered copywriting for your marketing materials." />;
+      return <PlaceholderPage title={t('placeholder.copywritingAssistant')} description={t('placeholder.copywritingAssistantDesc')} />;
     
     // Image Generation
     case 'text-to-image':
       return <TextToImage onNavigate={onNavigate} />;
     case 'ecommerce-assets':
-      return <PlaceholderPage title="E-commerce Assets 电商素材图" description="Generate product images and e-commerce visual assets." />;
+      return <PlaceholderPage title={t('placeholder.ecommerceAssets')} description={t('placeholder.ecommerceAssetsDesc')} />;
     case 'reference-to-image':
-      return <PlaceholderPage title="Reference-to-Image 素材库对标生图" description="Generate images based on reference materials from your library." />;
+      return <PlaceholderPage title={t('placeholder.referenceToImage')} description={t('placeholder.referenceToImageDesc')} />;
     
     // Video Generation
     case 'text-to-video':
@@ -52,7 +54,7 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
     
     // Digital Human
     case 'digital-human':
-      return <PlaceholderPage title="Digital Human 数字人生成" description="Create AI-powered digital human avatars." />;
+      return <PlaceholderPage title={t('placeholder.digitalHuman')} description={t('placeholder.digitalHumanDesc')} />;
     
     default:
       return <AppPlaza onNavigate={onNavigate} />;

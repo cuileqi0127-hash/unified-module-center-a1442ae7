@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +20,7 @@ interface ImageCapsuleProps {
 }
 
 export function ImageCapsule({ image, onRemove }: ImageCapsuleProps) {
+  const { t } = useTranslation();
   // 清理消息内容，移除 markdown 图片链接
   const cleanMessageContent = (content: string): string => {
     if (!content) return content;
@@ -32,7 +34,7 @@ export function ImageCapsule({ image, onRemove }: ImageCapsuleProps) {
     ? cleanedPrompt.length > 8 
       ? cleanedPrompt.slice(0, 8) + '...' 
       : cleanedPrompt
-    : '图片';
+    : t('imageCapsule.defaultLabel');
 
   return (
     <HoverCard openDelay={200} closeDelay={100}>
@@ -48,7 +50,7 @@ export function ImageCapsule({ image, onRemove }: ImageCapsuleProps) {
           <div className="h-6 w-6 shrink-0 overflow-hidden rounded-md">
             <img
               src={image.url}
-              alt={image.prompt || 'Selected image'}
+              alt={image.prompt || t('imageCapsule.selectedImage')}
               className="h-full w-full object-cover"
               draggable={false}
             />

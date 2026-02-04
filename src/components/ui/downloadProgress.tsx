@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ interface TaskItemProps {
 }
 
 const TaskItem: React.FC<TaskItemProps> = ({ task, onRetry }) => {
+  const { t } = useTranslation();
   const getStatusIcon = () => {
     switch (task.status) {
       case 'pending':
@@ -39,17 +41,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onRetry }) => {
   const getStatusText = () => {
     switch (task.status) {
       case 'pending':
-        return 'Pending';
+        return t('downloadProgress.pending');
       case 'downloading':
-        return 'Downloading';
+        return t('downloadProgress.downloading');
       case 'completed':
-        return 'Completed';
+        return t('downloadProgress.completed');
       case 'failed':
-        return 'Failed';
+        return t('downloadProgress.failed');
       case 'paused':
-        return 'Paused';
+        return t('downloadProgress.paused');
       default:
-        return 'Unknown';
+        return t('downloadProgress.unknown');
     }
   };
 
@@ -82,7 +84,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onRetry }) => {
             size="sm"
             className="h-7 w-7 p-0"
             onClick={onRetry}
-            title="Retry"
+            title={t('downloadProgress.retry')}
           >
             <RefreshCw className="h-3 w-3" />
           </Button>
@@ -99,6 +101,7 @@ export const DownloadProgress: React.FC<DownloadProgressProps> = ({
   onResume,
   isActive,
 }) => {
+  const { t } = useTranslation();
   if (!isActive || tasks.size === 0) {
     return null;
   }
@@ -114,13 +117,13 @@ export const DownloadProgress: React.FC<DownloadProgressProps> = ({
     <div className="fixed bottom-4 right-4 w-80 max-w-[90vw] bg-white rounded-lg shadow-lg border border-gray-200 z-50">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <h3 className="font-medium text-gray-900">Download Progress</h3>
+          <h3 className="font-medium text-gray-900">{t('downloadProgress.title')}</h3>
           <Button
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0"
             onClick={onCancel}
-            title="Cancel"
+            title={t('downloadProgress.cancel')}
           >
             <X className="h-3 w-3" />
           </Button>
@@ -135,7 +138,7 @@ export const DownloadProgress: React.FC<DownloadProgressProps> = ({
       
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-gray-900">Overall Progress</span>
+          <span className="text-sm font-medium text-gray-900">{t('downloadProgress.overallProgress')}</span>
           <span className="text-sm text-gray-500">
             {totalProgress.toFixed(0)}%
           </span>

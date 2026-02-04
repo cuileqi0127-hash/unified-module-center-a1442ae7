@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Settings, Trash2, Copy, Edit, Share2, RefreshCw, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ const mockMessages: Message[] = [
 ];
 
 export function Playground() {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>(mockMessages);
   const [input, setInput] = useState('');
   const [temperature, setTemperature] = useState([0.7]);
@@ -67,7 +69,7 @@ export function Playground() {
         <CardContent className="space-y-6">
           {/* Custom Request Toggle */}
           <div className="flex items-center justify-between">
-            <Label className="text-sm">Custom Request Body</Label>
+            <Label className="text-sm">{t('llmConsole.customRequestBody')}</Label>
             <Switch />
           </div>
 
@@ -79,11 +81,11 @@ export function Playground() {
             </Label>
             <Select defaultValue="default">
               <SelectTrigger>
-                <SelectValue placeholder="Select group" />
+                <SelectValue placeholder={t('llmConsole.selectGroup')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="default">Default Group</SelectItem>
-                <SelectItem value="premium">Premium</SelectItem>
+                <SelectItem value="default">{t('llmConsole.defaultGroup')}</SelectItem>
+                <SelectItem value="premium">{t('llmConsole.premium')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -96,7 +98,7 @@ export function Playground() {
             </Label>
             <Select value={model} onValueChange={setModel}>
               <SelectTrigger>
-                <SelectValue placeholder="Select model" />
+                <SelectValue placeholder={t('llmConsole.selectModel')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="gpt-4o">GPT-4o</SelectItem>
@@ -161,7 +163,7 @@ export function Playground() {
         <CardHeader className="flex-row items-center justify-between py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <span className="text-lg">💬</span>
-            <CardTitle className="text-base font-medium">AI Conversation</CardTitle>
+            <CardTitle className="text-base font-medium">{t('llmConsole.aiConversation')}</CardTitle>
             <span className="text-sm text-muted-foreground">{model}</span>
           </div>
           <Button variant="ghost" size="sm" className="text-muted-foreground">
@@ -241,7 +243,7 @@ export function Playground() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Enter your question..."
+                placeholder={t('llmConsole.enterQuestion')}
                 className="pr-12"
               />
               <Button

@@ -128,10 +128,10 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           {/* Header */}
           <div className="mb-8 text-center">
             <h1 className="text-2xl font-bold text-foreground md:text-3xl">
-              {isZh ? '品牌健康度分析' : 'Brand Health Analysis'}
+              {t('brandHealth.title')}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              {isZh ? '输入品牌信息，生成全面的洞察分析报告' : 'Enter brand information to generate comprehensive insights'}
+              {t('brandHealth.subtitle')}
             </p>
           </div>
 
@@ -155,11 +155,11 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Shop Link */}
               <div className="space-y-2">
                 <Label htmlFor="shopLink" className="text-sm font-medium">
-                  {isZh ? '店铺链接' : 'Shop Link'}
+                  {t('brandHealth.shopLink')}
                 </Label>
                 <Input
                   id="shopLink"
-                  placeholder="TikTok @example_shop"
+                  placeholder={t('brandHealth.shopLinkPlaceholder')}
                   value={formData.shopLink}
                   onChange={(e) => setFormData({ ...formData, shopLink: e.target.value })}
                   className="h-11"
@@ -173,7 +173,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                 </Label>
                 <Input
                   id="competitors"
-                  placeholder="BrandX, BrandY, BrandZ"
+                  placeholder={t('brandHealth.competitorsPlaceholder')}
                   value={formData.competitors}
                   onChange={(e) => setFormData({ ...formData, competitors: e.target.value })}
                   className="h-11"
@@ -189,10 +189,10 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    {isZh ? '生成中...' : 'Generating...'}
+                    {t('brandHealth.generating')}
                   </div>
                 ) : (
-                  isZh ? '生成报告' : 'Generate Report'
+                  t('brandHealth.generateReport')
                 )}
               </Button>
             </CardContent>
@@ -216,11 +216,11 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-2">
                 <FileImage className="h-4 w-4" />
-                {isZh ? '导出图片' : 'Export Image'}
+                {t('brandHealth.exportImage')}
               </Button>
               <Button variant="outline" size="sm" className="gap-2">
                 <FileText className="h-4 w-4" />
-                {isZh ? '导出 PDF' : 'Export PDF'}
+                {t('brandHealth.exportPdf')}
               </Button>
             </div>
           </div>
@@ -249,15 +249,15 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-start gap-2">
                     <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
-                    <span>{isZh ? '行业热度持续上升，近8周增长46%，市场机会窗口期' : 'Industry heat rising continuously, 46% growth in 8 weeks'}</span>
+                    <span>{t('brandHealth.summary1')}</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
-                    <span>{isZh ? '内容更新频率落后竞品，建议提升发布节奏' : 'Content update frequency lags competitors, suggest increasing pace'}</span>
+                    <span>{t('brandHealth.summary2')}</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
-                    <span>{isZh ? 'SEO关键词覆盖存在差距，需重点优化TOP10关键词' : 'SEO keyword coverage gaps exist, focus on TOP10 optimization'}</span>
+                    <span>{t('brandHealth.summary3')}</span>
                   </li>
                 </ul>
                 <div className="grid grid-cols-3 gap-3 border-t pt-4">
@@ -282,7 +282,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <AlertTriangle className="h-5 w-5 text-red-500" />
-                  {isZh ? '风险红线' : 'Risk Redlines'}
+                  {t('brandHealth.riskRedlines')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -314,7 +314,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Industry Heat Trend */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{isZh ? '行业热度趋势' : 'Industry Heat Trend'}</CardTitle>
+                  <CardTitle className="text-base">{t('brandHealth.industryHeatTrend')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={220}>
@@ -347,8 +347,8 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                       <PolarGrid />
                       <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
                       <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                      <Radar name={isZh ? '我的品牌' : 'My Brand'} dataKey="myBrand" stroke="#f97316" fill="#f97316" fillOpacity={0.3} />
-                      <Radar name={isZh ? '竞品均值' : 'Competitor Avg'} dataKey="competitor" stroke="#6b7280" fill="#6b7280" fillOpacity={0.2} />
+                      <Radar name={t('brandHealth.myBrand')} dataKey="myBrand" stroke="#f97316" fill="#f97316" fillOpacity={0.3} />
+                      <Radar name={t('brandHealth.competitorAvg')} dataKey="competitor" stroke="#6b7280" fill="#6b7280" fillOpacity={0.2} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                     </RadarChart>
                   </ResponsiveContainer>
@@ -367,7 +367,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Demographics */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{isZh ? '年龄分布' : 'Demographics'}</CardTitle>
+                  <CardTitle className="text-base">{t('brandHealth.demographics')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={220}>
@@ -398,7 +398,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                       <YAxis type="number" dataKey="y" domain={[0, 100]} tick={{ fontSize: 10 }} />
                       <ZAxis type="number" dataKey="z" range={[60, 200]} />
                       <Tooltip 
-                        formatter={(value, name) => [value, name === 'x' ? (isZh ? '满足度' : 'Satisfaction') : (isZh ? '重要性' : 'Importance')]}
+                        formatter={(value, name) => [value, name === 'x' ? t('brandHealth.satisfaction') : t('brandHealth.importance')]}
                         labelFormatter={(_, payload) => payload?.[0]?.payload?.name || ''}
                       />
                       <Scatter data={demandMatrixData}>
@@ -426,7 +426,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* SEO Dashboard */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{isZh ? 'SEO 仪表盘' : 'SEO Dashboard'}</CardTitle>
+                  <CardTitle className="text-base">{t('brandHealth.seoDashboard')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
@@ -461,7 +461,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Content Audit */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{isZh ? '内容审计' : 'Content Audit'}</CardTitle>
+                  <CardTitle className="text-base">{t('brandHealth.contentAudit')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -482,7 +482,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                           variant={item.risk === 'high' ? 'destructive' : item.risk === 'medium' ? 'secondary' : 'outline'}
                           className="ml-2 shrink-0 text-xs"
                         >
-                          {item.risk === 'high' ? (isZh ? '高风险' : 'High') : item.risk === 'medium' ? (isZh ? '中风险' : 'Med') : (isZh ? '低风险' : 'Low')}
+                          {item.risk === 'high' ? t('brandHealth.riskHigh') : item.risk === 'medium' ? t('brandHealth.riskMedium') : t('brandHealth.riskLow')}
                         </Badge>
                       </div>
                     ))}
@@ -502,7 +502,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* SWOT Analysis */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{isZh ? 'SWOT 分析' : 'SWOT Analysis'}</CardTitle>
+                  <CardTitle className="text-base">{t('brandHealth.swotAnalysis')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-3">
@@ -549,17 +549,17 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Action Plan */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{isZh ? '行动计划' : 'Action Plan'}</CardTitle>
+                  <CardTitle className="text-base">{t('brandHealth.actionPlan')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b">
-                          <th className="pb-2 text-left font-medium text-muted-foreground">{isZh ? '周期' : 'Period'}</th>
-                          <th className="pb-2 text-left font-medium text-muted-foreground">SEO</th>
-                          <th className="pb-2 text-left font-medium text-muted-foreground">{isZh ? '社交' : 'Social'}</th>
-                          <th className="pb-2 text-left font-medium text-muted-foreground">{isZh ? '运营' : 'Ops'}</th>
+                          <th className="pb-2 text-left font-medium text-muted-foreground">{t('brandHealth.period')}</th>
+                          <th className="pb-2 text-left font-medium text-muted-foreground">{t('brandHealth.seoColumn')}</th>
+                          <th className="pb-2 text-left font-medium text-muted-foreground">{t('brandHealth.social')}</th>
+                          <th className="pb-2 text-left font-medium text-muted-foreground">{t('brandHealth.ops')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -582,29 +582,29 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           {/* Footer: Data Sources */}
           <Card className="mb-6">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">{isZh ? '数据来源与可追溯性' : 'Data Sources & Traceability'}</CardTitle>
+              <CardTitle className="text-base">{t('brandHealth.dataSources')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <ExternalLink className="h-3 w-3" />
-                  <span>TikTok Analytics API</span>
+                  <span>{t('brandHealth.dataSourceTiktok')}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <ExternalLink className="h-3 w-3" />
-                  <span>Google Search Console</span>
+                  <span>{t('brandHealth.dataSourceGoogle')}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <ExternalLink className="h-3 w-3" />
-                  <span>SEMrush Data Export</span>
+                  <span>{t('brandHealth.dataSourceSemrush')}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <ExternalLink className="h-3 w-3" />
-                  <span>Internal CRM Data</span>
+                  <span>{t('brandHealth.dataSourceCrm')}</span>
                 </div>
               </div>
               <p className="mt-2 text-xs text-muted-foreground/70">
-                {isZh ? '数据更新时间：2024年1月16日 08:00 UTC | 数据保留期：90天' : 'Data updated: Jan 16, 2024 08:00 UTC | Retention: 90 days'}
+                {t('brandHealth.dataUpdated')}
               </p>
             </CardContent>
           </Card>

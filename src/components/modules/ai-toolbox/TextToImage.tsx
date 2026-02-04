@@ -316,12 +316,20 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   messages={messages}
                   onImageClick={(url) => {
                     const img = canvasImages.find(i => i.url === url);
-                    if (img) setSelectedImageId(img.id);
+                    if (img) {
+                      setSelectedImageId(img.id);
+                      setSelectedImageIds([img.id]);
+                      canvasRef.current?.focusOnItem(img.id);
+                    }
                   }}
                   onVideoClick={(url) => {
                     const img = canvasImages.find(i => i.url === url);
-                                  if (img) setSelectedImageId(img.id);
-                                }}
+                    if (img) {
+                      setSelectedImageId(img.id);
+                      setSelectedImageIds([img.id]);
+                      canvasRef.current?.focusOnItem(img.id);
+                    }
+                  }}
                   findCanvasItem={(url) => {
                     const img = canvasImages.find(i => i.url === url);
                     return img ? { id: img.id } : undefined;

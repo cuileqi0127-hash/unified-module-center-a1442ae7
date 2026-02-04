@@ -1,4 +1,49 @@
 {
+  "topNav": {
+    "appName": "Oran Gen",
+    "langZh": "中文",
+    "langEn": "EN"
+  },
+  "placeholder": {
+    "trendAnalysis": "Trend Analysis",
+    "trendAnalysisDesc": "Analyze market trends and discover emerging opportunities.",
+    "competitorMonitor": "Competitor Monitor",
+    "competitorMonitorDesc": "Track and monitor competitor activities and strategies.",
+    "campaignPlanner": "Campaign Planner",
+    "campaignPlannerDesc": "Plan and organize your marketing campaigns.",
+    "copywritingAssistant": "Copywriting Assistant",
+    "copywritingAssistantDesc": "AI-powered copywriting for your marketing materials.",
+    "ecommerceAssets": "E-commerce Assets",
+    "ecommerceAssetsDesc": "Generate product images and e-commerce visual assets.",
+    "referenceToImage": "Reference-to-Image",
+    "referenceToImageDesc": "Generate images based on reference materials from your library.",
+    "digitalHuman": "Digital Human",
+    "digitalHumanDesc": "Create AI-powered digital human avatars."
+  },
+  "infiniteCanvas": {
+    "delete": "Delete",
+    "replace": "Replace",
+    "copy": "Copy"
+  },
+  "errors": {
+    "uploadFailed": "Upload failed"
+  },
+  "imageCapsule": {
+    "defaultLabel": "Image",
+    "selectedImage": "Selected image"
+  },
+  "downloadProgress": {
+    "title": "Download Progress",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "overallProgress": "Overall Progress",
+    "pending": "Pending",
+    "downloading": "Downloading",
+    "completed": "Completed",
+    "failed": "Failed",
+    "paused": "Paused",
+    "unknown": "Unknown"
+  },
   "common": {
     "views": "Views",
     "copies": "Copies",
@@ -7,7 +52,39 @@
     "profile": "Profile",
     "billing": "Billing",
     "team": "Team",
-    "logout": "Log out"
+    "logout": "Log out",
+    "new": "New",
+    "history": "History",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "copy": "Copy",
+    "download": "Download",
+    "upload": "Upload",
+    "close": "Close",
+    "open": "Open",
+    "yes": "Yes",
+    "no": "No",
+    "untitledSession": "Untitled Session",
+    "comingSoon": "Coming Soon",
+    "and": "and",
+    "zip": "zip",
+    "packing": "Packing",
+    "replace": "Replace"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "morePages": "More pages"
+  },
+  "carousel": {
+    "previousSlide": "Previous slide",
+    "nextSlide": "Next slide"
   },
   "modules": {
     "geoInsights": "GEO Insights",
@@ -15,6 +92,7 @@
     "aiToolbox": "AI Toolbox"
   },
   "sidebar": {
+    "toggleSidebar": "Toggle Sidebar",
     "appPlaza": "App Plaza",
     "marketInsights": "Market Insights",
     "brandHealth": "Brand Health Diagnosis",
@@ -321,15 +399,56 @@
     "tokens": "Token Management",
     "usage": "Usage Logs",
     "wallet": "Wallet",
-    "profile": "Profile Settings"
+    "profile": "Profile Settings",
+    "tokenManagement": "Token Management",
+    "customRequestBody": "Custom Request Body",
+    "selectGroup": "Select group",
+    "selectModel": "Select model",
+    "defaultGroup": "Default Group",
+    "premium": "Premium",
+    "enterQuestion": "Enter your question...",
+    "aiConversation": "AI Conversation",
+    "costDistribution": "Cost Distribution",
+    "usageTrend": "Usage Trend",
+    "apiCalls": "API Calls",
+    "modelRanking": "Model Ranking",
+    "modelCostDistribution": "Model Cost Distribution",
+    "noDataAvailable": "No data available",
+    "usageTrendChart": "Usage trend chart",
+    "apiCallsChart": "API calls chart",
+    "modelRankingChart": "Model ranking chart",
+    "noApiKeyConfigured": "No API key configured",
+    "usageLogs": "Usage Logs",
+    "walletTitle": "Wallet",
+    "profileSettings": "Profile Settings",
+    "searchKeywords": "Search keywords",
+    "secretKey": "Secret key",
+    "name": "Name",
+    "status": "Status",
+    "quota": "Quota",
+    "group": "Group",
+    "models": "Models",
+    "actions": "Actions",
+    "openChat": "Open Chat",
+    "viewLogs": "View Logs"
   },
   "geoInsights": {
     "dashboard": "Dashboard",
+    "dashboardTitle": "Dashboard",
     "writeArticle": "Write Article",
     "myArticles": "My Articles",
     "auditHistory": "Audit History",
     "competitor": "Competitor Analysis",
-    "settings": "Settings"
+    "settings": "Settings",
+    "calculating": "Calculating",
+    "visibility": "Visibility",
+    "trend": "Trend",
+    "stable": "Stable",
+    "citations": "Citations",
+    "sourceName": "Source Name",
+    "used": "Used",
+    "sentiment": "Sentiment",
+    "type": "Type"
   },
   "toast": {
     "createSessionFailed": "Failed to create session",
@@ -503,7 +622,14 @@
     "social": "Social",
     "ops": "Ops",
     "dataSources": "Data Sources & Traceability",
-    "dataUpdated": "Data updated: Jan 16, 2024 08:00 UTC | Retention: 90 days"
+    "dataUpdated": "Data updated: Jan 16, 2024 08:00 UTC | Retention: 90 days",
+    "seoColumn": "SEO",
+    "shopLinkPlaceholder": "TikTok @example_shop",
+    "competitorsPlaceholder": "BrandX, BrandY, BrandZ",
+    "dataSourceTiktok": "TikTok Analytics API",
+    "dataSourceGoogle": "Google Search Console",
+    "dataSourceSemrush": "SEMrush Data Export",
+    "dataSourceCrm": "Internal CRM Data"
   },
   "videoReplication": {
     "title": "Video Replication",

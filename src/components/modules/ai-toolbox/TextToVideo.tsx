@@ -309,11 +309,19 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                   messages={messages}
                   onImageClick={(url) => {
                     const video = canvasVideos.find(v => v.url === url);
-                    if (video) setSelectedVideoId(video.id);
+                    if (video) {
+                      setSelectedVideoId(video.id);
+                      setSelectedVideoIds([video.id]);
+                      canvasRef.current?.focusOnItem(video.id);
+                    }
                   }}
                   onVideoClick={(url) => {
                     const video = canvasVideos.find(v => v.url === url);
-                    if (video) setSelectedVideoId(video.id);
+                    if (video) {
+                      setSelectedVideoId(video.id);
+                      setSelectedVideoIds([video.id]);
+                      canvasRef.current?.focusOnItem(video.id);
+                    }
                   }}
                   findCanvasItem={(url) => {
                     const video = canvasVideos.find(v => v.url === url);

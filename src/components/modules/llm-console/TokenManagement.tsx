@@ -1,5 +1,6 @@
 import { Key, Plus, Copy, Trash2, Eye, EyeOff, Search, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +51,7 @@ const mockTokens: ApiToken[] = [
 ];
 
 export function TokenManagement() {
+  const { t } = useTranslation();
   const [tokens] = useState<ApiToken[]>(mockTokens);
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
 
@@ -63,7 +65,7 @@ export function TokenManagement() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Key className="w-5 h-5" />
-          <h1 className="text-xl font-semibold">Token Management</h1>
+          <h1 className="text-xl font-semibold">{t('llmConsole.tokenManagement')}</h1>
         </div>
         <Button variant="outline" size="sm">
           Compact View
@@ -90,11 +92,11 @@ export function TokenManagement() {
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search keywords" className="pl-9 w-48" />
+            <Input placeholder={t('llmConsole.searchKeywords')} className="pl-9 w-48" />
           </div>
           <div className="relative">
             <Key className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Secret key" className="pl-9 w-36" />
+            <Input placeholder={t('llmConsole.secretKey')} className="pl-9 w-36" />
           </div>
           <Button variant="outline" size="sm">
             Search
@@ -113,13 +115,13 @@ export function TokenManagement() {
               <TableHead className="w-12">
                 <input type="checkbox" className="rounded border-border" />
               </TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Quota</TableHead>
-              <TableHead>Group</TableHead>
-              <TableHead>Secret Key</TableHead>
-              <TableHead>Models</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t('llmConsole.name')}</TableHead>
+              <TableHead>{t('llmConsole.status')}</TableHead>
+              <TableHead>{t('llmConsole.quota')}</TableHead>
+              <TableHead>{t('llmConsole.group')}</TableHead>
+              <TableHead>{t('llmConsole.secretKey')}</TableHead>
+              <TableHead>{t('llmConsole.models')}</TableHead>
+              <TableHead className="text-right">{t('llmConsole.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -175,8 +177,8 @@ export function TokenManagement() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Open Chat</DropdownMenuItem>
-                        <DropdownMenuItem>View Logs</DropdownMenuItem>
+                        <DropdownMenuItem>{t('llmConsole.openChat')}</DropdownMenuItem>
+                        <DropdownMenuItem>{t('llmConsole.viewLogs')}</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <Button
