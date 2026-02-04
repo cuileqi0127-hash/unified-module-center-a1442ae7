@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -32,7 +33,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
+import { UniversalCanvas, type CanvasMediaItem, type UniversalCanvasHandle } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToVideo, type CanvasVideo } from './useTextToVideo';
 import { AnimatedText } from './AnimatedText';
@@ -65,6 +66,11 @@ function isLandscapeRatio(ratio: string): boolean {
 export function TextToVideo({ onNavigate }: TextToVideoProps) {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  
+  // Canvas ref 用于恢复视频播放、聚焦等
+  const canvasRef = useRef<UniversalCanvasHandle>(null);
+  
+  // 从业务逻辑层获取所有状态和处理函数
   const {
     // Refs
     chatEndRef,
@@ -130,13 +136,13 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     handleKeyDown,
     handleVideoDoubleClick,
     handleDeleteVideo,
+    handleCutVideo,
     handleBatchCopyVideos,
     handleBatchDownloadVideos,
     handleResizeStart,
     handleUploadImage,
     // Utils
     cleanMessageContent,
-    isZh,
     // Viewer
     viewerOpen,
     setViewerOpen,
@@ -301,7 +307,6 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
               ) : (
                 <GenerationChatPanel
                   messages={messages}
-                  isZh={isZh}
                   onImageClick={(url) => {
                     const video = canvasVideos.find(v => v.url === url);
                     if (video) setSelectedVideoId(video.id);
@@ -647,6 +652,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
         )}
 
         <UniversalCanvas
+          ref={canvasRef}
           items={[
             ...canvasVideos.map(v => ({ ...v, type: v.type || (v.url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i) ? 'video' : 'image') } as CanvasMediaItem)),
             ...taskPlaceholders.map(p => ({ ...p } as CanvasMediaItem)),
@@ -664,6 +670,19 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           onItemDoubleClick={handleVideoDoubleClick}
           highlightedItemId={highlightedVideoId}
           deletingItemIds={Array.from(deletingVideoIds)}
+          onContextCopy={() => {
+            if (selectedVideoIds.length > 1) handleBatchCopyVideos();
+            else if (selectedVideoIds.length === 1) handleBatchCopyVideos();
+            else if (selectedVideo) handleCopyVideo(selectedVideo);
+          }}
+          onContextCut={handleCutVideo}
+          onContextPaste={handlePasteVideo}
+          onContextDelete={handleDeleteVideo}
+          onContextDownload={handleBatchDownloadVideos}
+          onContextFocus={() => {
+            if (selectedVideoIds.length > 1) canvasRef.current?.focusOnItems(selectedVideoIds);
+            else if (selectedVideoId) canvasRef.current?.focusOnItem(selectedVideoId);
+          }}
         />
 
         {/* Selected Video(s) Floating Toolbar */}
@@ -726,7 +745,11 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           }))}
         initialIndex={viewerIndex}
         isOpen={viewerOpen}
-        onClose={() => setViewerOpen(false)}
+        onClose={() => {
+          setViewerOpen(false);
+          // 恢复视频播放状态
+          canvasRef.current?.resumeVideos();
+        }}
       />
     </div>
   );

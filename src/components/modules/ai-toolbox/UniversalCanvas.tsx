@@ -1,6 +1,8 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
+import { createPortal } from 'react-dom';
 import Draggable, { DraggableEvent, DraggableData } from 'react-draggable';
-import { ZoomIn, ZoomOut, Maximize, Move, Play, Pause } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ZoomIn, ZoomOut, Maximize, Move, Play, Pause, Copy, Scissors, ClipboardPaste, Trash2, Crosshair, Share2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -33,9 +35,25 @@ interface UniversalCanvasProps {
   selectedItemIds?: string[]; // Multi-select support
   onItemDragStart?: (item: CanvasMediaItem) => void;
   onItemDoubleClick?: (item: CanvasMediaItem) => void;
+  onViewerOpen?: () => void;
+  onViewerClose?: () => void;
   highlightedItemId?: string | null;
   deletingItemIds?: string[]; // 正在删除的图层ID列表
   addingItemIds?: string[]; // 正在新增的图层ID列表
+  /** 右键菜单：拷贝（复用画布现有拷贝逻辑） */
+  onContextCopy?: () => void;
+  /** 右键菜单：剪切（先复制再删除，由父组件实现） */
+  onContextCut?: () => void;
+  /** 右键菜单：粘贴（复用快捷键粘贴逻辑） */
+  onContextPaste?: () => void;
+  /** 右键菜单：删除（复用画布现有删除逻辑） */
+  onContextDelete?: () => void;
+  /** 右键菜单：聚焦（将视图中心移动到选中元素并适配合适缩放，由父组件调用 ref.focusOnItem/focusOnItems） */
+  onContextFocus?: () => void;
+  /** 右键菜单：分享（占位，仅反馈） */
+  onContextShare?: () => void;
+  /** 右键菜单：下载（复用画布现有下载逻辑） */
+  onContextDownload?: () => void;
 }
 
 const MIN_ZOOM = 0.25;
@@ -53,24 +71,57 @@ const getMediaType = (item: CanvasMediaItem): 'image' | 'video' | 'placeholder' 
   return isVideoUrl(item.url) ? 'video' : 'image';
 };
 
-export function UniversalCanvas({
-  items,
-  onItemMove,
-  onItemResize,
-  onViewChange,
-  initialZoom = 1,
-  initialPan = { x: 0, y: 0 },
-  onItemSelect,
-  onItemMultiSelect,
-  selectedItemId,
-  selectedItemIds = [],
-  onItemDragStart,
-  onItemDoubleClick,
-  highlightedItemId,
-  deletingItemIds = [],
-  addingItemIds = [],
-}: UniversalCanvasProps) {
+/** easeOutCubic for focus animation */
+const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+const FOCUS_ANIMATION_MS = 300;
+
+interface UniversalCanvasRef {
+  resumeVideos: () => void;
+  /** 将画布平移并缩放到指定元素，使其居中并适配合适尺寸（带动画） */
+  focusOnItem: (itemId: string) => void;
+  /** 将画布平移并缩放到多个元素的几何中心并适配合适尺寸（带动画） */
+  focusOnItems: (itemIds: string[]) => void;
+}
+
+/** 画布 ref 类型，供父组件使用 */
+export type UniversalCanvasHandle = UniversalCanvasRef;
+
+export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasProps>(
+  (
+    {
+      items,
+      onItemMove,
+      onItemResize,
+      onViewChange,
+      initialZoom = 1,
+      initialPan = { x: 0, y: 0 },
+      onItemSelect,
+      onItemMultiSelect,
+      selectedItemId,
+      selectedItemIds = [],
+      onItemDragStart,
+      onItemDoubleClick,
+      onViewerOpen,
+      onViewerClose,
+      highlightedItemId,
+      deletingItemIds = [],
+      addingItemIds = [],
+      onContextCopy,
+      onContextCut,
+      onContextPaste,
+      onContextDelete,
+      onContextFocus,
+      onContextShare,
+      onContextDownload,
+    },
+    ref
+  ) => {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const MENU_OFFSET = 4;
+  const MENU_PADDING = 8;
   const [zoom, setZoom] = useState(initialZoom);
   const [pan, setPan] = useState(initialPan);
   const isInitializingRef = useRef(false);
@@ -100,8 +151,9 @@ export function UniversalCanvas({
   }, [initialZoom, initialPan.x, initialPan.y, zoom, pan.x, pan.y]);
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
   const [playingVideos, setPlayingVideos] = useState<Set<string>>(new Set());
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
   const itemRefs = useRef<Map<string, React.RefObject<HTMLDivElement>>>(new Map());
@@ -118,16 +170,12 @@ export function UniversalCanvas({
   const resizeStartPos = useRef<{ x: number; y: number } | null>(null);
   const resizeStartSize = useRef<{ width: number; height: number; x: number; y: number } | null>(null);
 
-  // Handle keyboard events for space-drag panning and ctrl-drag panning
+  // Handle keyboard events for Space+drag panning only
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault();
         setIsSpacePressed(true);
-      }
-      // 监听 Ctrl/Cmd 键
-      if (e.ctrlKey || e.metaKey) {
-        setIsCtrlPressed(true);
       }
     };
 
@@ -135,10 +183,6 @@ export function UniversalCanvas({
       if (e.code === 'Space') {
         setIsSpacePressed(false);
         setIsPanning(false);
-      }
-      // 当 Ctrl/Cmd 键释放时
-      if (!e.ctrlKey && !e.metaKey) {
-        setIsCtrlPressed(false);
       }
     };
 
@@ -189,53 +233,58 @@ export function UniversalCanvas({
     });
   }, [onViewChange]);
 
-  // Prevent browser zoom when wheel in canvas area and handle zoom
+  // Wheel: Ctrl/Cmd+滚轮 = 缩放；无修饰键的滚轮/触控板双指滑动 = 画布平移
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const isInCanvas = 
-          e.clientX >= rect.left && 
-          e.clientX <= rect.right && 
-          e.clientY >= rect.top && 
-          e.clientY <= rect.bottom;
-        
-        if (isInCanvas) {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          // 处理缩放
-          let deltaY = e.deltaY;
-          if (e.deltaMode === 1) {
-            deltaY *= 16; // Line mode, convert to pixels
-          } else if (e.deltaMode === 2) {
-            deltaY *= 16 * 20; // Page mode, convert to pixels
-          }
-          
-          const isTrackpad = Math.abs(deltaY) < 50 && e.deltaMode === 0;
-          const isPinch = e.ctrlKey || e.metaKey;
-          
-          let zoomDelta: number;
-          if (isPinch) {
-            zoomDelta = -deltaY * 0.005;
-          } else if (isTrackpad) {
-            zoomDelta = -deltaY * 0.008;
-          } else {
-            zoomDelta = deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-          }
-          
-          zoomDelta = Math.max(-ZOOM_STEP * 5, Math.min(ZOOM_STEP * 5, zoomDelta));
-          zoomTowardsPoint(e.clientX, e.clientY, zoomDelta);
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const isInCanvas =
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom;
+
+      if (!isInCanvas) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const isPinch = e.ctrlKey || e.metaKey;
+
+      if (isPinch) {
+        // Ctrl/Cmd + 滚轮：缩放（与原有逻辑一致）
+        let deltaY = e.deltaY;
+        if (e.deltaMode === 1) deltaY *= 16;
+        else if (e.deltaMode === 2) deltaY *= 16 * 20;
+        const isTrackpad = Math.abs(deltaY) < 50 && e.deltaMode === 0;
+        let zoomDelta = isTrackpad ? -deltaY * 0.008 : (deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP);
+        zoomDelta = Math.max(-ZOOM_STEP * 5, Math.min(ZOOM_STEP * 5, zoomDelta));
+        zoomTowardsPoint(e.clientX, e.clientY, zoomDelta);
+      } else {
+        // 无修饰键：数控板/触控板双指滑动 或 鼠标滚轮 → 画布平移（与中键拖动一致的效果）
+        let dX = e.deltaX;
+        let dY = e.deltaY;
+        if (e.deltaMode === 1) {
+          dX *= 16;
+          dY *= 16;
+        } else if (e.deltaMode === 2) {
+          dX *= 16 * 20;
+          dY *= 16 * 20;
         }
+        setPan((prev) => {
+          const newPan = {
+            x: Math.round(prev.x - dX),
+            y: Math.round(prev.y - dY),
+          };
+          onViewChange?.(zoomRef.current, newPan);
+          return newPan;
+        });
       }
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-    
-    return () => {
-      window.removeEventListener('wheel', handleWheel, { capture: true });
-    };
-  }, [zoomTowardsPoint]);
+    return () => window.removeEventListener('wheel', handleWheel, { capture: true });
+  }, [zoomTowardsPoint, onViewChange]);
 
   // Handle mouse wheel zoom (React合成事件，不调用preventDefault，由原生事件处理)
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -266,9 +315,8 @@ export function UniversalCanvas({
         return;
       }
       
-      // Ctrl/Cmd + 左键在空白区域 = 拖动画布（已在上面处理）
       // 普通左键在空白区域 = 框选
-      if (!isClickOnItem && !isSpacePressed && !(e.ctrlKey || e.metaKey) && containerRef.current) {
+      if (!isClickOnItem && !isSpacePressed && containerRef.current) {
         e.preventDefault();
         const rect = containerRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -415,14 +463,83 @@ export function UniversalCanvas({
     }
   }, [isResizing, resizingItemId, resizeHandle, isPanning, isBoxSelecting, zoom, pan, onItemResize, onItemMove, onViewChange]);
 
-  // Handle context menu (right-click) - prevent when panning with Ctrl
+  // 右键菜单：在画布区域显示自定义菜单，阻止浏览器默认菜单；右键点击元素时与左键一致选中该元素
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    // 如果正在平移画布（按住 Ctrl/Cmd 键），阻止右键菜单
-    if (isPanning || isCtrlPressed || (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
+    if (isPanning) return;
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const canvasX = (e.clientX - rect.left - pan.x) / zoom;
+      const canvasY = (e.clientY - rect.top - pan.y) / zoom;
+      // 从后往前找，得到最上层（最后渲染）的包含该点的元素
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i];
+        if (
+          canvasX >= it.x &&
+          canvasX <= it.x + it.width &&
+          canvasY >= it.y &&
+          canvasY <= it.y + it.height
+        ) {
+          onItemSelect?.(it.id);
+          onItemMultiSelect?.([it.id]);
+          break;
+        }
+      }
     }
-  }, [isPanning, isCtrlPressed]);
+    setContextMenu({ open: true, x: e.clientX, y: e.clientY });
+  }, [isPanning, pan, zoom, items, onItemSelect, onItemMultiSelect]);
+
+  // 关闭右键菜单：点击菜单项、点击空白、ESC
+  const closeContextMenu = useCallback(() => {
+    setContextMenu((prev) => (prev.open ? { ...prev, open: false } : prev));
+  }, []);
+
+  // 边界处理：确保菜单不超出视口
+  useLayoutEffect(() => {
+    if (!contextMenu.open || !contextMenuRef.current) return;
+    const el = contextMenuRef.current;
+    const rect = el.getBoundingClientRect();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let x = contextMenu.x + MENU_OFFSET;
+    let y = contextMenu.y + MENU_OFFSET;
+    if (x + rect.width + MENU_PADDING > w) x = w - rect.width - MENU_PADDING;
+    if (y + rect.height + MENU_PADDING > h) y = h - rect.height - MENU_PADDING;
+    if (x < MENU_PADDING) x = MENU_PADDING;
+    if (y < MENU_PADDING) y = MENU_PADDING;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+  }, [contextMenu.open, contextMenu.x, contextMenu.y]);
+
+  useEffect(() => {
+    if (!contextMenu.open) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (contextMenuRef.current?.contains(target)) return;
+      closeContextMenu();
+      // 若点击发生在画布区域内，阻止事件继续传递，避免画布将此次点击视为「空白处左键」而清空选区
+      if (containerRef.current?.contains(target)) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu();
+    };
+    document.addEventListener('mousedown', onMouseDown, true);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown, true);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [contextMenu.open, closeContextMenu]);
+
+  const hasSelection = selectedItemId != null || (selectedItemIds?.length ?? 0) > 0;
+  const runAndClose = useCallback((fn?: () => void) => {
+    fn?.();
+    closeContextMenu();
+  }, [closeContextMenu]);
 
   // Handle panning/box selection/resize end
   const handleMouseUp = useCallback((e?: React.MouseEvent) => {
@@ -518,6 +635,158 @@ export function UniversalCanvas({
       setPlayingVideos(prev => new Set(prev).add(itemId));
     }
   }, [playingVideos]);
+  
+  // 保存当前播放状态
+  const savedPlayingVideos = useRef<Set<string>>(new Set());
+  
+  // 暂停所有视频
+  const pauseAllVideos = useCallback(() => {
+    // 保存当前播放状态
+    savedPlayingVideos.current = new Set(playingVideos);
+    // 暂停所有视频
+    playingVideos.forEach(itemId => {
+      const video = videoRefs.current.get(itemId);
+      if (video) {
+        video.pause();
+      }
+    });
+    // 清空播放状态
+    setPlayingVideos(new Set());
+  }, [playingVideos]);
+  
+  // 恢复之前的播放状态
+  const resumeVideos = useCallback(() => {
+    // 恢复之前的播放状态
+    savedPlayingVideos.current.forEach(itemId => {
+      const video = videoRefs.current.get(itemId);
+      if (video) {
+        video.play().catch(error => {
+          console.error('Error resuming video:', error);
+        });
+      }
+    });
+    setPlayingVideos(new Set(savedPlayingVideos.current));
+    // 清空保存的状态
+    savedPlayingVideos.current = new Set();
+  }, []);
+  
+  const focusAnimationRef = useRef<number | null>(null);
+
+  // 计算使给定区域（画布坐标）居中并适配合适缩放的目标 zoom/pan
+  const computeFocusTarget = useCallback(
+    (centerX: number, centerY: number, width: number, height: number) => {
+      if (!containerRef.current) return null;
+      const rect = containerRef.current.getBoundingClientRect();
+      const containerWidth = rect.width;
+      const containerHeight = rect.height;
+      const fitScaleW = (containerWidth * 0.6) / width;
+      const fitScaleH = (containerHeight * 0.6) / height;
+      const newZoom = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, Math.min(fitScaleW, fitScaleH))
+      );
+      const newPanX = Math.round(containerWidth / 2 - centerX * newZoom);
+      const newPanY = Math.round(containerHeight / 2 - centerY * newZoom);
+      return { newZoom, newPan: { x: newPanX, y: newPanY } };
+    },
+    []
+  );
+
+  // 将画布平移并缩放到指定元素，使其居中并适配合适尺寸（带过渡动画）
+  const focusOnItem = useCallback(
+    (itemId: string) => {
+      const item = items.find((i) => i.id === itemId);
+      if (!item || !containerRef.current) return;
+      const centerX = item.x + item.width / 2;
+      const centerY = item.y + item.height / 2;
+      const target = computeFocusTarget(centerX, centerY, item.width, item.height);
+      if (!target) return;
+      const startZoom = zoomRef.current;
+      const startPan = { ...pan };
+      const startTime = performance.now();
+      const run = (now: number) => {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / FOCUS_ANIMATION_MS);
+        const k = easeOutCubic(t);
+        const z = startZoom + (target.newZoom - startZoom) * k;
+        const px = startPan.x + (target.newPan.x - startPan.x) * k;
+        const py = startPan.y + (target.newPan.y - startPan.y) * k;
+        setZoom(z);
+        setPan({ x: Math.round(px), y: Math.round(py) });
+        if (t < 1) {
+          focusAnimationRef.current = requestAnimationFrame(run);
+        } else {
+          focusAnimationRef.current = null;
+          onViewChange?.(target.newZoom, target.newPan);
+        }
+      };
+      if (focusAnimationRef.current != null) cancelAnimationFrame(focusAnimationRef.current);
+      focusAnimationRef.current = requestAnimationFrame(run);
+    },
+    [items, pan, computeFocusTarget, onViewChange]
+  );
+
+  // 将画布平移并缩放到多个元素的几何中心并适配合适尺寸（带过渡动画）
+  const focusOnItems = useCallback(
+    (itemIds: string[]) => {
+      const selected = items.filter((i) => itemIds.includes(i.id));
+      if (selected.length === 0 || !containerRef.current) return;
+      if (selected.length === 1) {
+        focusOnItem(selected[0].id);
+        return;
+      }
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      for (const it of selected) {
+        minX = Math.min(minX, it.x);
+        minY = Math.min(minY, it.y);
+        maxX = Math.max(maxX, it.x + it.width);
+        maxY = Math.max(maxY, it.y + it.height);
+      }
+      const width = maxX - minX;
+      const height = maxY - minY;
+      const centerX = minX + width / 2;
+      const centerY = minY + height / 2;
+      const target = computeFocusTarget(centerX, centerY, width, height);
+      if (!target) return;
+      const startZoom = zoomRef.current;
+      const startPan = { ...pan };
+      const startTime = performance.now();
+      const run = (now: number) => {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / FOCUS_ANIMATION_MS);
+        const k = easeOutCubic(t);
+        const z = startZoom + (target.newZoom - startZoom) * k;
+        const px = startPan.x + (target.newPan.x - startPan.x) * k;
+        const py = startPan.y + (target.newPan.y - startPan.y) * k;
+        setZoom(z);
+        setPan({ x: Math.round(px), y: Math.round(py) });
+        if (t < 1) {
+          focusAnimationRef.current = requestAnimationFrame(run);
+        } else {
+          focusAnimationRef.current = null;
+          onViewChange?.(target.newZoom, target.newPan);
+        }
+      };
+      if (focusAnimationRef.current != null) cancelAnimationFrame(focusAnimationRef.current);
+      focusAnimationRef.current = requestAnimationFrame(run);
+    },
+    [items, pan, computeFocusTarget, focusOnItem, onViewChange]
+  );
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    resumeVideos,
+    focusOnItem,
+    focusOnItems,
+  }), [resumeVideos, focusOnItem, focusOnItems]);
+
+  const resumeVideosRef = useRef(resumeVideos);
+  useEffect(() => {
+    resumeVideosRef.current = resumeVideos;
+  }, [resumeVideos]);
 
   // Handle item drag
   const handleDrag = (id: string) => (_e: DraggableEvent, data: DraggableData) => {
@@ -605,7 +874,7 @@ export function UniversalCanvas({
       ref={containerRef}
       className={cn(
         'relative h-full w-full overflow-hidden',
-        isPanning || isSpacePressed || isCtrlPressed ? 'cursor-grab' : 'cursor-default',
+        isPanning || isSpacePressed ? 'cursor-grab' : 'cursor-default',
         isPanning && 'cursor-grabbing'
       )}
       onWheel={handleWheel}
@@ -672,7 +941,7 @@ export function UniversalCanvas({
               position={{ x: screenX, y: screenY }}
               onDrag={handleDrag(item.id)}
               onStart={() => !isPlaceholderDisabled && onItemSelect?.(item.id)}
-              disabled={isPanning || isSpacePressed || isPlaceholderDisabled || isCtrlPressed}
+              disabled={isPanning || isSpacePressed || isPlaceholderDisabled}
               bounds={false}
               cancel=".no-drag"
             >
@@ -739,7 +1008,12 @@ export function UniversalCanvas({
                   if (isPlaceholderDisabled) {
                     return;
                   }
+                  // 暂停所有视频
+                  pauseAllVideos();
+                  // 触发画布的双击事件，打开大图查看器
                   onItemDoubleClick?.(item);
+                  // 通知父组件查看器已打开
+                  onViewerOpen?.();
                 }}
               >
                 {isPlaceholder ? (
@@ -850,8 +1124,8 @@ export function UniversalCanvas({
                       }
                     }}
                     onContextMenu={(e) => {
-                      // 允许右键菜单（用于视频控件）
-                      e.stopPropagation();
+                      e.preventDefault();
+                      // 不 stopPropagation，让事件冒泡到画布以统一打开右键菜单并选中当前元素
                     }}
                     onMouseDown={(e) => {
                       // 检测点击位置，如果在控制栏区域，阻止拖动
@@ -865,6 +1139,17 @@ export function UniversalCanvas({
                         return;
                       }
                       // 如果点击在视频的其他区域，允许拖动（不阻止事件）
+                    }}
+                    onDoubleClick={(e) => {
+                      // 阻止视频的默认双击全屏行为
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // 暂停所有视频
+                      pauseAllVideos();
+                      // 触发画布的双击事件，打开大图查看器
+                      onItemDoubleClick?.(item);
+                      // 通知父组件查看器已打开
+                      onViewerOpen?.();
                     }}
                   />
                 ) : (
@@ -974,6 +1259,15 @@ export function UniversalCanvas({
                     />
                   </>
                 )}
+
+                {/* 选中时在图层下方显示宽高与坐标 */}
+                {(selectedItemId === item.id || selectedItemIds.includes(item.id)) && (
+                  <div className="absolute left-0 right-0 -bottom-6 flex justify-center pointer-events-none z-[55]">
+                    <span className="rounded bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground shadow-sm whitespace-nowrap">
+                      {Math.round(item.width)}×{Math.round(item.height)}  ({Math.round(item.x)}, {Math.round(item.y)})
+                    </span>
+                  </div>
+                )}
               </div>
             </Draggable>
           );
@@ -1034,8 +1328,131 @@ export function UniversalCanvas({
       {/* Panning Hint */}
       <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-lg border border-border bg-background/95 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
         <Move className="h-3.5 w-3.5" />
-        <span>Space + Drag to pan</span>
+        <span>{t('canvas.panningHint')}</span>
       </div>
+
+      {/* 画布右键菜单：黑色主色、Portal 到 body，固定定位，带边界与过渡 */}
+      {contextMenu.open &&
+        createPortal(
+          <div
+            ref={contextMenuRef}
+            className="fixed z-[10000] min-w-[180px] rounded-lg border border-gray-700/80 bg-black py-1 text-gray-100 shadow-xl outline-none transition-opacity duration-150 ease-out"
+            style={{ left: contextMenu.x + MENU_OFFSET, top: contextMenu.y + MENU_OFFSET }}
+            role="menu"
+            onContextMenu={(e) => e.preventDefault()}
+            onMouseDown={(e) => {
+              // 点击菜单任意区域（含黑色背景）时阻止冒泡，避免被当作「画布外点击」而关闭菜单或清除选中
+              e.stopPropagation();
+            }}
+          >
+            <div className="px-2 py-1.5">
+              <button
+                type="button"
+                role="menuitem"
+                className={cn(
+                  'flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors duration-100 hover:bg-white/10',
+                  !hasSelection && 'cursor-not-allowed opacity-50'
+                )}
+                onClick={() => hasSelection && runAndClose(onContextCopy)}
+              >
+                <span className="flex items-center gap-2">
+                  <Copy className="h-3.5 w-3.5" />
+                  {t('canvas.contextMenu.copy')}
+                </span>
+                <span className="text-xs text-gray-400">⌘C</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={cn(
+                  'flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors duration-100 hover:bg-white/10',
+                  !hasSelection && 'cursor-not-allowed opacity-50'
+                )}
+                onClick={() => hasSelection && runAndClose(onContextCut)}
+              >
+                <span className="flex items-center gap-2">
+                  <Scissors className="h-3.5 w-3.5" />
+                  {t('canvas.contextMenu.cut')}
+                </span>
+                <span className="text-xs text-gray-400">⌘X</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors duration-100 hover:bg-white/10"
+                onClick={() => runAndClose(onContextPaste)}
+              >
+                <span className="flex items-center gap-2">
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                  {t('canvas.contextMenu.paste')}
+                </span>
+                <span className="text-xs text-gray-400">⌘V</span>
+              </button>
+            </div>
+            <div className="my-1 h-px bg-gray-700/80" />
+            <div className="px-2 py-1.5">
+              <button
+                type="button"
+                role="menuitem"
+                className={cn(
+                  'flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors duration-100 hover:bg-white/10',
+                  !hasSelection && 'cursor-not-allowed opacity-50'
+                )}
+                onClick={() => hasSelection && runAndClose(onContextFocus)}
+              >
+                <span className="flex items-center gap-2">
+                  <Crosshair className="h-3.5 w-3.5" />
+                  {t('canvas.contextMenu.focus')}
+                </span>
+                <span className="text-xs text-gray-400">F</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={cn(
+                  'flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors duration-100 hover:bg-white/10',
+                  !hasSelection && 'cursor-not-allowed opacity-50'
+                )}
+                onClick={() => hasSelection && runAndClose(onContextDelete)}
+              >
+                <span className="flex items-center gap-2">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t('canvas.contextMenu.delete')}
+                </span>
+              </button>
+            </div>
+            <div className="my-1 h-px bg-gray-700/80" />
+            <div className="px-2 py-1.5">
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors duration-100 hover:bg-white/10"
+                onClick={() => runAndClose(onContextShare)}
+              >
+                <span className="flex items-center gap-2">
+                  <Share2 className="h-3.5 w-3.5" />
+                  {t('canvas.contextMenu.share')}
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={cn(
+                  'flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors duration-100 hover:bg-white/10',
+                  !hasSelection && 'cursor-not-allowed opacity-50'
+                )}
+                onClick={() => hasSelection && runAndClose(onContextDownload)}
+              >
+                <span className="flex items-center gap-2">
+                  <Download className="h-3.5 w-3.5" />
+                  {t('canvas.contextMenu.download')}
+                </span>
+                <span className="text-xs text-gray-400">⇧D</span>
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
-}
+});

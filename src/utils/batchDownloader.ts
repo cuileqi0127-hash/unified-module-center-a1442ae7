@@ -8,6 +8,7 @@
 
 import JSZip from 'jszip';
 import { toast } from 'sonner';
+import i18n from '@/i18n';
 
 // 媒体项接口
 export interface MediaItem {
@@ -190,7 +191,7 @@ export class BatchDownloader {
 
       if (successCount === 0) {
         toast.dismiss(loadingToast);
-        toast.error('All downloads failed');
+        toast.error(i18n.t('toast.allDownloadsFailed'));
         return;
       }
 
@@ -234,7 +235,7 @@ export class BatchDownloader {
       }
 
       toast.dismiss(loadingToast);
-      toast.success(`Downloaded ${successCount} files (${failedCount} failed)`);
+      toast.success(i18n.t('toast.downloadedCount', { successCount, failedCount }));
     } catch (error) {
       toast.dismiss(loadingToast);
       throw error;
@@ -430,7 +431,7 @@ export async function batchDownload(
   onComplete?: (tasks: Map<string, DownloadTask>) => void
 ): Promise<void> {
   if (items.length === 0) {
-    toast.error('No items to download');
+    toast.error(i18n.t('toast.noItemsToDownload'));
     return;
   }
 

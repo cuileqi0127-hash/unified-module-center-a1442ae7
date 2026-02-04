@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -32,7 +33,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { UniversalCanvas, type CanvasMediaItem } from './UniversalCanvas';
+import { UniversalCanvas, type CanvasMediaItem, type UniversalCanvasHandle } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToImage, type CanvasImage } from './useTextToImage';
 import { AnimatedText } from './AnimatedText';
@@ -66,6 +67,9 @@ function isLandscapeRatio(ratio: string): boolean {
 export function TextToImage({ onNavigate }: TextToImageProps) {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  
+  // Canvas ref 用于恢复视频播放、聚焦等
+  const canvasRef = useRef<UniversalCanvasHandle>(null);
   
   // 从业务逻辑层获取所有状态和处理函数
   const {
@@ -136,6 +140,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     handleKeyDown,
     handleImageDoubleClick,
     handleDeleteImage,
+    handleCutImage,
     handleBatchCopyImages,
     handleBatchDownloadImages,
     handleCopyImageToClipboard,
@@ -143,7 +148,6 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     handleUploadImage,
     // Utils
     cleanMessageContent,
-    isZh,
     // Viewer
     viewerOpen,
     setViewerOpen,
@@ -310,7 +314,6 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               ) : (
                 <GenerationChatPanel
                   messages={messages}
-                  isZh={isZh}
                   onImageClick={(url) => {
                     const img = canvasImages.find(i => i.url === url);
                     if (img) setSelectedImageId(img.id);
@@ -698,6 +701,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
         )}
 
         <UniversalCanvas
+          ref={canvasRef}
           items={canvasImages.map(img => ({ ...img, type: img.type || 'image' } as CanvasMediaItem))}
           onItemMove={handleImageMove}
           onItemResize={handleImageResize}
@@ -714,6 +718,19 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           onItemDoubleClick={handleImageDoubleClick}
           highlightedItemId={highlightedImageId}
           deletingItemIds={Array.from(deletingImageIds)}
+          onContextCopy={() => {
+            if (selectedImageIds.length > 1) handleBatchCopyImages();
+            else if (selectedImageIds.length === 1) handleBatchCopyImages();
+            else if (selectedImage) handleCopyImage(selectedImage);
+          }}
+          onContextCut={handleCutImage}
+          onContextPaste={handlePasteImage}
+          onContextDelete={handleDeleteImage}
+          onContextDownload={handleBatchDownloadImages}
+          onContextFocus={() => {
+            if (selectedImageIds.length > 1) canvasRef.current?.focusOnItems(selectedImageIds);
+            else if (selectedImageId) canvasRef.current?.focusOnItem(selectedImageId);
+          }}
         />
 
         {/* Selected Image(s) Floating Toolbar */}
@@ -729,7 +746,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 rounded-full"
-              onClick={selectedImageIds.length > 1 ? handleBatchCopyImages : () => selectedImage && handleCopyImageToClipboard(selectedImage)}
+              onClick={selectedImageIds.length > 1 ? handleBatchCopyImages : () => selectedImage && handleCopyImage(selectedImage)}
               title={selectedImageIds.length > 1 ? t('textToImage.actions.copyAll') : t('textToImage.actions.copy')}
             >
               <Copy className="h-4 w-4" />
@@ -774,7 +791,11 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
         }))}
         initialIndex={viewerIndex}
         isOpen={viewerOpen}
-        onClose={() => setViewerOpen(false)}
+        onClose={() => {
+          setViewerOpen(false);
+          // 恢复视频播放状态
+          canvasRef.current?.resumeVideos();
+        }}
       />
     </div>
   );

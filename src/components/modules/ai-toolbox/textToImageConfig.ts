@@ -6,6 +6,7 @@
  */
 
 import { type ImageModel } from '@/services/imageGenerationApi';
+import i18n from '@/i18n';
 
 // 尺寸选项接口
 export interface SizeOption {
@@ -180,10 +181,8 @@ export function getModelDefaultStyle(model: ImageModel): string | null {
 }
 
 // 工作模式配置（支持国际化）
-export function getWorkModes(isZh: boolean): WorkModeConfig[] {
-  return [
-    { id: 'text-to-image', label: isZh ? '图片生成' : 'Image Generation' },
-  ];
+export function getWorkModes(): WorkModeConfig[] {
+  return [{ id: 'text-to-image', label: i18n.t('textToImage.title') }];
 }
 
 // 默认模型

@@ -73,8 +73,7 @@ const mockHistory: ChatMessage[] = [];
 const initialCanvasImages: CanvasImage[] = [];
 
 export function useTextToImage() {
-  const { t, i18n } = useTranslation();
-  const isZh = i18n.language === 'zh';
+  const { t } = useTranslation();
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -124,7 +123,7 @@ export function useTextToImage() {
   const canvasItemIdMap = useRef<Map<string, number>>(new Map());
 
   // 配置数据
-  const workModes = getWorkModes(isZh);
+  const workModes = getWorkModes();
   const models = getModelList();
   const aspectRatios = getModelSizes(model);
   const qualityOptions = getModelQualityOptions(model);
@@ -264,7 +263,7 @@ export function useTextToImage() {
       setIsLoadingHistory(false);
     }
     return [];
-  }, [isZh, isLoadingHistory]);
+  }, [t, isLoadingHistory]);
   
   // 加载更多历史记录
   const loadMoreHistory = useCallback(() => {
@@ -377,9 +376,7 @@ export function useTextToImage() {
                     
                     // 添加图片理解（使用 generation.prompt，这是 revised prompt）
                     if (generation.prompt) {
-                      designThoughts.push(
-                        isZh ? `图片理解：${generation.prompt}` : `Image Understanding: ${generation.prompt}`
-                      );
+                      designThoughts.push(t('toast.imageUnderstanding', { prompt: generation.prompt }));
                     }
                     
                     // 添加尺寸信息
@@ -388,8 +385,8 @@ export function useTextToImage() {
                       const isSeedreamModel = model === 'doubao-seedream-4-5-251128';
                       designThoughts.push(
                         isSeedreamModel
-                          ? (isZh ? `尺寸：${generation.size}` : `Size: ${generation.size}`)
-                          : (isZh ? `画面比例：${generation.size}` : `Aspect Ratio: ${generation.size}`)
+                          ? t('toast.sizeLabel', { size: generation.size })
+                          : t('toast.aspectRatioLabel', { size: generation.size })
                       );
                     }
                     
@@ -510,7 +507,7 @@ export function useTextToImage() {
     try {
       // 创建新会话
       const response = await createSession({
-        title: isZh ? '新会话' : 'New Session',
+        title: t('toast.newSession'),
         taskType: 'image',
         settings: {
           model,
@@ -532,9 +529,9 @@ export function useTextToImage() {
       }
     } catch (error) {
       console.error('Failed to create session:', error);
-      toast.error(isZh ? '创建会话失败' : 'Failed to create session');
+      toast.error(t('toast.createSessionFailed'));
     }
-  }, [model, aspectRatio, quality, style, outputNumber, isZh, loadSessions]);
+  }, [model, aspectRatio, quality, style, outputNumber, t, loadSessions]);
 
   // 处理加载历史会话（获取指定会话的聊天内容和画布内容）
   const handleLoadSession = useCallback(async (sessionId: string) => {
@@ -631,9 +628,7 @@ export function useTextToImage() {
                     
                     // 添加图片理解（使用 generation.prompt，这是 revised prompt）
                     if (generation.prompt) {
-                      designThoughts.push(
-                        isZh ? `图片理解：${generation.prompt}` : `Image Understanding: ${generation.prompt}`
-                      );
+                      designThoughts.push(t('toast.imageUnderstanding', { prompt: generation.prompt }));
                     }
                     
                     // 添加尺寸信息
@@ -642,8 +637,8 @@ export function useTextToImage() {
                       const isSeedreamModel = model === 'doubao-seedream-4-5-251128';
                       designThoughts.push(
                         isSeedreamModel
-                          ? (isZh ? `尺寸：${generation.size}` : `Size: ${generation.size}`)
-                          : (isZh ? `画面比例：${generation.size}` : `Aspect Ratio: ${generation.size}`)
+                          ? t('toast.sizeLabel', { size: generation.size })
+                          : t('toast.aspectRatioLabel', { size: generation.size })
                       );
                     }
                     
@@ -677,7 +672,7 @@ export function useTextToImage() {
       console.error('Failed to load session:', error);
       toast.error(t('toast.loadSessionFailed'));
     }
-  }, [isZh]);
+  }, [t]);
 
   // 处理图片移动
   const handleImageMove = useCallback((id: string, x: number, y: number) => {
@@ -735,7 +730,7 @@ export function useTextToImage() {
     setTimeout(() => {
       setHighlightedImageId(null);
     }, 600);
-  }, [isZh]);
+  }, [t]);
 
   // 处理移除选中图片
   const handleRemoveSelectedImage = useCallback((id: string) => {
@@ -755,7 +750,7 @@ export function useTextToImage() {
       height: image.height,
     }]));
     toast.success(t('toast.copiedToClipboard'));
-  }, [isZh]);
+  }, [t]);
 
   // 判断URL是否为视频
   const isVideoUrl = useCallback((url: string): boolean => {
@@ -899,7 +894,7 @@ export function useTextToImage() {
               generation: {
                 model: model,
                 size: aspectRatio,
-                prompt: newImage.prompt || (isZh ? (isVideo ? `复制粘贴的视频 ${index + 1}` : `复制粘贴的图片 ${index + 1}`) : (isVideo ? `Pasted video ${index + 1}` : `Pasted image ${index + 1}`)),
+                prompt: newImage.prompt || (isVideo ? t('toast.pastedVideoCount', { index: index + 1 }) : t('toast.pastedImageCount', { index: index + 1 })),
                 status: 'success',
               },
               asset: {
@@ -911,11 +906,9 @@ export function useTextToImage() {
               },
               message: {
                 type: 'system',
-                content: isZh ? '生成完成' : 'Generation complete',
+                content: t('toast.generationComplete'),
                 status: 'complete',
-                resultSummary: isZh 
-                  ? `已粘贴图片到画布`
-                  : `Image pasted to canvas`,
+                resultSummary: t('toast.pastedToCanvas'),
               },
               canvasItem: {
                 x: newImage.x,
@@ -1004,7 +997,7 @@ export function useTextToImage() {
             generation: {
               model: model,
               size: aspectRatio,
-              prompt: copiedImage.prompt || (isZh ? (isVideo ? '复制粘贴的视频' : '复制粘贴的图片') : (isVideo ? 'Pasted video' : 'Pasted image')),
+              prompt: copiedImage.prompt || (isVideo ? t('toast.pastedVideo') : t('toast.pastedImage')),
               status: 'success',
             },
             asset: {
@@ -1016,11 +1009,9 @@ export function useTextToImage() {
             },
             message: {
               type: 'system',
-              content: isZh ? '生成完成' : 'Generation complete',
+              content: t('toast.generationComplete'),
               status: 'complete',
-              resultSummary: isZh 
-                ? (isVideo ? `已粘贴视频到画布` : `已粘贴图片到画布`)
-                : (isVideo ? `Video pasted to canvas` : `Image pasted to canvas`),
+              resultSummary: isVideo ? t('toast.videoPastedToCanvas') : t('toast.imagePastedToCanvas'),
             },
             canvasItem: {
               x: position.x,
@@ -1046,7 +1037,7 @@ export function useTextToImage() {
       
       toast.success(t('toast.pastedToCanvas'));
     }
-  }, [copiedImage, copiedImages, isZh, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, loadSessions]);
+  }, [copiedImage, copiedImages, t, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, loadSessions]);
 
   // 上传状态管理
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, { progress: number; id: string }>>(new Map());
@@ -1155,9 +1146,9 @@ export function useTextToImage() {
             },
             message: {
               type: 'system',
-              content: isZh ? '生成完成' : 'Generation complete',
+              content: t('toast.generationComplete'),
               status: 'complete',
-              resultSummary: isZh ? '图片已添加到画布' : 'Image added to canvas',
+              resultSummary: t('toast.imageAddedToCanvas'),
             },
             canvasItem: {
               x: tempImage.x,
@@ -1190,22 +1181,7 @@ export function useTextToImage() {
       // 清除上传状态
       setUploadingFiles(prev => new Map());
     }
-  }, [isZh, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, saveGenerationResult, loadSessions]);
-
-  // 处理键盘快捷键（复制粘贴）
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedImageId) {
-        const image = canvasImages.find(img => img.id === selectedImageId);
-        if (image) handleCopyImage(image);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedImage) {
-        handlePasteImage();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImageId, canvasImages, copiedImage, handleCopyImage, handlePasteImage]);
+  }, [t, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, saveGenerationResult, loadSessions]);
 
   // 拖拽处理
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1283,7 +1259,7 @@ export function useTextToImage() {
             ? { 
                 ...msg, 
                 status: 'designing',
-                content: isZh ? '生成中...' : 'Generating...',
+                content: t('toast.generating'),
               }
             : msg
         )
@@ -1366,14 +1342,14 @@ export function useTextToImage() {
                 status: 'complete',
                 image: firstImage.url,
                 designThoughts: [
-                  isZh ? `图片理解：${revisedPrompt}` : `Image Understanding: ${revisedPrompt}`,
+                  t('toast.imageUnderstanding', { prompt: revisedPrompt }),
                   model === 'doubao-seedream-4-5-251128'
-                    ? (isZh ? `尺寸：${aspectRatio}` : `Size: ${aspectRatio}`)
-                    : (isZh ? `画面比例：${aspectRatio}` : `Aspect Ratio: ${aspectRatio}`),
+                    ? t('toast.sizeLabel', { size: aspectRatio })
+                    : t('toast.aspectRatioLabel', { size: aspectRatio }),
                 ],
-                resultSummary: isZh 
-                  ? `已完成图片生成，${newImages.length > 1 ? `共${newImages.length}张，` : ''}${model === 'doubao-seedream-4-5-251128' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
-                  : `Image generation complete${newImages.length > 1 ? `, ${newImages.length} images` : ''}, output ${model === 'doubao-seedream-4-5-251128' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
+                resultSummary: newImages.length > 1
+                  ? t('toast.resultSummaryImageCompleteCount', { count: newImages.length, output: model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: aspectRatio }) : t('toast.aspectRatioLabel', { size: aspectRatio }) })
+                  : t('toast.resultSummaryImageComplete', { output: model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: aspectRatio }) : t('toast.aspectRatioLabel', { size: aspectRatio }) }),
               }
             : msg
         )
@@ -1405,11 +1381,9 @@ export function useTextToImage() {
             },
             message: {
               type: 'system',
-              content: isZh ? '生成完成' : 'Generation complete',
+              content: t('toast.generationComplete'),
               status: 'complete',
-              resultSummary: isZh 
-                ? `已完成图片生成，${model === 'doubao-seedream-4-5-251128' ? `输出尺寸为${aspectRatio}` : `输出比例为${aspectRatio}`}。`
-                : `Image generation complete, output ${model === 'doubao-seedream-4-5-251128' ? `size ${aspectRatio}` : `ratio ${aspectRatio}`}.`,
+              resultSummary: t('toast.resultSummaryImageComplete', { output: model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: aspectRatio }) : t('toast.aspectRatioLabel', { size: aspectRatio }) }),
             },
             canvasItem: {
               x: firstImage.x,
@@ -1457,13 +1431,13 @@ export function useTextToImage() {
             ? { 
                 ...msg, 
                 status: 'complete',
-                content: isZh ? `生成失败：${errorMessage}` : `Generation failed: ${errorMessage}`,
+                content: t('toast.generationFailedWithMessage', { message: errorMessage }),
               }
             : msg
         )
       );
     }
-  }, [prompt, isGenerating, model, aspectRatio, quality, style, selectedImages, selectedImageIds, selectedImageId, canvasImages, isZh, getImageDimensions, handleAddSelectedImage, currentSessionId, loadSessions, t]);
+  }, [prompt, isGenerating, model, aspectRatio, quality, style, selectedImages, selectedImageIds, selectedImageId, canvasImages, t, getImageDimensions, handleAddSelectedImage, currentSessionId, loadSessions]);
 
   // 处理键盘事件
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -1542,7 +1516,7 @@ export function useTextToImage() {
     setDeletingImageIds(new Set());
     
     toast.success(`${t('toast.deletedItems')} ${idsToDelete.length} ${t('toast.items')}`);
-  }, [selectedImageIds, selectedImageId, isZh, loadSessions]);
+  }, [selectedImageIds, selectedImageId, t, loadSessions]);
 
   // 处理键盘删除快捷键
   useEffect(() => {
@@ -1588,9 +1562,51 @@ export function useTextToImage() {
       await navigator.clipboard.writeText(JSON.stringify(imageUrls));
       toast.success(`${t('toast.copiedImages')} ${imagesToCopy.length} ${t('toast.images')}`);
     } catch (err) {
-      toast.error(isZh ? '复制失败' : 'Copy failed');
+      toast.error(t('toast.copyFailed'));
     }
-  }, [selectedImageIds, canvasImages, isZh]);
+  }, [selectedImageIds, canvasImages, t]);
+
+  // 画布剪切：先拷贝再删除，与右键菜单一致
+  const handleCutImage = useCallback(async () => {
+    const hasMulti = selectedImageIds.length > 1;
+    const hasSingle = selectedImageIds.length === 1 || selectedImageId;
+    if (hasMulti) {
+      await handleBatchCopyImages();
+    } else if (hasSingle) {
+      if (selectedImageIds.length === 1) {
+        await handleBatchCopyImages();
+      } else {
+        const image = canvasImages.find(img => img.id === selectedImageId);
+        if (image) handleCopyImage(image);
+      }
+    }
+    await handleDeleteImage();
+  }, [selectedImageId, selectedImageIds, canvasImages, handleCopyImage, handleBatchCopyImages, handleDeleteImage]);
+
+  // 处理键盘快捷键（复制粘贴），与操作栏、右键拷贝逻辑一致：多选走批量拷贝，单选走单图画布内拷贝
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const hasMulti = selectedImageIds.length > 1;
+        const hasSingle = selectedImageIds.length === 1 || selectedImageId;
+        if (hasMulti) {
+          handleBatchCopyImages();
+        } else if (hasSingle) {
+          if (selectedImageIds.length === 1) {
+            handleBatchCopyImages();
+          } else {
+            const image = canvasImages.find(img => img.id === selectedImageId);
+            if (image) handleCopyImage(image);
+          }
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedImage) {
+        handlePasteImage();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImageId, selectedImageIds, canvasImages, copiedImage, handleCopyImage, handlePasteImage, handleBatchCopyImages]);
 
   // 处理批量下载图片
   const handleBatchDownloadImages = useCallback(async () => {
@@ -1632,9 +1648,9 @@ export function useTextToImage() {
       ]);
       toast.success(t('toast.imageCopied'));
     } catch (err) {
-      toast.error(isZh ? '复制失败' : 'Copy failed');
+      toast.error(t('toast.copyFailed'));
     }
-  }, [isZh]);
+  }, [t]);
 
   // 处理调整聊天栏宽度
   useEffect(() => {
@@ -1747,7 +1763,6 @@ export function useTextToImage() {
     models,
     aspectRatios,
     qualityOptions,
-    styleOptions,
     historySessions,
     hasMoreHistory,
     isLoadingHistory,
@@ -1771,6 +1786,7 @@ export function useTextToImage() {
     handleKeyDown,
     handleImageDoubleClick,
     handleDeleteImage,
+    handleCutImage,
     handleBatchCopyImages,
     handleBatchDownloadImages,
     handleCopyImageToClipboard,
@@ -1779,7 +1795,6 @@ export function useTextToImage() {
     
     // Utils
     cleanMessageContent,
-    isZh,
     
     // Viewer
     viewerOpen,

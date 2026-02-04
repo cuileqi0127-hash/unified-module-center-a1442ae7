@@ -26,7 +26,6 @@ export interface ChatMessage {
 
 interface GenerationChatPanelProps {
   messages: ChatMessage[];
-  isZh: boolean;
   onImageClick?: (url: string) => void;
   onVideoClick?: (url: string) => void;
   cleanMessageContent: (content: string) => string;
@@ -39,7 +38,6 @@ interface GenerationChatPanelProps {
 
 export function GenerationChatPanel({
   messages,
-  isZh,
   onImageClick,
   onVideoClick,
   cleanMessageContent,
@@ -148,14 +146,14 @@ export function GenerationChatPanel({
                       className="aspect-square w-full object-cover"
                     />
                     {/* Feedback Button */}
-                    <Button
+                    {/* <Button
                       size="sm"
                       variant="secondary"
                       className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
                     >
                       <MessageSquare className="h-3 w-3" />
                       {t('generationChatPanel.feedback')}
-                    </Button>
+                    </Button> */}
                   </div>
                 </div>
               )}
@@ -182,14 +180,14 @@ export function GenerationChatPanel({
                       className="aspect-video w-full object-cover"
                       controls
                     />
-                    <Button
+                    {/* <Button
                       size="sm"
                       variant="secondary"
                       className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
                     >
                       <MessageSquare className="h-3 w-3" />
                       {t('generationChatPanel.feedback')}
-                    </Button>
+                    </Button> */}
                   </div>
                 </div>
               )}

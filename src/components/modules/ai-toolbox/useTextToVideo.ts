@@ -136,8 +136,7 @@ function updateTaskInQueue(taskId: string, updates: Partial<VideoTaskQueueItem>)
 }
 
 export function useTextToVideo() {
-  const { t, i18n } = useTranslation();
-  const isZh = i18n.language === 'zh';
+  const { t } = useTranslation();
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -332,7 +331,7 @@ export function useTextToVideo() {
       setIsLoadingHistory(false);
     }
     return [];
-  }, [isZh, isLoadingHistory]);
+  }, [t, isLoadingHistory]);
   
   // 加载更多历史记录
   const loadMoreHistory = useCallback(() => {
@@ -446,14 +445,14 @@ export function useTextToVideo() {
                     // 添加图片理解（使用 generation.prompt）
                     if (generation.prompt) {
                       designThoughts.push(
-                        isZh ? `图片理解：${generation.prompt}` : `Image Understanding: ${generation.prompt}`
+                        t('toast.imageUnderstanding', { prompt: generation.prompt })
                       );
                     }
                     
                     // 添加尺寸信息
                     if (generation.size) {
                       designThoughts.push(
-                        isZh ? `尺寸：${generation.size}` : `Size: ${generation.size}`
+                        t('toast.sizeLabel', { size: generation.size })
                       );
                     }
                     
@@ -654,9 +653,9 @@ export function useTextToVideo() {
       }
     } catch (error) {
       console.error('Failed to create session:', error);
-      toast.error(isZh ? '创建会话失败' : 'Failed to create session');
+      toast.error(t('toast.createSessionFailed'));
     }
-  }, [model, size, seconds, isZh, loadSessions]);
+  }, [model, size, seconds, t, loadSessions]);
 
   // 处理加载历史会话（获取指定会话的聊天内容和画布内容）
   const handleLoadSession = useCallback(async (sessionId: string) => {
@@ -754,7 +753,7 @@ export function useTextToVideo() {
                     // 添加视频理解（使用 generation.prompt）
                     if (generation.prompt) {
                       designThoughts.push(
-                        isZh ? `视频理解：${generation.prompt}` : `Video Understanding: ${generation.prompt}`
+                        t('toast.videoUnderstanding', { prompt: generation.prompt })
                       );
                     }
                     
@@ -762,14 +761,14 @@ export function useTextToVideo() {
                     const videoSeconds = session.settings?.seconds;
                     if (videoSeconds) {
                       designThoughts.push(
-                        isZh ? `时长：${videoSeconds}秒` : `Duration: ${videoSeconds}s`
+                        t('toast.durationLabel', { seconds: videoSeconds })
                       );
                     }
                     
                     // 添加尺寸信息
                     if (generation.size) {
                       designThoughts.push(
-                        isZh ? `尺寸：${generation.size}` : `Size: ${generation.size}`
+                        t('toast.sizeLabel', { size: generation.size })
                       );
                     }
                     
@@ -803,7 +802,7 @@ export function useTextToVideo() {
       console.error('Failed to load session:', error);
       toast.error(t('toast.loadSessionFailed'));
     }
-  }, [isZh]);
+  }, [t]);
 
   // 处理视频移动
   const handleVideoMove = useCallback((id: string, x: number, y: number) => {
@@ -861,7 +860,7 @@ export function useTextToVideo() {
     setTimeout(() => {
       setHighlightedVideoId(null);
     }, 600);
-  }, [isZh]);
+  }, [t]);
 
   // 处理移除选中视频
   const handleRemoveSelectedVideo = useCallback((id: string) => {
@@ -885,7 +884,7 @@ export function useTextToVideo() {
     // 触发自定义事件，通知同页面内的其他组件
     window.dispatchEvent(new Event('canvasCopiedItemsChanged'));
     toast.success(t('toast.copiedToClipboard'));
-  }, [isZh, isVideoUrl]);
+  }, [t, isVideoUrl]);
 
   // 处理粘贴视频
   const handlePasteVideo = useCallback(async () => {
@@ -951,7 +950,7 @@ export function useTextToVideo() {
                 generation: {
                   model: model,
                   size: size,
-                  prompt: newVideo.prompt || (isZh ? (isVideo ? '复制粘贴的视频' : '复制粘贴的图片') : (isVideo ? 'Pasted video' : 'Pasted image')),
+                  prompt: newVideo.prompt || (isVideo ? t('toast.pastedVideo') : t('toast.pastedImage')),
                   status: 'success',
                   ...(isVideo && seconds ? { seconds } : {}),
                 },
@@ -965,11 +964,9 @@ export function useTextToVideo() {
                 },
                 message: {
                   type: 'system',
-                  content: isZh ? '生成完成' : 'Generation complete',
+                  content: t('toast.generationComplete'),
                   status: 'complete',
-                  resultSummary: isZh 
-                    ? `已粘贴${isVideo ? '视频' : '图片'}到画布`
-                    : `${isVideo ? 'Video' : 'Image'} pasted to canvas`,
+                  resultSummary: isVideo ? t('toast.videoPastedToCanvas') : t('toast.imagePastedToCanvas'),
                 },
                 canvasItem: {
                   x: newVideo.x,
@@ -1035,7 +1032,7 @@ export function useTextToVideo() {
             generation: {
               model: model,
               size: size,
-              prompt: copiedVideo.prompt || (isZh ? (isVideo ? '复制粘贴的视频' : '复制粘贴的图片') : (isVideo ? 'Pasted video' : 'Pasted image')),
+              prompt: copiedVideo.prompt || (isVideo ? t('toast.pastedVideo') : t('toast.pastedImage')),
               status: 'success',
               ...(isVideo && seconds ? { seconds } : {}),
             },
@@ -1049,11 +1046,9 @@ export function useTextToVideo() {
             },
             message: {
               type: 'system',
-              content: isZh ? '生成完成' : 'Generation complete',
+              content: t('toast.generationComplete'),
               status: 'complete',
-              resultSummary: isZh 
-                ? `已粘贴${isVideo ? '视频' : '图片'}到画布`
-                : `${isVideo ? 'Video' : 'Image'} pasted to canvas`,
+              resultSummary: isVideo ? t('toast.videoPastedToCanvas') : t('toast.imagePastedToCanvas'),
             },
             canvasItem: {
               x: position.x,
@@ -1079,7 +1074,7 @@ export function useTextToVideo() {
       
       toast.success(t('toast.pastedToCanvas'));
     }
-  }, [copiedVideo, copiedVideos, isZh, getVideoDimensions, getImageDimensions, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions]);
+  }, [copiedVideo, copiedVideos, t, getVideoDimensions, getImageDimensions, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions]);
 
   // 上传状态管理
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, { progress: number; id: string }>>(new Map());
@@ -1178,9 +1173,9 @@ export function useTextToVideo() {
             },
             message: {
               type: 'system',
-              content: isZh ? '生成完成' : 'Generation complete',
+              content: t('toast.generationComplete'),
               status: 'complete',
-              resultSummary: isZh ? '图片已添加到画布' : 'Image added to canvas',
+              resultSummary: t('toast.imageAddedToCanvas'),
             },
             canvasItem: {
               x: tempVideo.x,
@@ -1213,22 +1208,7 @@ export function useTextToVideo() {
       // 清除上传状态
       setUploadingFiles(prev => new Map());
     }
-  }, [isZh, getImageDimensions, currentSessionId, model, size, canvasVideos, saveGenerationResult, loadSessions]);
-
-  // 处理键盘快捷键（复制粘贴）
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedVideoId) {
-        const video = canvasVideos.find(v => v.id === selectedVideoId);
-        if (video) handleCopyVideo(video);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedVideo) {
-        handlePasteVideo();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedVideoId, canvasVideos, copiedVideo, handleCopyVideo, handlePasteVideo]);
+  }, [t, getImageDimensions, currentSessionId, model, size, canvasVideos, saveGenerationResult, loadSessions]);
 
   // 拖拽处理
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1375,7 +1355,7 @@ export function useTextToVideo() {
             ? { 
                 ...msg, 
                 status: 'queued',
-                content: isZh ? '任务已加入队列...' : 'Task queued...',
+                content: t('toast.taskQueued'),
                 progress: taskResponse.progress,
               }
             : msg
@@ -1401,13 +1381,13 @@ export function useTextToVideo() {
             ? { 
                 ...msg, 
                 status: 'failed',
-                content: isZh ? `生成失败：${errorMessage}` : `Generation failed: ${errorMessage}`,
+                content: t('toast.generationFailedWithMessage', { message: errorMessage }),
               }
             : msg
         )
       );
     }
-  }, [prompt, isGenerating, model, seconds, size, selectedVideoIds, selectedVideoId, canvasVideos, isZh, getVideoDimensions, handleAddSelectedVideo, currentSessionId]);
+  }, [prompt, isGenerating, model, seconds, size, selectedVideoIds, selectedVideoId, canvasVideos, t, getVideoDimensions, handleAddSelectedVideo, currentSessionId]);
 
   // 可取消的轮询函数
   const pollTaskWithCancel = useCallback((
@@ -1602,7 +1582,7 @@ export function useTextToVideo() {
           ? { 
               ...msg, 
               status: 'processing',
-              content: isZh ? '视频生成中...' : 'Generating video...',
+              content: t('toast.generatingVideo'),
               progress: task.progress,
             }
           : msg
@@ -1632,13 +1612,11 @@ export function useTextToVideo() {
           let content = '';
           if (status.status === 'processing') {
             const progressText = status.progress !== undefined ? ` ${status.progress}%` : '';
-            content = isZh 
-              ? `视频生成中...${progressText}` 
-              : `Generating video...${progressText}`;
+            content = t('toast.generatingVideo') + progressText;
           } else if (status.status === 'queued') {
-            content = isZh ? '任务排队中...' : 'Task queued...';
+            content = t('toast.taskQueued');
           } else if (status.status === 'failed') {
-            content = status.error_message || (isZh ? '视频生成失败' : 'Video generation failed');
+            content = status.error_message || t('toast.videoGenerationFailed');
           }
           
           setMessages(prev => 
@@ -1676,7 +1654,7 @@ export function useTextToVideo() {
       
       // 检查任务是否失败
       if (finalStatus.status === 'failed') {
-        const errorMsg = finalStatus.error_message || (isZh ? '视频生成失败' : 'Video generation failed');
+        const errorMsg = finalStatus.error_message || t('toast.videoGenerationFailed');
         throw new Error(errorMsg);
       }
       
@@ -1684,9 +1662,9 @@ export function useTextToVideo() {
       if (!finalStatus.video_url) {
         // 如果状态是 completed 但没有 video_url，可能是 URL 还未生成，等待一下
         if (finalStatus.status === 'completed') {
-          throw new Error(isZh ? '视频生成完成但未获取到视频链接，请稍后重试' : 'Video generation completed but video URL not available, please retry later');
+          throw new Error(t('toast.videoCompleteNoUrlRetry'));
         }
-        throw new Error(isZh ? '未获取到视频链接' : 'No video URL in response');
+        throw new Error(t('toast.noVideoUrl'));
       }
 
       const videoUrl = finalStatus.video_url;
@@ -1702,13 +1680,11 @@ export function useTextToVideo() {
                 video: videoUrl,
                 progress: 100,
                 designThoughts: [
-                  isZh ? `视频理解：${task.prompt}` : `Video Understanding: ${task.prompt}`,
-                  isZh ? `时长：${task.seconds}秒` : `Duration: ${task.seconds}s`,
-                  isZh ? `尺寸：${task.size}` : `Size: ${task.size}`,
+                  t('toast.videoUnderstanding', { prompt: task.prompt }),
+                  t('toast.durationLabel', { seconds: task.seconds }),
+                  t('toast.sizeLabel', { size: task.size }),
                 ],
-                resultSummary: isZh 
-                  ? `已完成视频生成，时长为${task.seconds}秒，尺寸为${task.size}。`
-                  : `Video generation complete, duration ${task.seconds}s, size ${task.size}.`,
+                resultSummary: t('toast.videoGenerationComplete'),
               }
             : msg
         )
@@ -1772,11 +1748,9 @@ export function useTextToVideo() {
             },
             message: {
               type: 'system',
-              content: isZh ? '生成完成' : 'Generation complete',
+              content: t('toast.generationComplete'),
               status: 'complete',
-              resultSummary: isZh 
-                ? `已完成视频生成，时长为${task.seconds}秒，尺寸为${task.size}。`
-                : `Video generation complete, duration ${task.seconds}s, size ${task.size}.`,
+              resultSummary: t('toast.videoGenerationComplete'),
             },
             canvasItem: {
               x: placeholder.x,
@@ -1861,11 +1835,9 @@ export function useTextToVideo() {
               },
               message: {
                 type: 'system',
-                content: isZh ? '生成完成' : 'Generation complete',
+                content: t('toast.generationComplete'),
                 status: 'complete',
-                resultSummary: isZh 
-                  ? `已完成视频生成，时长为${task.seconds}秒，尺寸为${task.size}。`
-                  : `Video generation complete, duration ${task.seconds}s, size ${task.size}.`,
+                resultSummary: t('toast.videoGenerationComplete'),
               },
               canvasItem: {
                 x: position.x,
@@ -1920,11 +1892,11 @@ export function useTextToVideo() {
       // 生成友好的错误消息
       let userFriendlyMessage = errorMessage;
       if (errorMessage.includes('AigcVideoTask not found')) {
-        userFriendlyMessage = isZh ? '任务信息未找到，可能任务已过期' : 'Task information not found, task may have expired';
+        userFriendlyMessage = t('toast.taskNotFound');
       } else if (errorMessage.includes('No video URL') || errorMessage.includes('video URL not available')) {
-        userFriendlyMessage = isZh ? '视频生成完成但未获取到视频链接' : 'Video generation completed but video URL not available';
+        userFriendlyMessage = t('toast.videoCompleteNoUrl');
       } else if (errorMessage.includes('Task failed with error code')) {
-        userFriendlyMessage = isZh ? '视频生成失败，请检查提示词或重试' : 'Video generation failed, please check prompt or retry';
+        userFriendlyMessage = t('toast.videoFailedCheckPrompt');
       }
       
       // 更新消息为失败状态
@@ -1935,7 +1907,7 @@ export function useTextToVideo() {
                 ...msg, 
                 status: 'failed',
                 progress: 0,
-                content: isZh ? `生成失败：${userFriendlyMessage}` : `Generation failed: ${userFriendlyMessage}`,
+                content: t('toast.generationFailedWithMessage', { message: userFriendlyMessage }),
               }
             : msg
         )
@@ -1964,7 +1936,7 @@ export function useTextToVideo() {
       // 继续处理下一个任务
       processTaskQueueRef.current?.();
     }
-  }, [isZh, getVideoDimensions, handleAddSelectedVideo, pollTaskWithCancel, loadSessions]);
+  }, [t, getVideoDimensions, handleAddSelectedVideo, pollTaskWithCancel, loadSessions]);
 
   // 处理任务队列（最多同时处理3个任务）
   const processTaskQueue = useCallback(() => {
@@ -2032,12 +2004,12 @@ export function useTextToVideo() {
               id: task.messageId,
               type: 'system' as const,
               content: task.status === 'completed' 
-                ? (isZh ? '视频生成完成' : 'Video generation complete')
+                ? t('toast.videoGenerationComplete')
                 : task.status === 'failed'
-                ? (isZh ? '生成失败' : 'Generation failed')
+                ? t('toast.generationFailed')
                 : task.status === 'processing'
-                ? (isZh ? '视频生成中...' : 'Generating video...')
-                : (isZh ? '任务已加入队列...' : 'Task queued...'),
+                ? t('toast.generatingVideo')
+                : t('toast.taskQueued'),
               timestamp: new Date(task.createdAt),
               status: task.status,
               progress: task.progress,
@@ -2180,7 +2152,7 @@ export function useTextToVideo() {
     setDeletingVideoIds(new Set());
     
     toast.success(`${t('toast.deletedItems')} ${idsToDelete.length} ${t('toast.items')}`);
-  }, [selectedVideoIds, selectedVideoId, isZh, loadSessions]);
+  }, [selectedVideoIds, selectedVideoId, t, loadSessions]);
 
   // 处理键盘删除快捷键
   useEffect(() => {
@@ -2253,7 +2225,49 @@ export function useTextToVideo() {
     } catch (err) {
       toast.error(t('toast.copyFailed'));
     }
-  }, [selectedVideoIds, canvasVideos, isZh, isVideoUrl]);
+  }, [selectedVideoIds, canvasVideos, t, isVideoUrl]);
+
+  // 处理键盘快捷键（复制粘贴），与操作栏、右键拷贝逻辑一致：多选走批量拷贝，单选走单视频画布内拷贝
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const hasMulti = selectedVideoIds.length > 1;
+        const hasSingle = selectedVideoIds.length === 1 || selectedVideoId;
+        if (hasMulti) {
+          handleBatchCopyVideos();
+        } else if (hasSingle) {
+          if (selectedVideoIds.length === 1) {
+            handleBatchCopyVideos();
+          } else {
+            const video = canvasVideos.find(v => v.id === selectedVideoId);
+            if (video) handleCopyVideo(video);
+          }
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedVideo) {
+        handlePasteVideo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedVideoId, selectedVideoIds, canvasVideos, copiedVideo, handleCopyVideo, handlePasteVideo, handleBatchCopyVideos]);
+
+  // 画布剪切：先拷贝再删除，与右键菜单一致
+  const handleCutVideo = useCallback(async () => {
+    const hasMulti = selectedVideoIds.length > 1;
+    const hasSingle = selectedVideoIds.length === 1 || selectedVideoId;
+    if (hasMulti) {
+      await handleBatchCopyVideos();
+    } else if (hasSingle) {
+      if (selectedVideoIds.length === 1) {
+        await handleBatchCopyVideos();
+      } else {
+        const video = canvasVideos.find(v => v.id === selectedVideoId);
+        if (video) handleCopyVideo(video);
+      }
+    }
+    await handleDeleteVideo();
+  }, [selectedVideoId, selectedVideoIds, canvasVideos, handleCopyVideo, handleBatchCopyVideos, handleDeleteVideo]);
 
   // 处理批量下载视频
   const handleBatchDownloadVideos = useCallback(async () => {
@@ -2417,6 +2431,7 @@ export function useTextToVideo() {
     handleKeyDown,
     handleVideoDoubleClick,
     handleDeleteVideo,
+    handleCutVideo,
     handleBatchCopyVideos,
     handleBatchDownloadVideos,
     handleResizeStart,
@@ -2424,7 +2439,6 @@ export function useTextToVideo() {
     
     // Utils
     cleanMessageContent,
-    isZh,
     
     // Viewer
     viewerOpen,

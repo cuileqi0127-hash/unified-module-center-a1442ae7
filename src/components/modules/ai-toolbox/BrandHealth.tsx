@@ -97,8 +97,7 @@ interface BrandHealthProps {
 }
 
 export function BrandHealth({ onNavigate }: BrandHealthProps) {
-  const { i18n } = useTranslation();
-  const isZh = i18n.language === 'zh';
+  const { t } = useTranslation();
   
   const [view, setView] = useState<'input' | 'report'>('input');
   const [isLoading, setIsLoading] = useState(false);
@@ -142,11 +141,11 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Brand Name */}
               <div className="space-y-2">
                 <Label htmlFor="brandName" className="text-sm font-medium">
-                  {isZh ? '品牌名称' : 'Brand Name'} <span className="text-destructive">*</span>
+                  {t('brandHealth.brandName')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="brandName"
-                  placeholder={isZh ? '如: AOS' : 'e.g., AOS'}
+                  placeholder={t('brandHealth.brandNamePlaceholder')}
                   value={formData.brandName}
                   onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
                   className="h-11"
@@ -170,7 +169,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Competitors */}
               <div className="space-y-2">
                 <Label htmlFor="competitors" className="text-sm font-medium">
-                  {isZh ? '推荐竞品' : 'Competitors'}
+                  {t('brandHealth.competitors')}
                 </Label>
                 <Input
                   id="competitors"
@@ -212,7 +211,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <Button variant="ghost" onClick={handleBack} className="gap-2 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
-              {isZh ? '返回重新生成' : 'Back to Regenerate'}
+              {t('brandHealth.backToRegenerate')}
             </Button>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-2">
@@ -229,10 +228,10 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           {/* Report Title */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-foreground">
-              {formData.brandName} {isZh ? '品牌健康度报告' : 'Brand Health Report'}
+              {formData.brandName} {t('brandHealth.reportTitleSuffix')}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isZh ? '生成时间：2024年1月16日' : 'Generated: January 16, 2024'}
+              {t('brandHealth.generatedTime')}
             </p>
           </div>
 
@@ -243,7 +242,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Zap className="h-5 w-5 text-orange-500" />
-                  {isZh ? '执行摘要' : 'Executive Summary'}
+                  {t('brandHealth.executiveSummary')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -264,15 +263,15 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                 <div className="grid grid-cols-3 gap-3 border-t pt-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-orange-500">72</div>
-                    <div className="text-xs text-muted-foreground">{isZh ? 'SEO可见度' : 'SEO Visibility'}</div>
+                    <div className="text-xs text-muted-foreground">{t('brandHealth.seoVisibility')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-500">85</div>
-                    <div className="text-xs text-muted-foreground">{isZh ? '社交互动' : 'Social Interaction'}</div>
+                    <div className="text-xs text-muted-foreground">{t('brandHealth.socialInteraction')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-blue-500">68</div>
-                    <div className="text-xs text-muted-foreground">{isZh ? '竞争指数' : 'Competition Index'}</div>
+                    <div className="text-xs text-muted-foreground">{t('brandHealth.competitionIndex')}</div>
                   </div>
                 </div>
               </CardContent>
@@ -293,7 +292,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                       <div className="mb-2 flex items-center justify-between">
                         <span className="text-sm font-medium">{risk.item}</span>
                         <Badge variant={risk.level === 'high' ? 'destructive' : 'secondary'} className="text-xs">
-                          {risk.level === 'high' ? (isZh ? '高风险' : 'High') : (isZh ? '中风险' : 'Medium')}
+                          {risk.level === 'high' ? t('brandHealth.riskHigh') : t('brandHealth.riskMedium')}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">{risk.signal}</p>
@@ -309,7 +308,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <div className="mb-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
               <TrendingUp className="h-5 w-5 text-orange-500" />
-              {isZh ? '市场洞察' : 'Market Insights'}
+              {t('brandHealth.marketInsights')}
             </h2>
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Industry Heat Trend */}
@@ -340,7 +339,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Competitor Radar */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{isZh ? '竞品雷达图' : 'Competitor Radar'}</CardTitle>
+                  <CardTitle className="text-base">{t('brandHealth.competitorRadar')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={220}>
@@ -362,7 +361,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <div className="mb-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
               <Users className="h-5 w-5 text-orange-500" />
-              {isZh ? '消费者洞察' : 'Consumer Insights'}
+              {t('brandHealth.consumerInsights')}
             </h2>
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Demographics */}
@@ -386,9 +385,9 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {/* Demand Matrix */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{isZh ? '需求矩阵' : 'Demand Matrix'}</CardTitle>
+                  <CardTitle className="text-base">{t('brandHealth.demandMatrix')}</CardTitle>
                   <CardDescription className="text-xs">
-                    {isZh ? 'X轴: 满足度 | Y轴: 重要性' : 'X: Satisfaction | Y: Importance'}
+                    {t('brandHealth.axisHint')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -421,7 +420,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <div className="mb-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
               <Target className="h-5 w-5 text-orange-500" />
-              {isZh ? '品牌健康' : 'Brand Health'}
+              {t('brandHealth.brandHealthSection')}
             </h2>
             <div className="grid gap-6 lg:grid-cols-2">
               {/* SEO Dashboard */}
@@ -433,19 +432,19 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg bg-orange-50 p-3 text-center dark:bg-orange-950/30">
                       <div className="text-xl font-bold text-orange-600">12</div>
-                      <div className="text-xs text-muted-foreground">{isZh ? 'TOP 1-3 关键词' : 'TOP 1-3 Keywords'}</div>
+                      <div className="text-xs text-muted-foreground">{t('brandHealth.topKeywords')}</div>
                     </div>
                     <div className="rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-950/30">
                       <div className="text-xl font-bold text-blue-600">36.1K</div>
-                      <div className="text-xs text-muted-foreground">{isZh ? '流量价值' : 'Traffic Value'}</div>
+                      <div className="text-xs text-muted-foreground">{t('brandHealth.trafficValue')}</div>
                     </div>
                     <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-950/30">
                       <div className="text-xl font-bold text-green-600">+18%</div>
-                      <div className="text-xs text-muted-foreground">{isZh ? '周环比增长' : 'WoW Growth'}</div>
+                      <div className="text-xs text-muted-foreground">{t('brandHealth.wowGrowth')}</div>
                     </div>
                     <div className="rounded-lg bg-purple-50 p-3 text-center dark:bg-purple-950/30">
                       <div className="text-xl font-bold text-purple-600">89</div>
-                      <div className="text-xs text-muted-foreground">{isZh ? '关键词总数' : 'Total Keywords'}</div>
+                      <div className="text-xs text-muted-foreground">{t('brandHealth.totalKeywords')}</div>
                     </div>
                   </div>
                   <ResponsiveContainer width="100%" height={120}>
@@ -476,7 +475,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                             </Badge>
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            {item.interactions.toLocaleString()} {isZh ? '互动' : 'interactions'}
+                            {item.interactions.toLocaleString()} {t('brandHealth.interactions')}
                           </div>
                         </div>
                         <Badge 
@@ -497,7 +496,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <div className="mb-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
               <Shield className="h-5 w-5 text-orange-500" />
-              {isZh ? '策略建议' : 'Strategy Recommendations'}
+              {t('brandHealth.strategyRecommendations')}
             </h2>
             <div className="grid gap-6 lg:grid-cols-2">
               {/* SWOT Analysis */}
@@ -509,38 +508,38 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg bg-green-50 p-3 dark:bg-green-950/30">
                       <div className="mb-2 text-sm font-semibold text-green-700 dark:text-green-400">
-                        {isZh ? '优势 Strengths' : 'Strengths'}
+                        {t('brandHealth.strengths')}
                       </div>
                       <ul className="space-y-1 text-xs text-green-600 dark:text-green-300">
-                        <li>• {isZh ? '用户互动率高' : 'High user engagement'}</li>
-                        <li>• {isZh ? '内容质量优秀' : 'Excellent content quality'}</li>
+                        <li>• {t('brandHealth.strength1')}</li>
+                        <li>• {t('brandHealth.strength2')}</li>
                       </ul>
                     </div>
                     <div className="rounded-lg bg-red-50 p-3 dark:bg-red-950/30">
                       <div className="mb-2 text-sm font-semibold text-red-700 dark:text-red-400">
-                        {isZh ? '劣势 Weaknesses' : 'Weaknesses'}
+                        {t('brandHealth.weaknesses')}
                       </div>
                       <ul className="space-y-1 text-xs text-red-600 dark:text-red-300">
-                        <li>• {isZh ? 'SEO覆盖不足' : 'Insufficient SEO coverage'}</li>
-                        <li>• {isZh ? '更新频率偏低' : 'Low update frequency'}</li>
+                        <li>• {t('brandHealth.weakness1')}</li>
+                        <li>• {t('brandHealth.weakness2')}</li>
                       </ul>
                     </div>
                     <div className="rounded-lg bg-orange-50 p-3 dark:bg-orange-950/30">
                       <div className="mb-2 text-sm font-semibold text-orange-700 dark:text-orange-400">
-                        {isZh ? '机会 Opportunities' : 'Opportunities'}
+                        {t('brandHealth.opportunities')}
                       </div>
                       <ul className="space-y-1 text-xs text-orange-600 dark:text-orange-300">
-                        <li>• {isZh ? '行业热度上升' : 'Rising industry heat'}</li>
-                        <li>• {isZh ? '年轻用户增长' : 'Young user growth'}</li>
+                        <li>• {t('brandHealth.opportunity1')}</li>
+                        <li>• {t('brandHealth.opportunity2')}</li>
                       </ul>
                     </div>
                     <div className="rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950/30">
                       <div className="mb-2 text-sm font-semibold text-yellow-700 dark:text-yellow-400">
-                        {isZh ? '威胁 Threats' : 'Threats'}
+                        {t('brandHealth.threats')}
                       </div>
                       <ul className="space-y-1 text-xs text-yellow-600 dark:text-yellow-300">
-                        <li>• {isZh ? '竞品SEO强势' : 'Strong competitor SEO'}</li>
-                        <li>• {isZh ? '市场竞争加剧' : 'Intensifying competition'}</li>
+                        <li>• {t('brandHealth.threat1')}</li>
+                        <li>• {t('brandHealth.threat2')}</li>
                       </ul>
                     </div>
                   </div>

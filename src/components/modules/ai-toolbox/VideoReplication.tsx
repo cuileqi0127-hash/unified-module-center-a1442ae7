@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
 import { 
-  Video, 
-  Image as ImageIcon, 
-  FileText, 
-  Sparkles, 
-  Loader2, 
+  Video,
+  Image as ImageIcon,
+  FileText,
+  Sparkles,
+  Loader2,
   Copy, 
   Download,
   X,
@@ -70,7 +70,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     // Reset input
     e.target.value = '';
   }, []);
-  
+    
   // Process video file
   const processVideoFile = useCallback(async (file: File) => {
     // Validate video format
@@ -90,14 +90,14 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     
     try {
       // Create local preview URL
-      const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(file);
       const videoId = crypto.randomUUID();
       
       const newVideo = {
         id: videoId,
         type: 'video' as const,
-        name: file.name,
-        url,
+          name: file.name,
+          url,
         file,
       };
       
@@ -220,7 +220,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         
         setReferenceImage(newImage);
         toast.success(t('videoReplication.success.imageUploaded'));
-      } else {
+    } else {
         throw new Error(t('videoReplication.errors.uploadImage'));
       }
     } catch (error) {
@@ -242,7 +242,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     e.preventDefault();
     setIsImageDragOver(false);
   }, []);
-  
+
   // Handle image drop
   const handleImageDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -354,14 +354,14 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       {/* Main Content */}
       <div className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-2xl mx-auto space-y-8">
-          {/* Header */}
+        {/* Header */}
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Video className="w-6 h-6 text-primary" />
               <h1 className="text-2xl font-bold">{t('videoReplication.title')}</h1>
-            </div>
-            <p className="text-muted-foreground">{t('videoReplication.subtitle')}</p>
           </div>
+            <p className="text-muted-foreground">{t('videoReplication.subtitle')}</p>
+        </div>
 
           {/* Upload View (Step 1 & 2) */}
           {viewState === 'upload' && (
@@ -386,9 +386,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                         <div className="flex flex-col items-center">
                           <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
                           <p className="font-medium text-sm">{t('videoReplication.uploading')}</p>
-                        </div>
-                      </div>
-                    ) : (
+            </div>
+                </div>
+              ) : (
                       <>
                         <Video className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
                         <h3 className="font-medium mb-2">{t('videoReplication.uploadVideo')}</h3>
@@ -396,7 +396,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                           {t('videoReplication.uploadVideoHint')}<br />
                           <span className="text-xs mt-2 block">{t('videoReplication.formats.video')}</span>
                         </p>
-                        <Button
+                          <Button
                           className="mx-auto"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -405,45 +405,45 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                           disabled={isVideoUploading}
                         >
                           {t('videoReplication.selectVideo')}
-                        </Button>
+                          </Button>
                       </>
                     )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="video/*"
-                      className="hidden"
-                      onChange={handleVideoUpload}
-                    />
-                  </div>
-                ) : (
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={handleVideoUpload}
+                />
+              </div>
+            ) : (
                   <div className="border border-primary/50 rounded-lg p-4 bg-primary/5">
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                         <Video className="w-5 h-5 text-primary" />
                         <span className="font-medium truncate max-w-[200px]">{originalVideo.name}</span>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8"
-                        onClick={() => setOriginalVideo(null)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <video 
-                      src={originalVideo.url} 
-                      className="w-full h-48 object-cover rounded-md bg-black"
-                      controls
-                    />
                   </div>
-                )}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                        className="h-8 w-8"
+                    onClick={() => setOriginalVideo(null)}
+                  >
+                        <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <video 
+                  src={originalVideo.url} 
+                      className="w-full h-48 object-cover rounded-md bg-black"
+                  controls
+                />
+              </div>
+            )}
               </div>
 
               {/* Generate Prompt Button */}
               <div className="pt-4">
-                <Button 
+                  <Button 
                   className="w-full"
                   disabled={!originalVideo || isVideoUploading}
                   onClick={handleAnalyzeVideo}
@@ -451,10 +451,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   {t('videoReplication.generatePrompt')}
-                </Button>
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Analyzing View (Step 3) */}
           {viewState === 'analyzing' && (
@@ -486,29 +486,29 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                       <Copy className="w-4 h-4 mr-1" />
                       {t('videoReplication.copy')}
                     </Button>
-                  </div>
-                  <Textarea
-                    value={sellingPoints}
-                    onChange={(e) => setSellingPoints(e.target.value)}
+              </div>
+              <Textarea
+                value={sellingPoints}
+                onChange={(e) => setSellingPoints(e.target.value)}
                     className="min-h-[120px] resize-none"
                     placeholder={t('videoReplication.sellingPointsPlaceholder')}
-                  />
+              />
                 </div>
-              </div>
+            </div>
 
               {/* Continue Button */}
               <div className="pt-4">
-                <Button 
-                  className="w-full"
+              <Button 
+                className="w-full"
                   disabled={!sellingPoints.trim()}
                   onClick={() => setViewState('image-upload')}
-                >
+              >
                   <ImageIcon className="w-4 h-4 mr-2" />
                   {t('videoReplication.uploadImage')}
-                </Button>
+              </Button>
               </div>
-            </div>
-          )}
+          </div>
+        )}
 
           {/* Image Upload View (Step 5) */}
           {viewState === 'image-upload' && (
@@ -518,9 +518,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 <div className="flex items-center gap-2 mb-2">
                   <FileText className="w-5 h-5 text-muted-foreground" />
                   <h3 className="font-medium">{t('videoReplication.sellingPointsSection')}</h3>
-                </div>
+            </div>
                 <p className="text-sm text-muted-foreground line-clamp-3">{sellingPoints}</p>
-              </div>
+          </div>
 
               {/* Image Upload */}
               <div>
@@ -542,8 +542,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                         <div className="flex flex-col items-center">
                           <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
                           <p className="font-medium text-sm">{t('videoReplication.uploading')}</p>
-                        </div>
-                      </div>
+                  </div>
+                </div>
                     ) : (
                       <>
                         <ImageIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
@@ -552,7 +552,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                           {t('videoReplication.referenceImageHint')}<br />
                           <span className="text-xs mt-2 block">{t('videoReplication.formats.image')}</span>
                         </p>
-                        <Button
+            <Button 
                           className="mx-auto"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -562,8 +562,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                         >
                           {t('videoReplication.selectImage')}
                         </Button>
-                      </>
-                    )}
+                </>
+              )}
                     <input
                       ref={imageInputRef}
                       type="file"
@@ -589,17 +589,17 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                         }}
                       >
                         <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+            </Button>
+          </div>
                     <img 
                       src={referenceImage.url} 
                       alt={t('videoReplication.referenceImageSection')}
                       className="w-full h-48 object-cover rounded-md"
-                    />
-                  </div>
+              />
+            </div>
                 )}
-              </div>
-
+                </div>
+                
               {/* Generate Video Button */}
               <div className="pt-4">
                 <Button 
@@ -609,9 +609,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   {t('videoReplication.startReplication')}
-                </Button>
-              </div>
-            </div>
+                              </Button>
+                            </div>
+                          </div>
           )}
 
           {/* Generating View (Step 6) */}
@@ -619,13 +619,13 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             <div className="flex flex-col items-center justify-center py-16">
               <div className="w-20 h-20 mb-6 relative">
                 <Loader2 className="w-20 h-20 text-primary animate-spin" />
-              </div>
+                          </div>
               <h2 className="text-xl font-medium mb-2">{t('videoReplication.generatingVideo')}</h2>
               <p className="text-muted-foreground text-center max-w-md">
                 {t('videoReplication.generatingVideoHint')}
               </p>
-            </div>
-          )}
+              </div>
+            )}
 
           {/* Result View */}
           {viewState === 'result' && generatedVideo && (
@@ -659,9 +659,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 >
                   {t('videoReplication.createAnother')}
                 </Button>
-              </div>
-            </div>
-          )}
+                  </div>
+                </div>
+              )}
 
           {/* Error Handling */}
           {generationError && (
@@ -681,10 +681,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 >
                   {t('videoReplication.startOver')}
                 </Button>
-              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
       </div>
     </div>
   );
