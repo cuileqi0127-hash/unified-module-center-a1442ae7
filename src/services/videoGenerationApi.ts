@@ -13,14 +13,17 @@ import { apiPost, type ApiResponse } from './apiClient';
 const VOD_BASE_URL = '/vod';  // 使用相对路径，通过 Nginx 代理到 /vod
 const AIGC_BASE_URL = '/aigc';  // 使用相对路径，通过 Nginx 代理到 /aigc
 
-// 支持的模型类型
-export type VideoModel = 'OS' | 'Kling';
+// 支持的模型类型（Sora 2 / 海螺 / 可灵 / 即梦 / Vidu）
+export type VideoModel = 'OS' | 'Hailuo' | 'Kling' | 'Jimeng' | 'Vidu';
 
-// 支持的视频时长
-export type VideoSeconds = '4' | '5' | '8' | '10' | '12';
+// 支持的视频时长（秒）
+export type VideoSeconds = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '12';
 
-// 支持的视频尺寸（16:9 对应 1280x720，9:16 对应 720x1280，1:1 对应 1024x1024）
-export type VideoSize = '16:9' | '9:16' | '1:1';
+// 支持的视频尺寸（宽高比）
+export type VideoSize = '16:9' | '9:16' | '1:1' | '4:3' | '3:4';
+
+// 支持的分辨率
+export type VideoResolution = '768P' | '1080P';
 
 /**
  * 将尺寸比例转换为 API 需要的像素格式
@@ -29,11 +32,30 @@ export type VideoSize = '16:9' | '9:16' | '1:1';
  */
 export function mapSizeToApiFormat(size: VideoSize): string {
   const sizeMap: Record<VideoSize, string> = {
-    '16:9': '1280x720', // 720p 横屏
-    '9:16': '720x1280', // 720p 竖屏
-    '1:1': '1024x1024', // 正方形
+    '16:9': '1280x720',
+    '9:16': '720x1280',
+    '1:1': '1024x1024',
+    '4:3': '1024x768',
+    '3:4': '768x1024',
   };
   return sizeMap[size] || '1280x720';
+}
+
+/**
+ * 确保为 video-tasks 接口的 aspectRatio 枚举（比例格式）
+ * 若传入的是分辨率如 1280x720，则转为 16:9；接口只接受 16:9 | 9:16 | 1:1
+ */
+const RATIO_VALUES: VideoSize[] = ['16:9', '9:16', '1:1', '4:3', '3:4'];
+
+export function ensureAspectRatioEnum(sizeOrResolution: string): VideoSize {
+  const resolutionToRatio: Record<string, VideoSize> = {
+    '1280x720': '16:9',
+    '720x1280': '9:16',
+    '1024x1024': '1:1',
+  };
+  if (resolutionToRatio[sizeOrResolution]) return resolutionToRatio[sizeOrResolution];
+  if (RATIO_VALUES.includes(sizeOrResolution as VideoSize)) return sizeOrResolution as VideoSize;
+  return '16:9';
 }
 
 // 视频生成请求参数

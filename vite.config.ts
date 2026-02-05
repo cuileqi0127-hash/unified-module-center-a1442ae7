@@ -31,12 +31,14 @@ export default defineConfig(({ mode }) => ({
       },
       // 文件代理（用于下载跨域文件）
       "/api/proxy": {
-        target: 'http://94.74.101.163:28080',
+        // target: 'http://94.74.101.163:28080',
+        target: 'http://192.168.112.253:8000/',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/proxy/, '/api/proxy'),
       },
       '/api': {
-        target: 'http://94.74.101.163:28080',
+        // target: 'http://94.74.101.163:28080',
+        target: 'http://192.168.112.253:8000/',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
@@ -54,7 +56,8 @@ export default defineConfig(({ mode }) => ({
       },
       // 上传文件接口代理（端口 8000）
       '/common': {
-        target: 'http://94.74.101.163:28080',
+        // target: 'http://94.74.101.163:28080',
+        target: 'http://192.168.112.253:8000/',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/common/, '/common'),
       },

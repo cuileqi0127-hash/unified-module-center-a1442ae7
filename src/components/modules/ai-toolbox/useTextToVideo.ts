@@ -8,17 +8,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { 
-  createVideoTask,
-  pollTaskStatus,
-  uploadMediaFile,
-  type VideoModel,
-  type VideoTaskResponse
-} from '@/services/videoGenerationApi';
+import { ensureAspectRatioEnum, type VideoModel, type VideoTaskResponse } from '@/services/videoGenerationApi';
 import {
   getSessions,
   createSession,
   saveGenerationResult,
+  submitVideoTask,
+  getTaskStatus,
   updateSession,
   updateCanvasItem,
   batchDeleteCanvasItems,
@@ -34,8 +30,13 @@ import {
   getModelSizes,
   getModelDefaultSeconds,
   getModelDefaultSize,
+  getModelResolutions,
+  getModelDefaultResolution,
+  getModelVersion,
+  modelSupportsEnhanceSwitch,
   isValidSecondsForModel,
   isValidSizeForModel,
+  isValidResolutionForModel,
   DEFAULT_VIDEO_MODEL,
 } from './textToVideoConfig';
 import { type SelectedImage } from './ImageCapsule';
@@ -72,11 +73,11 @@ export interface CanvasVideo {
   ossKey?: string; // OSS存储密钥
 }
 
-// 任务队列项
+// 任务队列项（会话 id 与接口一致，支持字符串）
 interface VideoTaskQueueItem {
   taskId: string;
   messageId: string;
-  sessionId: number | null; // 保存会话ID，确保任务完成后能正确入库
+  sessionId: string | number | null;
   prompt: string;
   model: VideoModel;
   seconds: string;
@@ -155,6 +156,8 @@ export function useTextToVideo() {
   const [model, setModel] = useState<VideoModel>(DEFAULT_VIDEO_MODEL);
   const [seconds, setSeconds] = useState<string>(getModelDefaultSeconds(DEFAULT_VIDEO_MODEL));
   const [size, setSize] = useState<string>(getModelDefaultSize(DEFAULT_VIDEO_MODEL));
+  const [resolution, setResolution] = useState<string>(getModelDefaultResolution(DEFAULT_VIDEO_MODEL));
+  const [enhanceSwitch, setEnhanceSwitch] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(mockHistory);
   const [isGenerating, setIsGenerating] = useState(false);
   const [canvasVideos, setCanvasVideos] = useState<CanvasVideo[]>(initialCanvasVideos);
@@ -175,7 +178,7 @@ export function useTextToVideo() {
   const [taskPlaceholders, setTaskPlaceholders] = useState<CanvasVideo[]>([]);
   
   // 会话管理状态
-  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | number | null>(null);
   const [historySessions, setHistorySessions] = useState<Array<{ id: string; title: string; timestamp: Date; assetCount: number }>>([]);
   const [historyPage, setHistoryPage] = useState(1); // 当前页码
   const [hasMoreHistory, setHasMoreHistory] = useState(true); // 是否还有更多历史记录
@@ -183,8 +186,8 @@ export function useTextToVideo() {
   const [isInitializing, setIsInitializing] = useState(true); // 是否正在初始化（首次加载历史记录）
   const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   
-  // 画布元素ID映射（用于更新数据库）
-  const canvasItemIdMap = useRef<Map<string, number>>(new Map());
+  // 画布元素ID映射（用于更新数据库；接口返回 id 可能为字符串）
+  const canvasItemIdMap = useRef<Map<string, string | number>>(new Map());
 
   // 任务队列相关 refs
   const activePollingTasksRef = useRef<Map<string, { cancel: () => void }>>(new Map());
@@ -196,6 +199,8 @@ export function useTextToVideo() {
   const models = getVideoModelList();
   const secondsOptions = getModelSeconds(model);
   const sizesOptions = getModelSizes(model);
+  const resolutionOptions = getModelResolutions(model);
+  const enhanceSwitchSupported = modelSupportsEnhanceSwitch(model);
 
   // 判断URL是否为视频
   const isVideoUrl = useCallback((url: string): boolean => {
@@ -258,17 +263,21 @@ export function useTextToVideo() {
     return content.replace(/!\[([^\]]*)\]\([^)]+\)/g, '').trim();
   }, []);
 
-  // 当模型切换时，重置时长和尺寸为对应模型的默认值
+  // 当模型切换时，重置时长、尺寸、分辨率为对应模型的默认值；增强开关仅部分模型支持
   useEffect(() => {
     if (!isValidSecondsForModel(model, seconds)) {
-      const defaultSeconds = getModelDefaultSeconds(model);
-      setSeconds(defaultSeconds);
+      setSeconds(getModelDefaultSeconds(model));
     }
     if (!isValidSizeForModel(model, size)) {
-      const defaultSize = getModelDefaultSize(model);
-      setSize(defaultSize);
+      setSize(getModelDefaultSize(model));
     }
-  }, [model, seconds, size]);
+    if (!isValidResolutionForModel(model, resolution)) {
+      setResolution(getModelDefaultResolution(model));
+    }
+    if (!modelSupportsEnhanceSwitch(model)) {
+      setEnhanceSwitch(false);
+    }
+  }, [model, seconds, size, resolution]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -431,7 +440,7 @@ export function useTextToVideo() {
                   type: msg.type === 'user' ? 'user' : 'system',
                   content: msg.content,
                   timestamp: new Date(msg.createTime || Date.now()),
-                  status: msg.status === 'complete' ? 'completed' : msg.status === 'processing' ? 'processing' : 'queued',
+                  status: msg.status === 'complete' || msg.status === 'completed' ? 'completed' : msg.status === 'processing' ? 'processing' : msg.status === 'failed' ? 'failed' : 'queued',
                   resultSummary: msg.resultSummary,
                 };
                 
@@ -519,9 +528,9 @@ export function useTextToVideo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在组件挂载时执行一次
 
-  // 防抖更新会话视图
+  // 防抖更新会话视图（会话 id 支持字符串，与接口一致）
   const debouncedUpdateSession = useRef(
-    debounce(async (sessionId: number, zoom: number, pan: { x: number; y: number }) => {
+    debounce(async (sessionId: string | number, zoom: number, pan: { x: number; y: number }) => {
       try {
         await updateSession(sessionId, {
           canvasView: { zoom, pan },
@@ -532,9 +541,9 @@ export function useTextToVideo() {
     }, 500)
   ).current;
 
-  // 防抖更新画布元素
+  // 防抖更新画布元素（画布元素 id 支持字符串，与接口一致）
   const debouncedUpdateCanvasItem = useRef(
-    debounce(async (canvasItemId: number, x: number, y: number, width?: number, height?: number) => {
+    debounce(async (canvasItemId: string | number, x: number, y: number, width?: number, height?: number) => {
       try {
         await updateCanvasItem(canvasItemId, {
           x,
@@ -739,7 +748,7 @@ export function useTextToVideo() {
                   type: msg.type === 'user' ? 'user' : 'system',
                   content: msg.content,
                   timestamp: new Date(msg.createTime || Date.now()),
-                  status: msg.status === 'complete' ? 'completed' : msg.status === 'processing' ? 'processing' : 'queued',
+                  status: msg.status === 'complete' || msg.status === 'completed' ? 'completed' : msg.status === 'processing' ? 'processing' : msg.status === 'failed' ? 'failed' : 'queued',
                   resultSummary: msg.resultSummary,
                 };
                 
@@ -789,6 +798,21 @@ export function useTextToVideo() {
                 restoredMessages.push(systemMessage);
           });
           
+          // 根据 generations 中 status 为 queued/processing 的项，补充系统消息（用于轮询进度展示）
+          const pendingGenerations = session.generations.filter(
+            (g): g is typeof g & { status: 'queued' | 'processing' } =>
+              g.status === 'queued' || g.status === 'processing'
+          );
+          pendingGenerations.forEach(gen => {
+            restoredMessages.push({
+              id: `gen-${gen.id}`,
+              type: 'system',
+              content: gen.status === 'processing' ? t('toast.generatingVideo') : t('toast.taskQueued'),
+              timestamp: new Date(gen.createTime || Date.now()),
+              status: gen.status === 'processing' ? 'processing' : 'queued',
+            });
+          });
+          
           // 按时间戳排序
           restoredMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
           
@@ -796,6 +820,34 @@ export function useTextToVideo() {
         }
         
         setShowHistory(false);
+        
+        // 会话详情中 generations[].status 为 processing（或 queued）时，用 generations[].id 作为任务 id 执行轮询
+        // 轮询接口：GET /api/tools/gen/sessions/{会话id}/tasks/{任务id}，任务 id 即 generations[].id
+        if (session.generations && session.generations.length > 0) {
+          const pending = session.generations.filter(
+            (g): g is typeof g & { status: 'queued' | 'processing' } =>
+              g.status === 'queued' || g.status === 'processing'
+          );
+          pending.forEach(gen => {
+            addTaskToQueue({
+              taskId: String(gen.id), // 任务 id = generations[].id，用于查任务状态接口
+              messageId: `gen-${gen.id}`,
+              sessionId: session.id,
+              prompt: gen.prompt,
+              model: (gen.model as VideoModel) || (session.settings?.model as VideoModel) || DEFAULT_VIDEO_MODEL,
+              seconds: (session.settings as { seconds?: string })?.seconds ?? getModelDefaultSeconds(DEFAULT_VIDEO_MODEL),
+              size: gen.size || session.settings?.size || getModelDefaultSize(DEFAULT_VIDEO_MODEL),
+              status: gen.status as 'queued' | 'processing',
+              progress: gen.progress ?? 0,
+              createdAt: gen.createTime ? new Date(gen.createTime).getTime() : Date.now(),
+            });
+          });
+          if (pending.length > 0) {
+            updatePlaceholdersFromQueueRef.current?.();
+            processTaskQueueRef.current?.();
+          }
+        }
+        
         toast.success(t('toast.sessionLoaded'));
       }
     } catch (error) {
@@ -886,8 +938,10 @@ export function useTextToVideo() {
     toast.success(t('toast.copiedToClipboard'));
   }, [t, isVideoUrl]);
 
-  // 处理粘贴视频
-  const handlePasteVideo = useCallback(async () => {
+  // 处理粘贴视频（可选 pasteX, pasteY：右键粘贴时传入，使粘贴位置与右键坐标一致）
+  const handlePasteVideo = useCallback(async (pasteX?: number, pasteY?: number) => {
+    const startX = pasteX ?? 300;
+    const startY = pasteY ?? 200;
     // 优先处理批量粘贴
     if (copiedVideos.length > 0) {
       const newVideos: CanvasVideo[] = [];
@@ -898,13 +952,15 @@ export function useTextToVideo() {
         height: v.height,
       }));
 
-      // 批量粘贴多个视频/图片
+      // 批量粘贴多个视频/图片：首个以 pasteX/pasteY 为基准，其余在其附近找不重叠位置
       for (let i = 0; i < copiedVideos.length; i++) {
         const copiedItem = copiedVideos[i];
         const isVideo = copiedItem.type === 'video' || isVideoUrl(copiedItem.url);
         const dimensions = isVideo 
           ? await getVideoDimensions(copiedItem.url)
           : await getImageDimensions(copiedItem.url);
+        const baseX = i === 0 ? startX : newVideos[0].x;
+        const baseY = i === 0 ? startY : newVideos[0].y;
         const position = findNonOverlappingPosition(
           { width: dimensions.width, height: dimensions.height },
           [...existingRects, ...newVideos.map(v => ({
@@ -912,7 +968,9 @@ export function useTextToVideo() {
             y: v.y,
             width: v.width,
             height: v.height,
-          }))]
+          }))],
+          baseX,
+          baseY
         );
         
         const newVideo: CanvasVideo = {
@@ -1010,7 +1068,9 @@ export function useTextToVideo() {
           y: v.y,
           width: v.width,
           height: v.height,
-        }))
+        })),
+        startX,
+        startY
       );
       const newVideo: CanvasVideo = {
         ...copiedVideo,
@@ -1288,75 +1348,97 @@ export function useTextToVideo() {
     setMessages(prev => [...prev, systemMessage]);
 
     try {
-      // 获取参考图片（从画布选中的图层中筛选出图片，只选择第一个）
-      let fileId: string | undefined;
-      const selectedCanvasVideoIds = selectedVideoIds.length > 0 
-        ? selectedVideoIds 
-        : selectedVideoId 
-          ? [selectedVideoId] 
+      // 参考图：画布选中的图片 URL 列表（图生视频，最多 1 个）
+      const sourceImages: string[] = [];
+      const selectedCanvasVideoIds = selectedVideoIds.length > 0
+        ? selectedVideoIds
+        : selectedVideoId
+          ? [selectedVideoId]
           : [];
-      
-      // 如果有选中的图层，筛选出图片类型，只选择第一个
       if (selectedCanvasVideoIds.length > 0) {
-        // 找到第一个图片类型的图层
-        const selectedImage = canvasVideos.find(v => 
-          selectedCanvasVideoIds.includes(v.id) && 
-          (v.type === 'image' || v.url.match(/\.(jpg|jpeg|png|gif|webp)$/i))
+        const selectedImage = canvasVideos.find(
+          v =>
+            selectedCanvasVideoIds.includes(v.id) &&
+            (v.type === 'image' || v.url.match(/\.(jpg|jpeg|png|gif|webp)$/i))
         );
-        
-        if (selectedImage) {
-          try {
-            // 从 URL 获取图片文件
-            const imageResponse = await fetch(selectedImage.url);
-            const imageBlob = await imageResponse.blob();
-            const imageFile = new File([imageBlob], 'image.jpg', { type: imageBlob.type });
-            
-            // 上传图片获取 fileId
-            const uploadResponse = await uploadMediaFile(imageFile);
-            fileId = uploadResponse.fileId;
-          } catch (uploadError) {
-            console.error('Failed to upload image:', uploadError);
-            toast.error(t('toast.imageUploadFailedNoRef'));
-          }
+        if (selectedImage && !sourceImages.includes(selectedImage.url)) {
+          sourceImages.push(selectedImage.url);
         }
       }
 
-      // 创建视频生成任务
-      const taskResponse = await createVideoTask({
-        model: model,
+      const [ratioW, ratioH] = size.includes(':') ? size.split(':').map(Number) : size.split('x').map(Number);
+      const rW = ratioW || 16;
+      const rH = ratioH || 9;
+      const maxSize = 400;
+      const placeholderSize = rW >= rH
+        ? { width: maxSize, height: Math.round(maxSize * rH / rW) }
+        : { width: Math.round(maxSize * rW / rH), height: maxSize };
+      const existingRects = canvasVideos.map(v => ({
+        x: v.x,
+        y: v.y,
+        width: v.width,
+        height: v.height,
+      }));
+      const position = findNonOverlappingPosition(
+        { width: placeholderSize.width, height: placeholderSize.height },
+        existingRects,
+        300,
+        200,
+        50,
+        50,
+        100,
+        30
+      );
+
+      const response = await submitVideoTask(currentSessionId, {
+        modelName: model,
+        modelVersion: getModelVersion(model),
         prompt: currentPrompt,
-        seconds: seconds as any,
-        size: size as any,
-        fileId: fileId,
-        watermark: false, // 默认不添加水印
+        duration: parseInt(seconds, 10),
+        aspectRatio: ensureAspectRatioEnum(size),
+        resolution: resolutionOptions.length > 0 ? resolution : undefined,
+        ...(modelSupportsEnhanceSwitch(model) && { enhanceSwitch: enhanceSwitch }),
+        sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
+        canvasItem: {
+          x: position.x,
+          y: position.y,
+          width: placeholderSize.width,
+          height: placeholderSize.height,
+          rotate: 0,
+          visible: true,
+          zindex: canvasVideos.length,
+        },
       });
 
-      // 将任务添加到队列
+      if (!response.success || !response.data) {
+        throw new Error(response.msg || 'Submit video task failed');
+      }
+
+      const data = response.data;
+      // 任务 id 使用 video-tasks 返回的 generationId，轮询时请求 /api/tools/gen/sessions/{会话id}/tasks/{generationId}
       const queueItem: VideoTaskQueueItem = {
-        taskId: taskResponse.task_id,
+        taskId: String(data.generationId),
         messageId: systemMessage.id,
-        sessionId: currentSessionId, // 保存会话ID，确保任务完成后能正确入库
+        sessionId: currentSessionId,
         prompt: currentPrompt,
         model: model,
         seconds: seconds,
         size: size,
         status: 'queued',
-        progress: taskResponse.progress,
+        progress: 0,
         createdAt: Date.now(),
-        referenceFile: fileId,
       };
-      
       addTaskToQueue(queueItem);
       
       // 更新消息状态为排队中
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === systemMessage.id 
-            ? { 
-                ...msg, 
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === systemMessage.id
+            ? {
+                ...msg,
                 status: 'queued',
                 content: t('toast.taskQueued'),
-                progress: taskResponse.progress,
+                progress: 0,
               }
             : msg
         )
@@ -1387,59 +1469,58 @@ export function useTextToVideo() {
         )
       );
     }
-  }, [prompt, isGenerating, model, seconds, size, selectedVideoIds, selectedVideoId, canvasVideos, t, getVideoDimensions, handleAddSelectedVideo, currentSessionId]);
+  }, [prompt, isGenerating, model, seconds, size, resolution, resolutionOptions, enhanceSwitch, modelSupportsEnhanceSwitch, selectedVideoIds, selectedVideoId, canvasVideos, t, getVideoDimensions, handleAddSelectedVideo, currentSessionId]);
 
-  // 可取消的轮询函数
-  const pollTaskWithCancel = useCallback((
-    taskId: string,
-    onProgress?: (status: VideoTaskResponse) => void,
-    interval: number = 2000,
-    maxAttempts: number = 300
-  ): { promise: Promise<VideoTaskResponse>; cancel: () => void } => {
-    let cancelled = false;
-    let attempts = 0;
-    
-    const cancel = () => {
-      cancelled = true;
-    };
-    
-    const promise = (async (): Promise<VideoTaskResponse> => {
-      while (attempts < maxAttempts && !cancelled) {
-        try {
-          const status = await pollTaskStatus(taskId);
-          
-          if (onProgress) {
-            onProgress(status);
+  // 轮询会话任务状态（/api/tools/gen/sessions/{id}/tasks/{任务id}），会话 id、任务 id 均为字符串原样传递
+  const pollSessionTaskWithCancel = useCallback(
+    (
+      sessionId: string | number,
+      taskId: string,
+      onProgress?: (status: VideoTaskResponse) => void,
+      interval: number = 2000,
+      maxAttempts: number = 300
+    ): { promise: Promise<VideoTaskResponse>; cancel: () => void } => {
+      let cancelled = false;
+      let attempts = 0;
+
+      const cancel = () => {
+        cancelled = true;
+      };
+
+      const promise = (async (): Promise<VideoTaskResponse> => {
+        while (attempts < maxAttempts && !cancelled) {
+          try {
+            const res = await getTaskStatus(sessionId, taskId);
+            if (!res.success || !res.data) throw new Error(res.msg || 'Get task status failed');
+            const d = res.data;
+            const status: VideoTaskResponse = {
+              task_id: taskId,
+              status: d.status as 'queued' | 'processing' | 'completed' | 'failed',
+              progress: d.progress ?? 0,
+              video_url: d.downloadUrl,
+              error_message: d.failMessage,
+              error_code: d.failCode,
+            };
+            if (onProgress) onProgress(status);
+            if (d.status === 'completed') return status;
+            if (d.status === 'failed') {
+              throw new Error(d.failMessage || 'Video generation failed');
+            }
+            await new Promise(r => setTimeout(r, interval));
+            attempts++;
+          } catch (err) {
+            if (cancelled) throw new Error('Task polling cancelled');
+            throw err;
           }
-          
-          if (status.status === 'completed') {
-            return status;
-          }
-          
-          if (status.status === 'failed') {
-            throw new Error('Video generation failed');
-          }
-          
-          // 等待指定间隔后继续轮询
-          await new Promise(resolve => setTimeout(resolve, interval));
-          attempts++;
-        } catch (error) {
-          if (cancelled) {
-            throw new Error('Task polling cancelled');
-          }
-          throw error;
         }
-      }
-      
-      if (cancelled) {
-        throw new Error('Task polling cancelled');
-      }
-      
-      throw new Error('Task polling timeout');
-    })();
-    
-    return { promise, cancel };
-  }, []);
+        if (cancelled) throw new Error('Task polling cancelled');
+        throw new Error('Task polling timeout');
+      })();
+
+      return { promise, cancel };
+    },
+    []
+  );
 
   // 根据视频尺寸计算占位符尺寸
   const calculatePlaceholderDimensions = useCallback((size: string): { width: number; height: number } => {
@@ -1589,9 +1670,14 @@ export function useTextToVideo() {
       )
     );
 
+    if (!task.sessionId) {
+      throw new Error('Session ID is required for task polling');
+    }
+
     try {
-      // 开始轮询
-      const { promise, cancel } = pollTaskWithCancel(
+      // 轮询 /api/tools/gen/sessions/{id}/tasks/{任务id}，任务 id 为字符串原样传递
+      const { promise, cancel } = pollSessionTaskWithCancel(
+        task.sessionId,
         task.taskId,
         (status: VideoTaskResponse) => {
           // 更新进度和状态
@@ -1649,18 +1735,17 @@ export function useTextToVideo() {
       
       // 保存取消函数
       activePollingTasksRef.current.set(task.taskId, { cancel });
-      
+
       const finalStatus = await promise;
-      
+
       // 检查任务是否失败
       if (finalStatus.status === 'failed') {
         const errorMsg = finalStatus.error_message || t('toast.videoGenerationFailed');
         throw new Error(errorMsg);
       }
-      
+
       // 检查是否有视频 URL
       if (!finalStatus.video_url) {
-        // 如果状态是 completed 但没有 video_url，可能是 URL 还未生成，等待一下
         if (finalStatus.status === 'completed') {
           throw new Error(t('toast.videoCompleteNoUrlRetry'));
         }
@@ -1726,50 +1811,16 @@ export function useTextToVideo() {
         });
         setSelectedVideoId(newVideo.id);
         handleAddSelectedVideo(newVideo);
-        
-        // 保存生成结果到数据库（使用任务中保存的 sessionId）
+
+        // 任务完成后拉会话详情与会话历史
         const sessionIdToUse = task.sessionId || currentSessionId;
         if (sessionIdToUse) {
-          saveGenerationResult(sessionIdToUse, {
-            generation: {
-              model: task.model,
-              size: task.size,
-              prompt: task.prompt,
-              status: 'success',
-              seconds: task.seconds,
-            },
-            asset: {
-              type: 'video',
-              sourceUrl: videoUrl,
-              seq: 1,
-              width: dimensions.width,
-              height: dimensions.height,
-              duration: parseInt(task.seconds, 10),
-            },
-            message: {
-              type: 'system',
-              content: t('toast.generationComplete'),
-              status: 'complete',
-              resultSummary: t('toast.videoGenerationComplete'),
-            },
-            canvasItem: {
-              x: placeholder.x,
-              y: placeholder.y,
-              width: dimensions.width,
-              height: dimensions.height,
-              rotate: 0,
-              visible: true,
-              zindex: canvasVideos.length,
-            },
-          }).then(saveResponse => {
-            if (saveResponse.success && saveResponse.data) {
-              // 保存画布元素ID映射
-              canvasItemIdMap.current.set(newVideo.id, saveResponse.data.canvasItemId);
-            }
-          }).catch(error => {
-            console.error('Failed to save generation result:', error);
-            // 不阻止用户继续使用，只记录错误
-          });
+          try {
+            await getSessionDetail(sessionIdToUse.toString());
+            await loadSessions(1, false);
+          } catch (e) {
+            console.error('Failed to refresh session after video task:', e);
+          }
         }
       } else {
         // 如果没有找到占位符，使用原来的逻辑（计算不重叠位置）
@@ -1813,53 +1864,13 @@ export function useTextToVideo() {
           
           setSelectedVideoId(newVideo.id);
           handleAddSelectedVideo(newVideo);
-          
-          // 保存生成结果到数据库（使用任务中保存的 sessionId）
+
           const sessionIdToUse = task.sessionId || currentSessionId;
           if (sessionIdToUse) {
-            saveGenerationResult(sessionIdToUse, {
-              generation: {
-                model: task.model,
-                size: task.size,
-                prompt: task.prompt,
-                status: 'success',
-                seconds: task.seconds,
-              },
-              asset: {
-                type: 'video',
-                sourceUrl: videoUrl,
-                seq: 1,
-                width: dimensions.width,
-                height: dimensions.height,
-                duration: parseInt(task.seconds, 10),
-              },
-              message: {
-                type: 'system',
-                content: t('toast.generationComplete'),
-                status: 'complete',
-                resultSummary: t('toast.videoGenerationComplete'),
-              },
-              canvasItem: {
-                x: position.x,
-                y: position.y,
-                width: dimensions.width,
-                height: dimensions.height,
-                rotate: 0,
-                visible: true,
-                zindex: prevVideos.length,
-              },
-            }).then(async (saveResponse) => {
-              if (saveResponse.success && saveResponse.data) {
-                // 保存画布元素ID映射
-                canvasItemIdMap.current.set(newVideo.id, saveResponse.data.canvasItemId);
-                // 刷新历史记录
-                await loadSessions(1, false);
-              }
-            }).catch(error => {
-              console.error('Failed to save generation result:', error);
-            });
+            getSessionDetail(sessionIdToUse.toString()).catch(e => console.error('Failed to get session detail:', e));
+            loadSessions(1, false).catch(e => console.error('Failed to load sessions:', e));
           }
-          
+
           return [...prevVideos, newVideo];
         });
       }
@@ -1936,7 +1947,7 @@ export function useTextToVideo() {
       // 继续处理下一个任务
       processTaskQueueRef.current?.();
     }
-  }, [t, getVideoDimensions, handleAddSelectedVideo, pollTaskWithCancel, loadSessions]);
+  }, [t, getVideoDimensions, handleAddSelectedVideo, pollSessionTaskWithCancel, loadSessions, getSessionDetail]);
 
   // 处理任务队列（最多同时处理3个任务）
   const processTaskQueue = useCallback(() => {
@@ -1980,7 +1991,7 @@ export function useTextToVideo() {
   // 将函数保存到 ref
   processTaskQueueRef.current = processTaskQueue;
 
-  // 页面初始化时恢复任务队列处理，离开页面时关闭轮询
+  // 页面初始化时恢复任务队列处理；文生视频页面离开（卸载）时关闭所有轮询定时器
   useEffect(() => {
     // 进入页面：检查缓存数组长度，如果大于0则开启队列轮询
     const queue = getTaskQueue();
@@ -2023,9 +2034,8 @@ export function useTextToVideo() {
       updatePlaceholdersFromQueueRef.current?.();
     }
     
-    // 清理函数：离开页面时自动关闭所有轮询
+    // 清理函数：文生视频页面离开时关闭所有轮询定时器，取消正在进行的轮询
     return () => {
-      // 取消所有正在进行的轮询任务
       activePollingTasksRef.current.forEach(({ cancel }) => {
         try {
           cancel();
@@ -2033,13 +2043,11 @@ export function useTextToVideo() {
           console.error('Error cancelling polling task:', error);
         }
       });
-      // 清空轮询任务映射
       activePollingTasksRef.current.clear();
-      // 重置队列处理状态
       isProcessingQueueRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 只在组件挂载时执行一次，卸载时清理
+  }, []); // 仅挂载时执行，卸载时执行 cleanup 关闭轮询
 
   // 在 processTaskQueue 准备好后，检查并启动轮询
   useEffect(() => {
@@ -2244,13 +2252,13 @@ export function useTextToVideo() {
           }
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedVideo) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && (copiedVideo || copiedVideos.length > 0)) {
         handlePasteVideo();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedVideoId, selectedVideoIds, canvasVideos, copiedVideo, handleCopyVideo, handlePasteVideo, handleBatchCopyVideos]);
+  }, [selectedVideoId, selectedVideoIds, canvasVideos, copiedVideo, copiedVideos.length, handleCopyVideo, handlePasteVideo, handleBatchCopyVideos]);
 
   // 画布剪切：先拷贝再删除，与右键菜单一致
   const handleCutVideo = useCallback(async () => {
@@ -2382,6 +2390,10 @@ export function useTextToVideo() {
     setSeconds,
     size,
     setSize,
+    resolution,
+    setResolution,
+    enhanceSwitch,
+    setEnhanceSwitch,
     messages,
     isGenerating,
     canvasVideos,
@@ -2408,6 +2420,8 @@ export function useTextToVideo() {
     models,
     secondsOptions,
     sizesOptions,
+    resolutionOptions,
+    enhanceSwitchSupported,
     historySessions,
     hasMoreHistory,
     isLoadingHistory,

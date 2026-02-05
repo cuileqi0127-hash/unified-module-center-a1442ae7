@@ -8,16 +8,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { 
-  generateImage, 
-  extractImageUrls, 
-  extractRevisedPrompt,
-  type ImageModel 
-} from '@/services/imageGenerationApi';
+import type { ImageModel } from '@/services/imageGenerationApi';
 import {
   getSessions,
   createSession,
   saveGenerationResult,
+  submitImageTask,
+  getTaskStatus,
   updateSession,
   updateCanvasItem,
   batchDeleteCanvasItems,
@@ -51,12 +48,13 @@ export interface ChatMessage {
   image?: string;
   video?: string;
   timestamp: Date;
-  status?: 'thinking' | 'analyzing' | 'designing' | 'optimizing' | 'complete';
+  status?: 'thinking' | 'analyzing' | 'designing' | 'optimizing' | 'complete' | 'queued' | 'processing' | 'completed' | 'failed';
+  progress?: number;
   designThoughts?: string[];
   resultSummary?: string;
 }
 
-// 使用统一的媒体项类型（支持图片和视频）
+// 使用统一的媒体项类型（支持图片和视频、占位符）
 export interface CanvasImage {
   id: string;
   url: string;
@@ -65,8 +63,70 @@ export interface CanvasImage {
   width: number;
   height: number;
   prompt?: string;
-  type?: 'image' | 'video'; // 媒体类型
-  ossKey?: string; // OSS存储密钥
+  type?: 'image' | 'video' | 'placeholder';
+  ossKey?: string;
+  taskId?: string;
+  progress?: number;
+  status?: 'queued' | 'processing' | 'completed' | 'failed';
+}
+
+// 图片任务队列项（与文生视频一致：提交后轮询 /api/tools/gen/sessions/{id}/tasks/{任务id}）
+interface ImageTaskQueueItem {
+  taskId: string;
+  messageId: string;
+  sessionId: string | number | null;
+  prompt: string;
+  model: ImageModel;
+  aspectRatio: string;
+  quality?: string;
+  style?: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  createdAt: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const IMAGE_TASK_QUEUE_CACHE_KEY = 'image_task_queue';
+
+function getImageTaskQueue(): ImageTaskQueueItem[] {
+  try {
+    const cached = localStorage.getItem(IMAGE_TASK_QUEUE_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+  } catch (e) {
+    console.error('Failed to get image task queue:', e);
+  }
+  return [];
+}
+
+function saveImageTaskQueue(queue: ImageTaskQueueItem[]): void {
+  try {
+    localStorage.setItem(IMAGE_TASK_QUEUE_CACHE_KEY, JSON.stringify(queue));
+  } catch (e) {
+    console.error('Failed to save image task queue:', e);
+  }
+}
+
+function addImageTaskToQueue(task: ImageTaskQueueItem): void {
+  const queue = getImageTaskQueue();
+  queue.push(task);
+  saveImageTaskQueue(queue);
+}
+
+function removeImageTaskFromQueue(taskId: string): void {
+  const queue = getImageTaskQueue().filter(t => t.taskId !== taskId);
+  saveImageTaskQueue(queue);
+}
+
+function updateImageTaskInQueue(taskId: string, updates: Partial<ImageTaskQueueItem>): void {
+  const queue = getImageTaskQueue();
+  const index = queue.findIndex(t => t.taskId === taskId);
+  if (index !== -1) {
+    queue[index] = { ...queue[index], ...updates };
+    saveImageTaskQueue(queue);
+  }
 }
 
 const mockHistory: ChatMessage[] = [];
@@ -109,9 +169,10 @@ export function useTextToImage() {
   const [chatPanelWidth, setChatPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
   const [isChatPanelCollapsed, setIsChatPanelCollapsed] = useState(false);
+  const [taskPlaceholders, setTaskPlaceholders] = useState<CanvasImage[]>([]);
   
-  // 会话管理状态
-  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  // 会话管理状态（会话 id 支持字符串，与接口一致）
+  const [currentSessionId, setCurrentSessionId] = useState<string | number | null>(null);
   const [historySessions, setHistorySessions] = useState<Array<{ id: string; title: string; timestamp: Date; assetCount: number }>>([]);
   const [historyPage, setHistoryPage] = useState(1); // 当前页码
   const [hasMoreHistory, setHasMoreHistory] = useState(true); // 是否还有更多历史记录
@@ -120,7 +181,11 @@ export function useTextToImage() {
   const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   
   // 画布元素ID映射（用于更新数据库）
-  const canvasItemIdMap = useRef<Map<string, number>>(new Map());
+  const canvasItemIdMap = useRef<Map<string, string | number>>(new Map());
+  const activePollingTasksRef = useRef<Map<string, { cancel: () => void }>>(new Map());
+  const isProcessingQueueRef = useRef(false);
+  const updatePlaceholdersFromQueueRef = useRef<() => void>();
+  const processTaskQueueRef = useRef<() => void>();
 
   // 配置数据
   const workModes = getWorkModes();
@@ -363,7 +428,7 @@ export function useTextToImage() {
                   type: msg.type === 'user' ? 'user' : 'system',
                   content: msg.content,
                   timestamp: new Date(msg.createTime || Date.now()),
-                  status: msg.status === 'complete' ? 'complete' : undefined,
+                  status: msg.status === 'complete' || msg.status === 'completed' ? 'completed' : msg.status === 'failed' ? 'failed' : undefined,
                   resultSummary: msg.resultSummary,
                 };
                 
@@ -455,9 +520,9 @@ export function useTextToImage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在组件挂载时执行一次
 
-  // 防抖更新会话视图
+  // 防抖更新会话视图（会话 id 支持字符串，与接口一致）
   const debouncedUpdateSession = useRef(
-    debounce(async (sessionId: number, zoom: number, pan: { x: number; y: number }) => {
+    debounce(async (sessionId: string | number, zoom: number, pan: { x: number; y: number }) => {
       try {
         await updateSession(sessionId, {
           canvasView: { zoom, pan },
@@ -468,9 +533,9 @@ export function useTextToImage() {
     }, 500)
   ).current;
 
-  // 防抖更新画布元素
+  // 防抖更新画布元素（画布元素 id 支持字符串，与接口一致）
   const debouncedUpdateCanvasItem = useRef(
-    debounce(async (canvasItemId: number, x: number, y: number, width?: number, height?: number) => {
+    debounce(async (canvasItemId: string | number, x: number, y: number, width?: number, height?: number) => {
       try {
         await updateCanvasItem(canvasItemId, {
           x,
@@ -615,7 +680,7 @@ export function useTextToImage() {
                   type: msg.type === 'user' ? 'user' : 'system',
                   content: msg.content,
                   timestamp: new Date(msg.createTime || Date.now()),
-                  status: msg.status === 'complete' ? 'complete' : undefined,
+                  status: msg.status === 'complete' || msg.status === 'completed' ? 'completed' : msg.status === 'failed' ? 'failed' : undefined,
                   resultSummary: msg.resultSummary,
                 };
                 
@@ -659,6 +724,21 @@ export function useTextToImage() {
                 restoredMessages.push(systemMessage);
           });
           
+          // 与文生视频一致：generations[].status 为 processing/queued 时补充系统消息并加入轮询队列
+          const pendingGenerations = session.generations.filter(
+            (g): g is typeof g & { status: 'queued' | 'processing' } =>
+              g.status === 'queued' || g.status === 'processing'
+          );
+          pendingGenerations.forEach(gen => {
+            restoredMessages.push({
+              id: `gen-${gen.id}`,
+              type: 'system',
+              content: gen.status === 'processing' ? t('toast.generating') : t('toast.taskQueued', { defaultValue: '排队中' }),
+              timestamp: new Date(gen.createTime || Date.now()),
+              status: gen.status === 'processing' ? 'processing' : 'queued',
+            });
+          });
+          
           // 按时间戳排序
           restoredMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
           
@@ -666,6 +746,42 @@ export function useTextToImage() {
         }
         
         setShowHistory(false);
+        
+        // 与文生视频一致：未完成的 generations 加入任务队列并轮询 /api/tools/gen/sessions/{会话id}/tasks/{任务id}
+        if (session.generations && session.generations.length > 0) {
+          const pending = session.generations.filter(
+            (g): g is typeof g & { status: 'queued' | 'processing' } =>
+              g.status === 'queued' || g.status === 'processing'
+          );
+          const defaultWidth = 400;
+          const defaultHeight = 400;
+          pending.forEach(gen => {
+            addImageTaskToQueue({
+              taskId: String(gen.id),
+              messageId: `gen-${gen.id}`,
+              sessionId: session.id,
+              prompt: gen.prompt,
+              model: (gen.model as ImageModel) || (session.settings?.model as ImageModel) || DEFAULT_MODEL,
+              aspectRatio: gen.size || session.settings?.size || getModelDefaultSize(DEFAULT_MODEL),
+              quality: (session.settings as { quality?: string })?.quality,
+              style: (session.settings as { style?: string })?.style,
+              status: gen.status as 'queued' | 'processing',
+              progress: gen.progress ?? 0,
+              createdAt: gen.createTime ? new Date(gen.createTime).getTime() : Date.now(),
+              x: 0,
+              y: 0,
+              width: defaultWidth,
+              height: defaultHeight,
+            });
+          });
+          if (pending.length > 0) {
+            setTimeout(() => {
+              updatePlaceholdersFromQueueRef.current?.();
+              processTaskQueueRef.current?.();
+            }, 0);
+          }
+        }
+        
         toast.success(t('toast.sessionLoaded'));
       }
     } catch (error) {
@@ -821,8 +937,10 @@ export function useTextToImage() {
     };
   }, [isVideoUrl]);
 
-  // 处理粘贴图片
-  const handlePasteImage = useCallback(async () => {
+  // 处理粘贴图片（可选 pasteX, pasteY：右键粘贴时传入，使粘贴位置与右键坐标一致）
+  const handlePasteImage = useCallback(async (pasteX?: number, pasteY?: number) => {
+    const startX = pasteX ?? 300;
+    const startY = pasteY ?? 200;
     // 优先处理批量粘贴
     if (copiedImages.length > 0) {
       const newImages: CanvasImage[] = [];
@@ -833,7 +951,7 @@ export function useTextToImage() {
         height: img.height,
       }));
 
-      // 批量粘贴多个图片/视频
+      // 批量粘贴多个图片/视频：首个以 pasteX/pasteY 为基准，其余在其附近找不重叠位置
       for (let i = 0; i < copiedImages.length; i++) {
         const copiedImg = copiedImages[i];
         const isVideo = copiedImg.type === 'video' || isVideoUrl(copiedImg.url);
@@ -841,6 +959,8 @@ export function useTextToImage() {
         const dimensions = isVideo 
           ? await getVideoDimensions(copiedImg.url)
           : await getImageDimensions(copiedImg.url);
+        const baseX = i === 0 ? startX : newImages[0].x;
+        const baseY = i === 0 ? startY : newImages[0].y;
         const position = findNonOverlappingPosition(
           { width: dimensions.width, height: dimensions.height },
           [...existingRects, ...newImages.map(img => ({
@@ -848,7 +968,9 @@ export function useTextToImage() {
             y: img.y,
             width: img.width,
             height: img.height,
-          }))]
+          }))],
+          baseX,
+          baseY
         );
         
         const newImage: CanvasImage = {
@@ -962,7 +1084,9 @@ export function useTextToImage() {
           y: img.y,
           width: img.width,
           height: img.height,
-        }))
+        })),
+        startX,
+        startY
       );
       const newImage: CanvasImage = {
         ...copiedImage,
@@ -1225,6 +1349,219 @@ export function useTextToImage() {
     }
   }, [handleAddSelectedImage, handleUploadImage]);
 
+  // 轮询会话任务状态（/api/tools/gen/sessions/{id}/tasks/{任务id}），与文生视频一致
+  const pollSessionTaskWithCancel = useCallback(
+    (
+      sessionId: string | number,
+      taskId: string,
+      onProgress?: (status: { status: string; progress?: number; downloadUrl?: string; failMessage?: string }) => void,
+      interval: number = 2000,
+      maxAttempts: number = 300
+    ): { promise: Promise<{ status: string; downloadUrl?: string; failMessage?: string }>; cancel: () => void } => {
+      let cancelled = false;
+      let attempts = 0;
+      const cancel = () => { cancelled = true; };
+      const promise = (async (): Promise<{ status: string; downloadUrl?: string; failMessage?: string }> => {
+        while (attempts < maxAttempts && !cancelled) {
+          try {
+            const res = await getTaskStatus(sessionId, taskId);
+            if (!res.success || !res.data) throw new Error(res.msg || 'Get task status failed');
+            const d = res.data;
+            if (onProgress) onProgress({ status: d.status, progress: d.progress, downloadUrl: d.downloadUrl, failMessage: d.failMessage });
+            if (d.status === 'completed') return { status: d.status, downloadUrl: d.downloadUrl };
+            if (d.status === 'failed') throw new Error(d.failMessage || 'Image generation failed');
+            await new Promise(r => setTimeout(r, interval));
+            attempts++;
+          } catch (err) {
+            if (cancelled) throw new Error('Task polling cancelled');
+            throw err;
+          }
+        }
+        if (cancelled) throw new Error('Task polling cancelled');
+        throw new Error('Task polling timeout');
+      })();
+      return { promise, cancel };
+    },
+    []
+  );
+
+  // 根据队列更新占位符（与文生视频一致：仅更新 taskPlaceholders，画布由 canvasImages + taskPlaceholders 合并展示）
+  const updatePlaceholdersFromQueue = useCallback(() => {
+    const queue = getImageTaskQueue();
+    const pendingTasks = queue.filter(t => t.status === 'queued' || t.status === 'processing');
+    const existingRects = canvasImages.map(v => ({ x: v.x, y: v.y, width: v.width, height: v.height }));
+    const placeholders: CanvasImage[] = [];
+    pendingTasks.forEach((task) => {
+      if (placeholders.some(p => p.taskId === task.taskId)) return;
+      const allExistingRects = [...existingRects, ...placeholders.map(p => ({ x: p.x, y: p.y, width: p.width, height: p.height }))];
+      const position = findNonOverlappingPosition(
+        { width: task.width, height: task.height },
+        allExistingRects,
+        300, 200, 50, 50, 100, 30
+      );
+      placeholders.push({
+        id: `placeholder-${task.taskId}`,
+        url: '',
+        x: position.x,
+        y: position.y,
+        width: task.width,
+        height: task.height,
+        prompt: task.prompt,
+        taskId: task.taskId,
+        type: 'placeholder',
+        progress: task.progress ?? 0,
+        status: task.status,
+      });
+    });
+    setTaskPlaceholders(placeholders);
+  }, [canvasImages]);
+  updatePlaceholdersFromQueueRef.current = updatePlaceholdersFromQueue;
+
+  // 处理单个图片任务（轮询完成后落画布、更新消息）
+  const processSingleImageTask = useCallback(async (task: ImageTaskQueueItem) => {
+    updateImageTaskInQueue(task.taskId, { status: 'processing' });
+    setMessages(prev =>
+      prev.map(msg =>
+        msg.id === task.messageId ? { ...msg, status: 'processing' as const, content: t('toast.generating'), progress: task.progress } : msg
+      )
+    );
+    if (!task.sessionId) throw new Error('Session ID required for task polling');
+    try {
+      const { promise, cancel } = pollSessionTaskWithCancel(
+        task.sessionId,
+        task.taskId,
+        (status) => {
+          updateImageTaskInQueue(task.taskId, { status: status.status as 'queued' | 'processing' | 'completed' | 'failed', progress: status.progress ?? 0 });
+          if (status.status === 'completed' || (status.status === 'failed')) {
+            setTimeout(() => removeImageTaskFromQueue(task.taskId), 1000);
+          }
+          let content = '';
+          if (status.status === 'processing') content = t('toast.generating') + (status.progress != null ? ` ${status.progress}%` : '');
+          else if (status.status === 'queued') content = t('toast.taskQueued', { defaultValue: '排队中' });
+          else if (status.status === 'failed') content = status.failMessage || t('toast.generationFailed');
+          setMessages(prev =>
+            prev.map(msg => (msg.id === task.messageId ? { ...msg, status: status.status as 'completed' | 'failed', progress: status.progress ?? 0, content } : msg))
+          );
+          setTaskPlaceholders(prev =>
+            prev.map(p => (p.taskId === task.taskId ? { ...p, progress: status.progress ?? 0, status: status.status as 'queued' | 'processing' | 'completed' | 'failed' } : p))
+          );
+        }
+      );
+      activePollingTasksRef.current.set(task.taskId, { cancel });
+      const result = await promise;
+      if (result.status === 'failed') throw new Error(result.failMessage || 'Image generation failed');
+      if (!result.downloadUrl) throw new Error(t('toast.generationFailed'));
+      const imageUrl = result.downloadUrl;
+      let placeholder: CanvasImage | undefined;
+      setTaskPlaceholders(prev => {
+        placeholder = prev.find(p => p.taskId === task.taskId);
+        return placeholder ? prev.filter(p => p.taskId !== task.taskId) : prev;
+      });
+      setCanvasImages(prev => {
+        const newImage: CanvasImage = {
+          id: placeholder?.id ?? `img-${task.taskId}`,
+          url: imageUrl,
+          x: placeholder?.x ?? task.x,
+          y: placeholder?.y ?? task.y,
+          width: placeholder?.width ?? task.width,
+          height: placeholder?.height ?? task.height,
+          prompt: task.prompt,
+          type: 'image',
+        };
+        return [...prev, newImage];
+      });
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === task.messageId
+            ? {
+                ...msg,
+                status: 'completed' as const,
+                image: imageUrl,
+                progress: 100,
+                designThoughts: [
+                  t('toast.imageUnderstanding', { prompt: task.prompt }),
+                  model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: task.aspectRatio }) : t('toast.aspectRatioLabel', { size: task.aspectRatio }),
+                ],
+                resultSummary: t('toast.resultSummaryImageComplete', {
+                  output: model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: task.aspectRatio }) : t('toast.aspectRatioLabel', { size: task.aspectRatio }),
+                }),
+              }
+            : msg
+        )
+      );
+      const newImageId = placeholder?.id ?? `img-${task.taskId}`;
+      setSelectedImageId(newImageId);
+      handleAddSelectedImage({ id: newImageId, url: imageUrl, prompt: task.prompt });
+      try {
+        await getSessionDetail(String(task.sessionId));
+        await loadSessions(1, false);
+      } catch (e) {
+        console.error('Failed to refresh session after image task:', e);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === task.messageId ? { ...msg, status: 'failed' as const, content: errorMessage } : msg
+        )
+      );
+      removeImageTaskFromQueue(task.taskId);
+    } finally {
+      activePollingTasksRef.current.delete(task.taskId);
+      isProcessingQueueRef.current = false;
+      setTimeout(() => processTaskQueueRef.current?.(), 100);
+    }
+  }, [t, pollSessionTaskWithCancel, loadSessions, model, handleAddSelectedImage]);
+
+  const processTaskQueue = useCallback(() => {
+    if (isProcessingQueueRef.current) return;
+    isProcessingQueueRef.current = true;
+    const queue = getImageTaskQueue();
+    const activeCount = activePollingTasksRef.current.size;
+    const maxConcurrent = 3;
+    const pending = queue
+      .filter(t => t.status === 'queued' || (t.status === 'processing' && !activePollingTasksRef.current.has(t.taskId)))
+      .sort((a, b) => a.createdAt - b.createdAt);
+    if (activeCount < maxConcurrent && pending.length > 0) {
+      const next = pending[0];
+      updateImageTaskInQueue(next.taskId, { status: 'processing' });
+      processSingleImageTask(next).finally(() => {
+        isProcessingQueueRef.current = false;
+        setTimeout(() => processTaskQueueRef.current?.(), 100);
+      });
+    } else {
+      isProcessingQueueRef.current = false;
+    }
+  }, [processSingleImageTask]);
+  processTaskQueueRef.current = processTaskQueue;
+
+  // 页面初始化恢复队列；离开页面关闭轮询（与文生视频一致）
+  useEffect(() => {
+    const queue = getImageTaskQueue();
+    if (queue.length > 0) {
+      const completedOrFailed = queue.filter(t => t.status === 'completed' || t.status === 'failed');
+      completedOrFailed.forEach(t => removeImageTaskFromQueue(t.taskId));
+      updatePlaceholdersFromQueueRef.current?.();
+    }
+    return () => {
+      activePollingTasksRef.current.forEach(({ cancel }) => {
+        try {
+          cancel();
+        } catch (e) {
+          console.error('Error cancelling image task polling:', e);
+        }
+      });
+      activePollingTasksRef.current.clear();
+      isProcessingQueueRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!processTaskQueueRef.current) return;
+    const queue = getImageTaskQueue();
+    if (queue.length > 0) processTaskQueueRef.current();
+  }, []);
+
   // 处理生成图片
   const handleGenerate = useCallback(async () => {
     if (!currentSessionId || !prompt.trim() || isGenerating) return;
@@ -1265,160 +1602,158 @@ export function useTextToImage() {
         )
       );
 
-      // 只包含画布上选中的图片，不包含聊天框中的图片
-      const referenceImages: string[] = [];
-      
-      const selectedCanvasImageIds = selectedImageIds.length > 0 
-        ? selectedImageIds 
-        : selectedImageId 
-          ? [selectedImageId] 
+      // 只包含画布上选中的图片，作为参考图（图生图）
+      const sourceImages: string[] = [];
+      const selectedCanvasImageIds = selectedImageIds.length > 0
+        ? selectedImageIds
+        : selectedImageId
+          ? [selectedImageId]
           : [];
-      
       selectedCanvasImageIds.forEach(id => {
         const selectedCanvasImage = canvasImages.find(img => img.id === id);
-        if (selectedCanvasImage && !referenceImages.includes(selectedCanvasImage.url)) {
-          referenceImages.push(selectedCanvasImage.url);
+        if (selectedCanvasImage && !sourceImages.includes(selectedCanvasImage.url)) {
+          sourceImages.push(selectedCanvasImage.url);
         }
       });
 
-      const response = await generateImage({
-        model: model,
-        prompt: currentPrompt,
-        image: referenceImages,
-        n: 1,
-        size: aspectRatio as any,
-        ...(quality && { quality: quality as 'standard' | 'hd' | '1k' | '2k' | '4k' }),
-        ...(style && { style: style as 'vivid' | 'natural' }),
-        response_format: 'url',
-      });
+      // 图层宽度固定，高度根据宽度/比例计算（支持 1:1 / 9x16 两种格式）
+      const defaultWidth = 400;
+      const ratioParts = aspectRatio.includes(':') ? aspectRatio.split(':') : aspectRatio.split('x');
+      const ratioW = Number(ratioParts[0]) || 1;
+      const ratioH = Number(ratioParts[1]) || 1;
+      const defaultHeight = Math.round(defaultWidth * (ratioH / ratioW));
 
-      const imageUrls = extractImageUrls(response);
-      if (imageUrls.length === 0) {
-        throw new Error('No image URL in response');
-      }
-
-      const revisedPrompt = extractRevisedPrompt(response) || currentPrompt;
-      let existingRects = canvasImages.map(img => ({
+      const existingRects = canvasImages.map(img => ({
         x: img.x,
         y: img.y,
         width: img.width,
         height: img.height,
       }));
-      const newImages: CanvasImage[] = [];
+      const position = findNonOverlappingPosition(
+        { width: defaultWidth, height: defaultHeight },
+        existingRects,
+        300,
+        200,
+        50,
+        50,
+        100,
+        30
+      );
 
-      for (let i = 0; i < imageUrls.length; i++) {
-        const imageUrl = imageUrls[i];
-        const dimensions = await getImageDimensions(imageUrl);
-        const position = findNonOverlappingPosition(
-          { width: dimensions.width, height: dimensions.height },
-          existingRects,
-          300,
-          200,
-          50,
-          50,
-          100,
-          30
-        );
-        const newImage: CanvasImage = {
-          id: `img-${Date.now()}-${i}`,
-          url: imageUrl,
+      const response = await submitImageTask(currentSessionId, {
+        model,
+        prompt: currentPrompt,
+        sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
+        size: aspectRatio,
+        quality: quality || null,
+        style: style || null,
+        n: 1,
+        canvasItem: {
           x: position.x,
           y: position.y,
-          width: dimensions.width,
-          height: dimensions.height,
-          prompt: revisedPrompt,
-          type: 'image',
-        };
-        newImages.push(newImage);
-        existingRects = [...existingRects, { x: position.x, y: position.y, width: dimensions.width, height: dimensions.height }];
+          width: defaultWidth,
+          height: defaultHeight,
+          rotate: 0,
+          visible: true,
+          zindex: canvasImages.length,
+        },
+      });
+
+      if (!response.success || !response.data) {
+        throw new Error(response.msg || 'Submit image task failed');
       }
 
-      const firstImage = newImages[0];
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === systemMessage.id 
-            ? { 
-                ...msg, 
-                status: 'complete',
-                image: firstImage.url,
-                designThoughts: [
-                  t('toast.imageUnderstanding', { prompt: revisedPrompt }),
-                  model === 'doubao-seedream-4-5-251128'
-                    ? t('toast.sizeLabel', { size: aspectRatio })
-                    : t('toast.aspectRatioLabel', { size: aspectRatio }),
-                ],
-                resultSummary: newImages.length > 1
-                  ? t('toast.resultSummaryImageCompleteCount', { count: newImages.length, output: model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: aspectRatio }) : t('toast.aspectRatioLabel', { size: aspectRatio }) })
-                  : t('toast.resultSummaryImageComplete', { output: model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: aspectRatio }) : t('toast.aspectRatioLabel', { size: aspectRatio }) }),
+      const data = response.data;
+      if (data.status === 'failed' && data.failMessage) {
+        throw new Error(data.failMessage);
+      }
+
+      // 若接口已返回 completed 且带 downloadUrl，直接落画布并更新消息，不入队
+      if (data.status === 'completed' && data.downloadUrl) {
+        const firstImage: CanvasImage = {
+          id: `img-${Date.now()}`,
+          url: data.downloadUrl,
+          x: position.x,
+          y: position.y,
+          width: defaultWidth,
+          height: defaultHeight,
+          prompt: currentPrompt,
+          type: 'image',
+        };
+        if (data.canvasItemId != null) {
+          canvasItemIdMap.current.set(firstImage.id, data.canvasItemId);
+        }
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === systemMessage.id
+              ? {
+                  ...msg,
+                  status: 'completed' as const,
+                  image: firstImage.url,
+                  designThoughts: [
+                    t('toast.imageUnderstanding', { prompt: currentPrompt }),
+                    model === 'doubao-seedream-4-5-251128'
+                      ? t('toast.sizeLabel', { size: aspectRatio })
+                      : t('toast.aspectRatioLabel', { size: aspectRatio }),
+                  ],
+                  resultSummary: t('toast.resultSummaryImageComplete', {
+                    output: model === 'doubao-seedream-4-5-251128'
+                      ? t('toast.sizeLabel', { size: aspectRatio })
+                      : t('toast.aspectRatioLabel', { size: aspectRatio }),
+                  }),
+                }
+              : msg
+          )
+        );
+        setCanvasImages(prev => [...prev, firstImage]);
+        setSelectedImageId(firstImage.id);
+        handleAddSelectedImage({ id: firstImage.id, url: firstImage.url, prompt: firstImage.prompt });
+        try {
+          await getSessionDetail(String(currentSessionId));
+          await loadSessions(1, false);
+        } catch (e) {
+          console.error('Failed to refresh session after image task:', e);
+        }
+        setIsGenerating(false);
+        return;
+      }
+
+      // 与文生视频一致：queued/processing 时入队，轮询 /api/tools/gen/sessions/{会话id}/tasks/{任务id}
+      const queueItem: ImageTaskQueueItem = {
+        taskId: String(data.generationId),
+        messageId: systemMessage.id,
+        sessionId: currentSessionId,
+        prompt: currentPrompt,
+        model,
+        aspectRatio,
+        quality: quality || undefined,
+        style: style || undefined,
+        status: (data.status as 'queued' | 'processing') || 'queued',
+        progress: 0,
+        createdAt: Date.now(),
+        x: position.x,
+        y: position.y,
+        width: defaultWidth,
+        height: defaultHeight,
+      };
+      addImageTaskToQueue(queueItem);
+
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === systemMessage.id
+            ? {
+                ...msg,
+                status: 'queued' as const,
+                content: t('toast.taskQueued', { defaultValue: '排队中' }),
+                progress: 0,
               }
             : msg
         )
       );
 
-      setCanvasImages(prev => [...prev, ...newImages]);
-      setSelectedImageId(firstImage.id);
-      handleAddSelectedImage({
-        id: firstImage.id,
-        url: firstImage.url,
-        prompt: firstImage.prompt,
-      });
-
-      if (currentSessionId) {
-        try {
-          const saveResponse = await saveGenerationResult(currentSessionId, {
-            generation: {
-              model,
-              size: aspectRatio,
-              prompt: currentPrompt,
-              status: 'success',
-            },
-            asset: {
-              type: 'image',
-              sourceUrl: firstImage.url,
-              seq: 1,
-              width: firstImage.width,
-              height: firstImage.height,
-            },
-            message: {
-              type: 'system',
-              content: t('toast.generationComplete'),
-              status: 'complete',
-              resultSummary: t('toast.resultSummaryImageComplete', { output: model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: aspectRatio }) : t('toast.aspectRatioLabel', { size: aspectRatio }) }),
-            },
-            canvasItem: {
-              x: firstImage.x,
-              y: firstImage.y,
-              width: firstImage.width,
-              height: firstImage.height,
-              rotate: 0,
-              visible: true,
-              zindex: canvasImages.length,
-            },
-            references: selectedImages.map(img => ({
-              type: 'image' as const,
-              sourceUrl: img.url,
-              canvasItem: {
-                x: 0,
-                y: 0,
-                width: 0,
-                height: 0,
-                rotate: 0,
-                visible: false,
-                zindex: 0,
-              },
-            })),
-          });
-
-          if (saveResponse.success && saveResponse.data) {
-            canvasItemIdMap.current.set(firstImage.id, saveResponse.data.canvasItemId);
-            await loadSessions(1, false);
-          }
-        } catch (error) {
-          console.error('Failed to save generation result:', error);
-        }
-      }
-      
       setIsGenerating(false);
+      updatePlaceholdersFromQueueRef.current?.();
+      processTaskQueueRef.current?.();
     } catch (error) {
       console.error('Generation error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1600,13 +1935,13 @@ export function useTextToImage() {
           }
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && copiedImage) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && (copiedImage || copiedImages.length > 0)) {
         handlePasteImage();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImageId, selectedImageIds, canvasImages, copiedImage, handleCopyImage, handlePasteImage, handleBatchCopyImages]);
+  }, [selectedImageId, selectedImageIds, canvasImages, copiedImage, copiedImages.length, handleCopyImage, handlePasteImage, handleBatchCopyImages]);
 
   // 处理批量下载图片
   const handleBatchDownloadImages = useCallback(async () => {
@@ -1619,13 +1954,15 @@ export function useTextToImage() {
     if (imagesToDownload.length === 0) return;
     
     try {
-      // 转换为 MediaItem 格式
-      const mediaItems: MediaItem[] = imagesToDownload.map(img => ({
-        id: img.id,
-        url: img.url,
-        type: img.type || 'image',
-        name: `image-${img.id}`,
-      }));
+      // 转换为 MediaItem 格式（仅图片/视频，占位符不参与下载）
+      const mediaItems: MediaItem[] = imagesToDownload
+        .filter((img): img is CanvasImage & { type: 'image' | 'video' } => img.type !== 'placeholder')
+        .map(img => ({
+          id: img.id,
+          url: img.url,
+          type: img.type === 'video' ? 'video' : 'image',
+          name: `image-${img.id}`,
+        }));
       
       // 使用批量下载工具
       await batchDownload(mediaItems, {
@@ -1740,6 +2077,7 @@ export function useTextToImage() {
     messages,
     isGenerating,
     canvasImages,
+    taskPlaceholders,
     selectedImageId,
     setSelectedImageId,
     selectedImageIds,

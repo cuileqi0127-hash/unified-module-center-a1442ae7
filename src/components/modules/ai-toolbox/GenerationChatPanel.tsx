@@ -81,6 +81,44 @@ export function GenerationChatPanel({
             </div>
           ) : (
             <div className="w-full space-y-3">
+              {/* 缩略图/缩略视频：有 URL 即展示，置于消息顶部 */}
+              {message.image && (
+                <div className="relative shrink-0">
+                  <div
+                    className="relative w-52 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md hover:ring-2 hover:ring-primary/30"
+                    onClick={() => {
+                      if (onImageClick) onImageClick(message.image!);
+                      else if (findCanvasItem) findCanvasItem(message.image!);
+                    }}
+                  >
+                    <img
+                      src={message.image}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+              {message.video && !message.image && (
+                <div className="relative shrink-0">
+                  <div
+                    className="relative w-52 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md hover:ring-2 hover:ring-primary/30"
+                    onClick={() => {
+                      if (onVideoClick) onVideoClick(message.video!);
+                      else if (findCanvasItem) findCanvasItem(message.video!);
+                    }}
+                  >
+                    <video
+                      src={message.video}
+                      className="aspect-video w-full object-cover"
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Design Thoughts */}
               {message.designThoughts && message.designThoughts.length > 0 && (
                 <div className="space-y-2">
@@ -120,75 +158,6 @@ export function GenerationChatPanel({
                     />
                     {message.progress !== undefined && ` (${message.progress}%)`}
                   </span>
-                </div>
-              )}
-
-              {/* Generated Image */}
-              {message.image && 
-               (message.status === 'complete' || message.status === 'completed') && (
-                <div className="relative mt-2">
-                  <div
-                    className="relative w-56 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md"
-                    onClick={() => {
-                      if (onImageClick) {
-                        onImageClick(message.image!);
-                      } else if (findCanvasItem) {
-                        const item = findCanvasItem(message.image!);
-                        if (item) {
-                          // 可以在这里处理选中逻辑
-                        }
-                      }
-                    }}
-                  >
-                    <img
-                      src={message.image}
-                      alt="Generated"
-                      className="aspect-square w-full object-cover"
-                    />
-                    {/* Feedback Button */}
-                    {/* <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
-                    >
-                      <MessageSquare className="h-3 w-3" />
-                      {t('generationChatPanel.feedback')}
-                    </Button> */}
-                  </div>
-                </div>
-              )}
-
-              {/* Generated Video */}
-              {message.video && 
-               (message.status === 'complete' || message.status === 'completed') && (
-                <div className="relative mt-2">
-                  <div
-                    className="relative w-56 cursor-pointer overflow-hidden rounded-lg border border-border transition-all hover:shadow-md"
-                    onClick={() => {
-                      if (onVideoClick) {
-                        onVideoClick(message.video!);
-                      } else if (findCanvasItem) {
-                        const item = findCanvasItem(message.video!);
-                        if (item) {
-                          // 可以在这里处理选中逻辑
-                        }
-                      }
-                    }}
-                  >
-                    <video
-                      src={message.video}
-                      className="aspect-video w-full object-cover"
-                      controls
-                    />
-                    {/* <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute bottom-2 right-2 h-7 gap-1 rounded-md bg-background/90 px-2 text-xs backdrop-blur-sm hover:bg-background"
-                    >
-                      <MessageSquare className="h-3 w-3" />
-                      {t('generationChatPanel.feedback')}
-                    </Button> */}
-                  </div>
                 </div>
               )}
 

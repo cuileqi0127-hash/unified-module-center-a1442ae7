@@ -44,8 +44,8 @@ interface UniversalCanvasProps {
   onContextCopy?: () => void;
   /** 右键菜单：剪切（先复制再删除，由父组件实现） */
   onContextCut?: () => void;
-  /** 右键菜单：粘贴（复用快捷键粘贴逻辑） */
-  onContextPaste?: () => void;
+  /** 右键菜单：粘贴（复用快捷键粘贴逻辑），可选传入右键处的画布坐标 (canvasX, canvasY) 以定位粘贴位置 */
+  onContextPaste?: (canvasX?: number, canvasY?: number) => void;
   /** 右键菜单：删除（复用画布现有删除逻辑） */
   onContextDelete?: () => void;
   /** 右键菜单：聚焦（将视图中心移动到选中元素并适配合适缩放，由父组件调用 ref.focusOnItem/focusOnItems） */
@@ -118,25 +118,39 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
   ) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [contextMenu, setContextMenu] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 });
+  const [contextMenu, setContextMenu] = useState<{ open: boolean; x: number; y: number; canvasX?: number; canvasY?: number }>({ open: false, x: 0, y: 0 });
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const MENU_OFFSET = 4;
   const MENU_PADDING = 8;
   const [zoom, setZoom] = useState(initialZoom);
   const [pan, setPan] = useState(initialPan);
+  // 用于平滑过渡的显示用 pan/zoom，向目标 pan/zoom 插值
+  const [displayPan, setDisplayPan] = useState(initialPan);
+  const [displayZoom, setDisplayZoom] = useState(initialZoom);
+  const displayPanRef = useRef(initialPan);
+  const displayZoomRef = useRef(initialZoom);
+  const panZoomRafIdRef = useRef<number | null>(null);
   const isInitializingRef = useRef(false);
   const hasInitializedRef = useRef(false);
-  
+
+  const LERP_FACTOR = 0.2;
+  const SNAP_THRESHOLD_PAN = 0.5;
+  const SNAP_THRESHOLD_ZOOM = 0.001;
+
   // 当 initialZoom 或 initialPan 变化时，更新内部状态（用于加载历史会话）
   useEffect(() => {
     // 只有在值真正改变时才标记为初始化（避免首次渲染时的问题）
     const zoomChanged = zoom !== initialZoom;
     const panChanged = pan.x !== initialPan.x || pan.y !== initialPan.y;
-    
+
     if (zoomChanged || panChanged) {
       isInitializingRef.current = true;
       setZoom(initialZoom);
       setPan(initialPan);
+      setDisplayPan(initialPan);
+      setDisplayZoom(initialZoom);
+      displayPanRef.current = initialPan;
+      displayZoomRef.current = initialZoom;
       // 使用 requestAnimationFrame 确保在下一个渲染周期中重置标志
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -149,6 +163,57 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       isInitializingRef.current = false;
     }
   }, [initialZoom, initialPan.x, initialPan.y, zoom, pan.x, pan.y]);
+
+  // 平滑过渡：displayPan/displayZoom 向 pan/zoom 插值，与重绘同步
+  useEffect(() => {
+    displayPanRef.current = displayPan;
+    displayZoomRef.current = displayZoom;
+  }, [displayPan.x, displayPan.y, displayZoom]);
+
+  useEffect(() => {
+    const dx = pan.x - displayPanRef.current.x;
+    const dy = pan.y - displayPanRef.current.y;
+    const dz = zoom - displayZoomRef.current;
+    const needAnim = Math.abs(dx) >= SNAP_THRESHOLD_PAN || Math.abs(dy) >= SNAP_THRESHOLD_PAN || Math.abs(dz) >= SNAP_THRESHOLD_ZOOM;
+    if (!needAnim) return;
+
+    const tick = () => {
+      const dx = pan.x - displayPanRef.current.x;
+      const dy = pan.y - displayPanRef.current.y;
+      const dz = zoom - displayZoomRef.current;
+      const panDone = Math.abs(dx) < SNAP_THRESHOLD_PAN && Math.abs(dy) < SNAP_THRESHOLD_PAN;
+      const zoomDone = Math.abs(dz) < SNAP_THRESHOLD_ZOOM;
+      if (panDone && zoomDone) {
+        displayPanRef.current = { x: pan.x, y: pan.y };
+        displayZoomRef.current = zoom;
+        setDisplayPan(displayPanRef.current);
+        setDisplayZoom(zoom);
+        panZoomRafIdRef.current = null;
+        return;
+      }
+      displayPanRef.current = {
+        x: displayPanRef.current.x + dx * LERP_FACTOR,
+        y: displayPanRef.current.y + dy * LERP_FACTOR,
+      };
+      displayZoomRef.current += dz * LERP_FACTOR;
+      setDisplayPan({ ...displayPanRef.current });
+      setDisplayZoom(displayZoomRef.current);
+      panZoomRafIdRef.current = requestAnimationFrame(tick);
+    };
+    panZoomRafIdRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (panZoomRafIdRef.current != null) {
+        cancelAnimationFrame(panZoomRafIdRef.current);
+        panZoomRafIdRef.current = null;
+      }
+    };
+  }, [pan.x, pan.y, zoom]);
+
+  // 调试：画布移动坐标与缩放比例打印到控制台
+  useEffect(() => {
+    console.log('[UniversalCanvas] pan(移动坐标):', { x: pan.x, y: pan.y }, 'zoom(缩放比例):', zoom, 'zoom%:', Math.round(zoom * 100) + '%');
+  }, [pan.x, pan.y, zoom]);
+
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
@@ -157,6 +222,12 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
   const [playingVideos, setPlayingVideos] = useState<Set<string>>(new Set());
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
   const itemRefs = useRef<Map<string, React.RefObject<HTMLDivElement>>>(new Map());
+  
+  // Hover 防抖：图片放大 / 视频播放 延迟触发，避免边缘抖动
+  const HOVER_DEBOUNCE_MS = 150;
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const hoverEnterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoHoverTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   
   // Box selection state
   const [isBoxSelecting, setIsBoxSelecting] = useState(false);
@@ -169,6 +240,14 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
   const [resizeHandle, setResizeHandle] = useState<'nw' | 'ne' | 'sw' | 'se' | null>(null);
   const resizeStartPos = useRef<{ x: number; y: number } | null>(null);
   const resizeStartSize = useRef<{ width: number; height: number; x: number; y: number } | null>(null);
+
+  // 画布移动/缩放防抖（节流）：最多每 PAN_ZOOM_DEBOUNCE_MS 更新一次，减少抖动与重绘
+  const PAN_ZOOM_DEBOUNCE_MS = 50;
+  const lastPanUpdateTimeRef = useRef(0);
+  const lastAppliedMousePosRef = useRef({ x: 0, y: 0 });
+  const lastZoomUpdateTimeRef = useRef(0);
+  const pendingWheelPanRef = useRef({ dx: 0, dy: 0 });
+  const wheelPanFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Handle keyboard events for Space+drag panning only
   useEffect(() => {
@@ -252,16 +331,20 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       const isPinch = e.ctrlKey || e.metaKey;
 
       if (isPinch) {
-        // Ctrl/Cmd + 滚轮：缩放（与原有逻辑一致）
-        let deltaY = e.deltaY;
-        if (e.deltaMode === 1) deltaY *= 16;
-        else if (e.deltaMode === 2) deltaY *= 16 * 20;
-        const isTrackpad = Math.abs(deltaY) < 50 && e.deltaMode === 0;
-        let zoomDelta = isTrackpad ? -deltaY * 0.008 : (deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP);
-        zoomDelta = Math.max(-ZOOM_STEP * 5, Math.min(ZOOM_STEP * 5, zoomDelta));
-        zoomTowardsPoint(e.clientX, e.clientY, zoomDelta);
+        // Ctrl/Cmd + 滚轮：缩放，100ms 防抖（节流）
+        const now = Date.now();
+        if (now - lastZoomUpdateTimeRef.current >= PAN_ZOOM_DEBOUNCE_MS) {
+          let deltaY = e.deltaY;
+          if (e.deltaMode === 1) deltaY *= 16;
+          else if (e.deltaMode === 2) deltaY *= 16 * 20;
+          const isTrackpad = Math.abs(deltaY) < 50 && e.deltaMode === 0;
+          let zoomDelta = isTrackpad ? -deltaY * 0.008 : (deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP);
+          zoomDelta = Math.max(-ZOOM_STEP * 5, Math.min(ZOOM_STEP * 5, zoomDelta));
+          zoomTowardsPoint(e.clientX, e.clientY, zoomDelta);
+          lastZoomUpdateTimeRef.current = now;
+        }
       } else {
-        // 无修饰键：数控板/触控板双指滑动 或 鼠标滚轮 → 画布平移（与中键拖动一致的效果）
+        // 无修饰键：触控板双指滑动 / 滚轮 → 画布平移，100ms 防抖（节流）+ 尾随刷新
         let dX = e.deltaX;
         let dY = e.deltaY;
         if (e.deltaMode === 1) {
@@ -271,19 +354,50 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
           dX *= 16 * 20;
           dY *= 16 * 20;
         }
-        setPan((prev) => {
-          const newPan = {
-            x: Math.round(prev.x - dX),
-            y: Math.round(prev.y - dY),
-          };
-          onViewChange?.(zoomRef.current, newPan);
-          return newPan;
-        });
+        pendingWheelPanRef.current.dx += dX;
+        pendingWheelPanRef.current.dy += dY;
+        const now = Date.now();
+        if (now - lastPanUpdateTimeRef.current >= PAN_ZOOM_DEBOUNCE_MS) {
+          const dx = pendingWheelPanRef.current.dx;
+          const dy = pendingWheelPanRef.current.dy;
+          pendingWheelPanRef.current.dx = 0;
+          pendingWheelPanRef.current.dy = 0;
+          setPan((prev) => {
+            const newPan = {
+              x: Math.round(prev.x - dx),
+              y: Math.round(prev.y - dy),
+            };
+            onViewChange?.(zoomRef.current, newPan);
+            return newPan;
+          });
+          lastPanUpdateTimeRef.current = now;
+        }
+        if (wheelPanFlushTimeoutRef.current) clearTimeout(wheelPanFlushTimeoutRef.current);
+        wheelPanFlushTimeoutRef.current = setTimeout(() => {
+          wheelPanFlushTimeoutRef.current = null;
+          if (pendingWheelPanRef.current.dx !== 0 || pendingWheelPanRef.current.dy !== 0) {
+            const dx = pendingWheelPanRef.current.dx;
+            const dy = pendingWheelPanRef.current.dy;
+            pendingWheelPanRef.current.dx = 0;
+            pendingWheelPanRef.current.dy = 0;
+            setPan((prev) => {
+              const newPan = {
+                x: Math.round(prev.x - dx),
+                y: Math.round(prev.y - dy),
+              };
+              onViewChange?.(zoomRef.current, newPan);
+              return newPan;
+            });
+          }
+        }, PAN_ZOOM_DEBOUNCE_MS);
       }
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-    return () => window.removeEventListener('wheel', handleWheel, { capture: true });
+    return () => {
+      window.removeEventListener('wheel', handleWheel, { capture: true });
+      if (wheelPanFlushTimeoutRef.current) clearTimeout(wheelPanFlushTimeoutRef.current);
+    };
   }, [zoomTowardsPoint, onViewChange]);
 
   // Handle mouse wheel zoom (React合成事件，不调用preventDefault，由原生事件处理)
@@ -300,6 +414,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
     if (e.button === 1 || (isSpacePressed && e.button === 0) || ((e.ctrlKey || e.metaKey) && e.button === 0)) {
       e.preventDefault();
       e.stopPropagation(); // 阻止事件冒泡，防止图层响应
+      lastAppliedMousePosRef.current = { x: e.clientX, y: e.clientY };
+      lastPanUpdateTimeRef.current = 0;
       setIsPanning(true);
       lastMousePos.current = { x: e.clientX, y: e.clientY };
       return;
@@ -330,10 +446,10 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
             return false;
           }
           
-          const screenX = item.x * zoom + pan.x;
-          const screenY = item.y * zoom + pan.y;
-          const screenWidth = item.width * zoom;
-          const screenHeight = item.height * zoom;
+          const screenX = item.x * displayZoom + displayPan.x;
+          const screenY = item.y * displayZoom + displayPan.y;
+          const screenWidth = item.width * displayZoom;
+          const screenHeight = item.height * displayZoom;
           
           return x >= screenX && x <= screenX + screenWidth &&
                  y >= screenY && y <= screenY + screenHeight;
@@ -354,7 +470,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
         onItemMultiSelect?.([]);
       }
     }
-  }, [isSpacePressed, onItemSelect, onItemMultiSelect, items, zoom, pan]);
+  }, [isSpacePressed, onItemSelect, onItemMultiSelect, items, displayZoom, displayPan]);
 
   // Handle panning/box selection/resize move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -369,8 +485,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       const deltaScreenY = Math.round(e.clientY - resizeStartPos.current.y);
       
       // 转换为画布坐标
-      const deltaCanvasX = deltaScreenX / zoom;
-      const deltaCanvasY = deltaScreenY / zoom;
+      const deltaCanvasX = deltaScreenX / displayZoom;
+      const deltaCanvasY = deltaScreenY / displayZoom;
       
       let newWidth = resizeStartSize.current.width;
       let newHeight = resizeStartSize.current.height;
@@ -402,7 +518,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       }
       
       // 限制最小尺寸
-      const minSize = 50 / zoom; // 最小 50 像素（屏幕坐标）
+      const minSize = 50 / displayZoom; // 最小 50 像素（屏幕坐标）
       newWidth = Math.max(minSize, newWidth);
       newHeight = Math.max(minSize, newHeight);
       
@@ -432,20 +548,22 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       if (isInitializingRef.current) {
         isInitializingRef.current = false;
       }
-      
-      const dx = e.clientX - lastMousePos.current.x;
-      const dy = e.clientY - lastMousePos.current.y;
-      setPan(prev => {
-        // 四舍五入确保像素对齐，避免抖动
-        const newPan = { 
-          x: Math.round(prev.x + dx), 
-          y: Math.round(prev.y + dy) 
-        };
-        // 用户交互时总是通知视图变化
-        onViewChange?.(zoom, newPan);
-        return newPan;
-      });
       lastMousePos.current = { x: e.clientX, y: e.clientY };
+      const now = Date.now();
+      if (lastPanUpdateTimeRef.current === 0 || now - lastPanUpdateTimeRef.current >= PAN_ZOOM_DEBOUNCE_MS) {
+        const dx = e.clientX - lastAppliedMousePosRef.current.x;
+        const dy = e.clientY - lastAppliedMousePosRef.current.y;
+        setPan(prev => {
+          const newPan = {
+            x: Math.round(prev.x + dx),
+            y: Math.round(prev.y + dy),
+          };
+          onViewChange?.(zoom, newPan);
+          return newPan;
+        });
+        lastAppliedMousePosRef.current = { x: e.clientX, y: e.clientY };
+        lastPanUpdateTimeRef.current = now;
+      }
     } else if (isBoxSelecting && selectionStartPos.current && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -461,17 +579,19 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
         height: Math.abs(height),
       });
     }
-  }, [isResizing, resizingItemId, resizeHandle, isPanning, isBoxSelecting, zoom, pan, onItemResize, onItemMove, onViewChange]);
+  }, [isResizing, resizingItemId, resizeHandle, isPanning, isBoxSelecting, displayZoom, pan, onItemResize, onItemMove, onViewChange]);
 
-  // 右键菜单：在画布区域显示自定义菜单，阻止浏览器默认菜单；右键点击元素时与左键一致选中该元素
+  // 右键菜单：在画布区域显示自定义菜单，阻止浏览器默认菜单；右键点击元素时与左键一致选中该元素，并记录画布坐标供粘贴定位
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (isPanning) return;
+    let canvasX: number | undefined;
+    let canvasY: number | undefined;
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const canvasX = (e.clientX - rect.left - pan.x) / zoom;
-      const canvasY = (e.clientY - rect.top - pan.y) / zoom;
+      canvasX = (e.clientX - rect.left - displayPan.x) / displayZoom;
+      canvasY = (e.clientY - rect.top - displayPan.y) / displayZoom;
       // 从后往前找，得到最上层（最后渲染）的包含该点的元素
       for (let i = items.length - 1; i >= 0; i--) {
         const it = items[i];
@@ -487,8 +607,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
         }
       }
     }
-    setContextMenu({ open: true, x: e.clientX, y: e.clientY });
-  }, [isPanning, pan, zoom, items, onItemSelect, onItemMultiSelect]);
+    setContextMenu({ open: true, x: e.clientX, y: e.clientY, canvasX, canvasY });
+  }, [isPanning, displayPan, displayZoom, items, onItemSelect, onItemMultiSelect]);
 
   // 关闭右键菜单：点击菜单项、点击空白、ESC
   const closeContextMenu = useCallback(() => {
@@ -568,11 +688,11 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
           }
           
           // 四舍五入确保像素对齐
-          const screenX = Math.round(item.x * zoom + pan.x);
-          const screenY = Math.round(item.y * zoom + pan.y);
-          const screenWidth = item.width * zoom;
-          const screenHeight = item.height * zoom;
-          
+          const screenX = Math.round(item.x * displayZoom + displayPan.x);
+          const screenY = Math.round(item.y * displayZoom + displayPan.y);
+          const screenWidth = item.width * displayZoom;
+          const screenHeight = item.height * displayZoom;
+
           const itemLeft = screenX;
           const itemTop = screenY;
           const itemRight = screenX + screenWidth;
@@ -614,9 +734,21 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       setSelectionBox(null);
       selectionStartPos.current = null;
     }
-    
+
+    // 平移结束：刷新最后一次未应用的 delta，保证画布停在正确位置
+    if (isPanning) {
+      const dx = lastMousePos.current.x - lastAppliedMousePosRef.current.x;
+      const dy = lastMousePos.current.y - lastAppliedMousePosRef.current.y;
+      if (dx !== 0 || dy !== 0) {
+        setPan((prev) => {
+          const newPan = { x: Math.round(prev.x + dx), y: Math.round(prev.y + dy) };
+          onViewChange?.(zoomRef.current, newPan);
+          return newPan;
+        });
+      }
+    }
     setIsPanning(false);
-  }, [isResizing, isBoxSelecting, selectionBox, items, zoom, pan, selectedItemIds, onItemMultiSelect, onItemSelect]);
+  }, [isResizing, isBoxSelecting, selectionBox, items, displayZoom, displayPan, selectedItemIds, onItemMultiSelect, onItemSelect, onViewChange]);
 
   // Handle video play/pause
   const toggleVideoPlay = useCallback((itemId: string) => {
@@ -790,8 +922,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
 
   // Handle item drag
   const handleDrag = (id: string) => (_e: DraggableEvent, data: DraggableData) => {
-    const canvasX = Math.round((data.x - pan.x) / zoom * 100) / 100;
-    const canvasY = Math.round((data.y - pan.y) / zoom * 100) / 100;
+    const canvasX = Math.round((data.x - displayPan.x) / displayZoom * 100) / 100;
+    const canvasY = Math.round((data.y - displayPan.y) / displayZoom * 100) / 100;
     onItemMove?.(id, canvasX, canvasY);
   };
 
@@ -895,8 +1027,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
         className="canvas-background absolute inset-0"
         style={{
           backgroundImage: `radial-gradient(circle, hsl(var(--muted-foreground) / 0.15) 1px, transparent 1px)`,
-          backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
-          backgroundPosition: `${pan.x}px ${pan.y}px`,
+          backgroundSize: `${24 * displayZoom}px ${24 * displayZoom}px`,
+          backgroundPosition: `${displayPan.x}px ${displayPan.y}px`,
           // GPU 加速背景层
           transform: 'translateZ(0)',
           willChange: 'transform',
@@ -918,8 +1050,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       >
         {items.map((item, index) => {
           // 使用 Math.round 确保像素对齐，避免子像素渲染导致的抖动
-          const screenX = Math.round(item.x * zoom + pan.x);
-          const screenY = Math.round(item.y * zoom + pan.y);
+          const screenX = Math.round(item.x * displayZoom + displayPan.x);
+          const screenY = Math.round(item.y * displayZoom + displayPan.y);
           const mediaType = getMediaType(item);
           const isVideo = mediaType === 'video';
           const isPlaceholder = mediaType === 'placeholder';
@@ -950,7 +1082,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                 data-item-id={item.id}
                 data-is-placeholder={isPlaceholder ? 'true' : undefined}
                 className={cn(
-                  'absolute rounded-lg bg-background shadow-lg overflow-hidden',
+                  'absolute rounded-lg bg-background shadow-lg overflow-visible',
                   // 只在删除和新增时应用过渡动画，不影响拖拽和缩放
                   (deletingItemIds.includes(item.id) || addingItemIds.includes(item.id)) && 'transition-[opacity,transform] duration-300 ease-in-out',
                   isPlaceholderDisabled 
@@ -966,20 +1098,48 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                 )}
                 onMouseEnter={() => {
                   if (isVideo) {
-                    const video = videoRefs.current.get(item.id);
-                    if (video) video.play().catch(() => {});
+                    const id = item.id;
+                    if (videoHoverTimeoutRef.current[id]) {
+                      clearTimeout(videoHoverTimeoutRef.current[id]);
+                      delete videoHoverTimeoutRef.current[id];
+                    }
+                    videoHoverTimeoutRef.current[id] = setTimeout(() => {
+                      const video = videoRefs.current.get(id);
+                      if (video) video.play().catch(() => {});
+                      delete videoHoverTimeoutRef.current[id];
+                    }, HOVER_DEBOUNCE_MS);
+                  } else if (!isPlaceholder) {
+                    if (hoverEnterTimeoutRef.current) {
+                      clearTimeout(hoverEnterTimeoutRef.current);
+                      hoverEnterTimeoutRef.current = null;
+                    }
+                    hoverEnterTimeoutRef.current = setTimeout(() => {
+                      setHoveredItemId(item.id);
+                      hoverEnterTimeoutRef.current = null;
+                    }, HOVER_DEBOUNCE_MS);
                   }
                 }}
                 onMouseLeave={() => {
                   if (isVideo) {
-                    const video = videoRefs.current.get(item.id);
+                    const id = item.id;
+                    if (videoHoverTimeoutRef.current[id]) {
+                      clearTimeout(videoHoverTimeoutRef.current[id]);
+                      delete videoHoverTimeoutRef.current[id];
+                    }
+                    const video = videoRefs.current.get(id);
                     if (video) video.pause();
+                  } else if (!isPlaceholder) {
+                    if (hoverEnterTimeoutRef.current) {
+                      clearTimeout(hoverEnterTimeoutRef.current);
+                      hoverEnterTimeoutRef.current = null;
+                    }
+                    setHoveredItemId(null);
                   }
                 }}
                 style={{ 
                   // 四舍五入尺寸，确保像素对齐
-                  width: Math.round(item.width * zoom), 
-                  height: Math.round(item.height * zoom),
+                  width: Math.round(item.width * displayZoom), 
+                  height: Math.round(item.height * displayZoom),
                   zIndex: (selectedItemId === item.id || selectedItemIds.includes(item.id)) ? 50 : index + 1,
                   // GPU 加速每个元素
                   transform: 'translate3d(0, 0, 0)',
@@ -1165,13 +1325,21 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                     }}
                   />
                 ) : (
-                  <div className="h-full w-full overflow-hidden rounded-lg origin-center transition-transform duration-200 ease-out hover:scale-105">
-                    <img
-                      src={item.url}
-                      alt={item.prompt || 'Canvas item'}
-                      className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
-                      draggable={false}
-                    />
+                  /* 图片图层：外层裁切（overflow-hidden），内层 hover 放大，保证放大图被裁切且与四角拖拽圆点兼容（圆点在外层 overflow-visible 下不裁切） */
+                  <div className="h-full w-full overflow-hidden rounded-lg min-w-0 min-h-0">
+                    <div
+                      className={cn(
+                        'h-full w-full rounded-lg origin-center transition-transform duration-200 ease-out',
+                        hoveredItemId === item.id && 'scale-105'
+                      )}
+                    >
+                      <img
+                        src={item.url}
+                        alt={item.prompt || 'Canvas item'}
+                        className="h-full w-full rounded-lg object-cover pointer-events-none select-none"
+                        draggable={false}
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1394,7 +1562,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                 type="button"
                 role="menuitem"
                 className="flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors duration-100 hover:bg-white/10"
-                onClick={() => runAndClose(onContextPaste)}
+                onClick={() => runAndClose(() => onContextPaste?.(contextMenu.canvasX, contextMenu.canvasY))}
               >
                 <span className="flex items-center gap-2">
                   <ClipboardPaste className="h-3.5 w-3.5" />

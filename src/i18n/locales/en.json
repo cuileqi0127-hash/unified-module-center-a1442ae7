@@ -269,6 +269,10 @@
     "model": "Model",
     "seconds": "Duration",
     "size": "Size",
+    "resolution": "Resolution",
+    "enhanceSwitch": "Enhance",
+    "standardVersion": "Standard",
+    "hdVersion": "HD",
     "actions": {
       "new": "New",
       "history": "History",

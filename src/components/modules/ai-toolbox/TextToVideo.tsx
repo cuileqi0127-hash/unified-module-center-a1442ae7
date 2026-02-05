@@ -26,16 +26,22 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem, type UniversalCanvasHandle } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToVideo, type CanvasVideo } from './useTextToVideo';
+import { modelSupportsEnhanceSwitch } from './textToVideoConfig';
+import type { VideoModel } from '@/services/videoGenerationApi';
 import { AnimatedText } from './AnimatedText';
 import { MediaViewer } from './MediaViewer';
 import { GenerationChatPanel } from './GenerationChatPanel';
@@ -89,6 +95,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     setSeconds,
     size,
     setSize,
+    resolution,
+    setResolution,
+    enhanceSwitch,
+    setEnhanceSwitch,
     messages,
     isGenerating,
     canvasVideos,
@@ -114,6 +124,8 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     models,
     secondsOptions,
     sizesOptions,
+    resolutionOptions,
+    enhanceSwitchSupported,
     historySessions,
     hasMoreHistory,
     isLoadingHistory,
@@ -445,7 +457,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
             {/* Bottom toolbar：与文生图一致 - 模型 + 设置 Popover（时长 + 尺寸网格） */}
             <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">
               <div className="flex items-center gap-2">
-                {/* Model Dropdown */}
+                {/* Model Dropdown - 二级联动：模型 + 是否增强（标准版/高清版） */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
@@ -455,19 +467,60 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                     >
                       <VideoIcon className="h-3.5 w-3.5" />
                       {models.find(m => m.id === model)?.label}
+                      {enhanceSwitchSupported && enhanceSwitch && (
+                        <span className="opacity-80">| {t('textToVideo.hdVersion', { defaultValue: '高清版' })}</span>
+                      )}
                       <ChevronDown className="h-3 w-3 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="min-w-[140px]">
-                    {models.map((m) => (
-                      <DropdownMenuItem
-                        key={m.id}
-                        onClick={() => setModel(m.id)}
-                        className={cn(model === m.id && 'bg-accent')}
-                      >
-                        {m.label}
-                      </DropdownMenuItem>
-                    ))}
+                  <DropdownMenuContent align="start" className="min-w-[160px]">
+                    {models.map((m) => {
+                      const supportsEnhance = modelSupportsEnhanceSwitch(m.id as VideoModel);
+                      const isSelected = model === m.id;
+                      const isSelectedStandard = isSelected && !enhanceSwitch;
+                      const isSelectedHd = isSelected && enhanceSwitch;
+                      if (supportsEnhance) {
+                        return (
+                          <DropdownMenuSub key={m.id}>
+                            <DropdownMenuSubTrigger className={cn(isSelected && 'bg-accent')}>
+                              {m.label}
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setModel(m.id as VideoModel);
+                                  setEnhanceSwitch(false);
+                                }}
+                                className={cn(isSelectedStandard && 'bg-accent')}
+                              >
+                                {m.label}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setModel(m.id as VideoModel);
+                                  setEnhanceSwitch(true);
+                                }}
+                                className={cn(isSelectedHd && 'bg-accent')}
+                              >
+                                {m.label} | {t('textToVideo.hdVersion', { defaultValue: '高清版' })}
+                              </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                        );
+                      }
+                      return (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => {
+                            setModel(m.id as VideoModel);
+                            setEnhanceSwitch(false);
+                          }}
+                          className={cn(isSelected && 'bg-accent')}
+                        >
+                          {m.label}
+                        </DropdownMenuItem>
+                      );
+                    })}
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -484,6 +537,12 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                       <span className="opacity-60">·</span>
                       <RatioIcon className="h-3.5 w-3.5" />
                       <span>{size}</span>
+                      {resolutionOptions.length > 0 && (
+                        <>
+                          <span className="opacity-60">·</span>
+                          <span>{resolution}</span>
+                        </>
+                      )}
                       <ChevronDown className="h-3 w-3 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -491,7 +550,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                     align="center" 
                     side="top-end"
                     className={cn(
-                      "ml-[80px] w-[340px] p-0 rounded-2xl border-0",
+                      "ml-[80px] min-w-[340px] p-0 rounded-2xl border-0",
                       "bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl",
                       "shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.05),0_12px_24px_rgba(0,0,0,0.08)]",
                       "dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.4)]"
@@ -517,7 +576,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                               type="button"
                               onClick={() => setSeconds(sec)}
                               className={cn(
-                                "relative z-10 flex-1 min-w-0 py-2 rounded-lg text-sm font-medium transition-colors duration-200",
+                                "relative z-10 flex-1 min-w-0 py-2 px-3 rounded-lg text-sm font-medium transition-colors duration-200",
                                 seconds === sec ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                               )}
                             >
@@ -568,6 +627,48 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                           })}
                         </div>
                       </div>
+                      {/* 分辨率 - 768P / 1080P（多选项时展示） */}
+                      {resolutionOptions.length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
+                            {t('textToVideo.resolution', { defaultValue: '分辨率' })}
+                          </p>
+                          <div className="relative flex p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] w-full">
+                            <div
+                              className="absolute top-1 bottom-1 rounded-lg bg-white dark:bg-white/10 shadow-sm transition-[left] duration-200 ease-out"
+                              style={{
+                                left: `calc(${Math.max(0, resolutionOptions.indexOf(resolution))} * (100% - 8px) / ${resolutionOptions.length} + 4px)`,
+                                width: `calc((100% - 8px) / ${resolutionOptions.length} - 0px)`,
+                              }}
+                            />
+                            {resolutionOptions.map((res) => (
+                              <button
+                                key={res}
+                                type="button"
+                                onClick={() => setResolution(res)}
+                                className={cn(
+                                  "relative z-10 flex-1 min-w-0 py-2 rounded-lg text-sm font-medium transition-colors duration-200",
+                                  resolution === res ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                {res}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* 是否增强（仅 Sora 2、海螺 支持） */}
+                      {/* {enhanceSwitchSupported && (
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                            {t('textToVideo.enhanceSwitch', { defaultValue: '是否增强' })}
+                          </p>
+                          <Switch
+                            checked={enhanceSwitch}
+                            onCheckedChange={setEnhanceSwitch}
+                          />
+                        </div>
+                      )} */}
                     </div>
                   </PopoverContent>
                 </Popover>

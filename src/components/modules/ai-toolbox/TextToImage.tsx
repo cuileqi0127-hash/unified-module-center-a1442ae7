@@ -97,6 +97,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     messages,
     isGenerating,
     canvasImages,
+    taskPlaceholders,
     selectedImageId,
     setSelectedImageId,
     selectedImageIds,
@@ -710,7 +711,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
 
         <UniversalCanvas
           ref={canvasRef}
-          items={canvasImages.map(img => ({ ...img, type: img.type || 'image' } as CanvasMediaItem))}
+          items={[...canvasImages, ...taskPlaceholders].map(img => ({ ...img, type: img.type || 'image' } as CanvasMediaItem))}
           onItemMove={handleImageMove}
           onItemResize={handleImageResize}
           onViewChange={handleViewChange}
@@ -785,7 +786,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           variant="secondary" 
           className="absolute right-4 top-4 shadow-sm"
         >
-          {canvasImages.length} {t('textToImage.items')}
+          {canvasImages.length + taskPlaceholders.length} {t('textToImage.items')}
         </Badge>
       </div>
 
