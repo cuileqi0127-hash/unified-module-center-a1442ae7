@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { ImageModel } from '@/services/imageGenerationApi';
@@ -145,6 +146,8 @@ export function useTextToImage() {
   const handleResizeMoveRef = useRef<(e: MouseEvent) => void>();
   const handleResizeEndRef = useRef<() => void>();
 
+  const [searchParams] = useSearchParams();
+
   // State
   const [prompt, setPrompt] = useState('');
   const [workMode, setWorkMode] = useState('text-to-image');
@@ -269,6 +272,12 @@ export function useTextToImage() {
     const defaultStyle = getModelDefaultStyle(model);
     setStyle(defaultStyle ?? '');
   }, [model]);
+
+  // 页面初始化：若 URL 带 ?search=xxx，则填入聊天栏输入框
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q != null && q.trim()) setPrompt(q.trim());
+  }, [searchParams]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -975,18 +984,16 @@ export function useTextToImage() {
         height: img.height,
       }));
 
-      // 批量粘贴多个图片/视频：首个以 pasteX/pasteY 为基准，其余在其附近找不重叠位置
+      // 批量粘贴：使用拷贝源在画布上的宽高，落库也用该尺寸
       for (let i = 0; i < copiedImages.length; i++) {
         const copiedImg = copiedImages[i];
         const isVideo = copiedImg.type === 'video' || isVideoUrl(copiedImg.url);
-        // 根据类型获取尺寸
-        const dimensions = isVideo 
-          ? await getVideoDimensions(copiedImg.url)
-          : await getImageDimensions(copiedImg.url);
+        const w = copiedImg.width;
+        const h = copiedImg.height;
         const baseX = i === 0 ? startX : newImages[0].x;
         const baseY = i === 0 ? startY : newImages[0].y;
         const position = findNonOverlappingPosition(
-          { width: dimensions.width, height: dimensions.height },
+          { width: w, height: h },
           [...existingRects, ...newImages.map(img => ({
             x: img.x,
             y: img.y,
@@ -1002,16 +1009,16 @@ export function useTextToImage() {
           id: isVideo ? `video-${Date.now()}-${i}` : `img-${Date.now()}-${i}`,
           x: position.x,
           y: position.y,
-          width: dimensions.width,
-          height: dimensions.height,
+          width: w,
+          height: h,
           type: isVideo ? 'video' : 'image',
         };
         newImages.push(newImage);
         existingRects.push({
           x: position.x,
           y: position.y,
-          width: dimensions.width,
-          height: dimensions.height,
+          width: w,
+          height: h,
         });
       }
 
@@ -1028,14 +1035,11 @@ export function useTextToImage() {
         setAddingImageIds(new Set());
       }, 300);
 
-      // 批量保存生成结果到数据库
+      // 批量保存生成结果到数据库（画布元素尺寸与拷贝源一致）
       if (currentSessionId && newImages.length > 0) {
         try {
           const savePromises = newImages.map(async (newImage, index) => {
             const isVideo = newImage.type === 'video' || isVideoUrl(newImage.url);
-            const dimensions = isVideo 
-              ? await getVideoDimensions(newImage.url)
-              : await getImageDimensions(newImage.url);
             return saveGenerationResult(currentSessionId, {
               generation: {
                 model: model,
@@ -1047,8 +1051,8 @@ export function useTextToImage() {
                 type: isVideo ? 'video' : 'image',
                 sourceUrl: newImage.url,
                 seq: index + 1,
-                width: dimensions.width,
-                height: dimensions.height,
+                width: newImage.width,
+                height: newImage.height,
               },
               message: {
                 type: 'system',
@@ -1059,8 +1063,8 @@ export function useTextToImage() {
               canvasItem: {
                 x: newImage.x,
                 y: newImage.y,
-                width: dimensions.width,
-                height: dimensions.height,
+                width: newImage.width,
+                height: newImage.height,
                 rotate: 0,
                 visible: true,
                 zindex: canvasImages.length + index,
@@ -1096,15 +1100,13 @@ export function useTextToImage() {
       return;
     }
 
-    // 单个粘贴（向后兼容）
+    // 单个粘贴：使用拷贝源在画布上的宽高，落库也用该尺寸
     if (copiedImage) {
       const isVideo = copiedImage.type === 'video' || isVideoUrl(copiedImage.url);
-      // 根据类型获取尺寸
-      const dimensions = isVideo 
-        ? await getVideoDimensions(copiedImage.url)
-        : await getImageDimensions(copiedImage.url);
+      const w = copiedImage.width;
+      const h = copiedImage.height;
       const position = findNonOverlappingPosition(
-        { width: dimensions.width, height: dimensions.height },
+        { width: w, height: h },
         canvasImages.map(img => ({
           x: img.x,
           y: img.y,
@@ -1119,8 +1121,8 @@ export function useTextToImage() {
         id: isVideo ? `video-${Date.now()}` : `img-${Date.now()}`,
         x: position.x,
         y: position.y,
-        width: dimensions.width,
-        height: dimensions.height,
+        width: w,
+        height: h,
         type: isVideo ? 'video' : 'image',
       };
       
@@ -1139,7 +1141,7 @@ export function useTextToImage() {
         });
       }, 300);
       
-      // 保存生成结果到数据库
+      // 保存生成结果到数据库（画布元素尺寸与拷贝源一致）
       if (currentSessionId) {
         try {
           const isVideo = newImage.type === 'video' || isVideoUrl(newImage.url);
@@ -1154,8 +1156,8 @@ export function useTextToImage() {
               type: isVideo ? 'video' : 'image',
               sourceUrl: copiedImage.url,
               seq: 1,
-              width: dimensions.width,
-              height: dimensions.height,
+              width: w,
+              height: h,
             },
             message: {
               type: 'system',
@@ -1166,8 +1168,8 @@ export function useTextToImage() {
             canvasItem: {
               x: position.x,
               y: position.y,
-              width: dimensions.width,
-              height: dimensions.height,
+              width: w,
+              height: h,
               rotate: 0,
               visible: true,
               zindex: canvasImages.length,
@@ -1189,7 +1191,7 @@ export function useTextToImage() {
       
       toast.success(t('toast.pastedToCanvas'));
     }
-  }, [copiedImage, copiedImages, t, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, loadSessions, getSessionDetail, applySessionMessagesToState]);
+  }, [copiedImage, copiedImages, t, currentSessionId, model, aspectRatio, canvasImages, loadSessions, getSessionDetail, applySessionMessagesToState]);
 
   // 上传状态管理
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, { progress: number; id: string }>>(new Map());
