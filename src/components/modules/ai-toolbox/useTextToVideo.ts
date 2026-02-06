@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { ensureAspectRatioEnum, type VideoModel, type VideoTaskResponse } from '@/services/videoGenerationApi';
@@ -149,6 +150,8 @@ export function useTextToVideo() {
   const handleResizeMoveRef = useRef<(e: MouseEvent) => void>();
   const handleResizeEndRef = useRef<() => void>();
 
+  const [searchParams] = useSearchParams();
+
   // State
   const [prompt, setPrompt] = useState('');
   const [workMode, setWorkMode] = useState('text-to-video');
@@ -278,6 +281,12 @@ export function useTextToVideo() {
       setEnhanceSwitch('Disabled');
     }
   }, [model, seconds, size, resolution]);
+
+  // 页面初始化：若 URL 带 ?search=xxx，则填入聊天栏输入框
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q != null && q.trim()) setPrompt(q.trim());
+  }, [searchParams]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -958,17 +967,16 @@ export function useTextToVideo() {
         height: v.height,
       }));
 
-      // 批量粘贴多个视频/图片：首个以 pasteX/pasteY 为基准，其余在其附近找不重叠位置
+      // 批量粘贴：使用拷贝源在画布上的宽高，落库也用该尺寸
       for (let i = 0; i < copiedVideos.length; i++) {
         const copiedItem = copiedVideos[i];
         const isVideo = copiedItem.type === 'video' || isVideoUrl(copiedItem.url);
-        const dimensions = isVideo 
-          ? await getVideoDimensions(copiedItem.url)
-          : await getImageDimensions(copiedItem.url);
+        const w = copiedItem.width;
+        const h = copiedItem.height;
         const baseX = i === 0 ? startX : newVideos[0].x;
         const baseY = i === 0 ? startY : newVideos[0].y;
         const position = findNonOverlappingPosition(
-          { width: dimensions.width, height: dimensions.height },
+          { width: w, height: h },
           [...existingRects, ...newVideos.map(v => ({
             x: v.x,
             y: v.y,
@@ -984,16 +992,16 @@ export function useTextToVideo() {
           id: isVideo ? `video-${Date.now()}-${i}` : `img-${Date.now()}-${i}`,
           x: position.x,
           y: position.y,
-          width: dimensions.width,
-          height: dimensions.height,
+          width: w,
+          height: h,
           type: copiedItem.type || (isVideo ? 'video' : 'image'),
         };
         newVideos.push(newVideo);
         existingRects.push({
           x: position.x,
           y: position.y,
-          width: dimensions.width,
-          height: dimensions.height,
+          width: w,
+          height: h,
         });
       }
 
@@ -1063,14 +1071,13 @@ export function useTextToVideo() {
       return;
     }
 
-    // 单个粘贴
+    // 单个粘贴：使用拷贝源在画布上的宽高，落库也用该尺寸
     if (copiedVideo) {
       const isVideo = copiedVideo.type === 'video' || isVideoUrl(copiedVideo.url);
-      const dimensions = isVideo 
-        ? await getVideoDimensions(copiedVideo.url)
-        : await getImageDimensions(copiedVideo.url);
+      const w = copiedVideo.width;
+      const h = copiedVideo.height;
       const position = findNonOverlappingPosition(
-        { width: dimensions.width, height: dimensions.height },
+        { width: w, height: h },
         canvasVideos.map(v => ({
           x: v.x,
           y: v.y,
@@ -1085,15 +1092,15 @@ export function useTextToVideo() {
         id: isVideo ? `video-${Date.now()}` : `img-${Date.now()}`,
         x: position.x,
         y: position.y,
-        width: dimensions.width,
-        height: dimensions.height,
+        width: w,
+        height: h,
         type: copiedVideo.type || (isVideo ? 'video' : 'image'),
       };
       setCanvasVideos(prev => [...prev, newVideo]);
       setSelectedVideoId(newVideo.id);
       setCopiedVideo(null);
       
-      // 保存生成结果到数据库
+      // 保存生成结果到数据库（画布元素尺寸与拷贝源一致）
       if (currentSessionId) {
         try {
           const saveResponse = await saveGenerationResult(currentSessionId, {
@@ -1108,8 +1115,8 @@ export function useTextToVideo() {
               type: isVideo ? 'video' : 'image',
               sourceUrl: copiedVideo.url,
               seq: 1,
-              width: dimensions.width,
-              height: dimensions.height,
+              width: w,
+              height: h,
               ...(isVideo && seconds ? { duration: parseInt(seconds, 10) } : {}),
             },
             message: {
@@ -1121,8 +1128,8 @@ export function useTextToVideo() {
             canvasItem: {
               x: position.x,
               y: position.y,
-              width: dimensions.width,
-              height: dimensions.height,
+              width: w,
+              height: h,
               rotate: 0,
               visible: true,
               zindex: canvasVideos.length,
@@ -1144,7 +1151,7 @@ export function useTextToVideo() {
       
       toast.success(t('toast.pastedToCanvas'));
     }
-  }, [copiedVideo, copiedVideos, t, getVideoDimensions, getImageDimensions, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions, getSessionDetail, applySessionMessagesToState]);
+  }, [copiedVideo, copiedVideos, t, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions, getSessionDetail, applySessionMessagesToState]);
 
   // 上传状态管理
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, { progress: number; id: string }>>(new Map());
