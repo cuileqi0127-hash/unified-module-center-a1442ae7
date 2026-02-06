@@ -466,7 +466,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                       className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
                     >
                       <ImageIcon className="h-3.5 w-3.5" />
-                      {models.find(m => m.id === model)?.label}
+                      {t(`textToImage.modelNames.${model}`, { defaultValue: models.find(m => m.id === model)?.label })}
                       <ChevronDown className="h-3 w-3 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -477,7 +477,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                         onClick={() => setModel(m.id)}
                         className={cn(model === m.id && 'bg-accent')}
                       >
-                        {m.label}
+                        {t(`textToImage.modelNames.${m.id}`, { defaultValue: m.label })}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>

@@ -40,7 +40,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
   Hailuo: {
     label: '海螺',
     seconds: ['6', '8'],
-    sizes: ['16:9'], // 暂不支持多选，固定 16:9 兼容接口
+    sizes: ['16:9', '9:16'],
     defaultSeconds: '6',
     defaultSize: '16:9',
     resolutions: ['768P', '1080P'],
@@ -57,18 +57,18 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     resolutions: ['768P', '1080P'],
     defaultResolution: '768P',
     defaultModelVersion: '2.5',
-    supportsEnhanceSwitch: false,
+    supportsEnhanceSwitch: true,
   },
   Jimeng: {
     label: '即梦',
     seconds: ['10'],
-    sizes: ['16:9'],
+    sizes: ['16:9'], // 表格仅支持 16:9
     defaultSeconds: '10',
     defaultSize: '16:9',
     resolutions: ['1080P'],
     defaultResolution: '1080P',
     defaultModelVersion: '3.0pro',
-    supportsEnhanceSwitch: false,
+    supportsEnhanceSwitch: true,
   },
   Vidu: {
     label: 'Vidu',
@@ -79,7 +79,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     resolutions: ['768P', '1080P'],
     defaultResolution: '768P',
     defaultModelVersion: 'q2-turbo',
-    supportsEnhanceSwitch: false,
+    supportsEnhanceSwitch: true,
   },
 };
 

@@ -50,17 +50,20 @@ export function MediaViewer({ items, initialIndex, isOpen, onClose }: MediaViewe
     }
   }, [initialIndex, isOpen]);
 
-  // 当 currentIndex 变化时，重置加载状态
+  // 仅当当前查看的媒体项（id+url）真正变化时重置加载状态，避免轮询导致 items 引用变化时反复出现 loading
+  const currentItemKey = (() => {
+    const item = items[currentIndex];
+    return item ? `${item.id}:${item.url}` : '';
+  })();
   useEffect(() => {
     if (!isOpen) return;
-    
     const currentItem = items[currentIndex];
     if (currentItem) {
       setIsLoading(true);
       setIsImageLoaded(false);
       setIsVideoReady(false);
     }
-  }, [currentIndex, items, isOpen]);
+  }, [currentIndex, currentItemKey, isOpen]);
 
   // 处理关闭动画
   const handleClose = useCallback(() => {

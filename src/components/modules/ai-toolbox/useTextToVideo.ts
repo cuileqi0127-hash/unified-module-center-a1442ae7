@@ -157,7 +157,7 @@ export function useTextToVideo() {
   const [seconds, setSeconds] = useState<string>(getModelDefaultSeconds(DEFAULT_VIDEO_MODEL));
   const [size, setSize] = useState<string>(getModelDefaultSize(DEFAULT_VIDEO_MODEL));
   const [resolution, setResolution] = useState<string>(getModelDefaultResolution(DEFAULT_VIDEO_MODEL));
-  const [enhanceSwitch, setEnhanceSwitch] = useState(false);
+  const [enhanceSwitch, setEnhanceSwitch] = useState<'Enabled' | 'Disabled'>('Disabled');
   const [messages, setMessages] = useState<ChatMessage[]>(mockHistory);
   const [isGenerating, setIsGenerating] = useState(false);
   const [canvasVideos, setCanvasVideos] = useState<CanvasVideo[]>(initialCanvasVideos);
@@ -275,7 +275,7 @@ export function useTextToVideo() {
       setResolution(getModelDefaultResolution(model));
     }
     if (!modelSupportsEnhanceSwitch(model)) {
-      setEnhanceSwitch(false);
+      setEnhanceSwitch('Disabled');
     }
   }, [model, seconds, size, resolution]);
 
@@ -666,159 +666,165 @@ export function useTextToVideo() {
     }
   }, [model, size, seconds, t, loadSessions]);
 
+  // 将会话详情应用到本地状态（画布 + 聊天栏），用于加载会话或落库后刷新
+  const applySessionDetailToState = useCallback((session: SessionDetail) => {
+    setCanvasView(session.canvasView || { zoom: 1, pan: { x: 0, y: 0 } });
+
+    if (session.canvasItems && session.assets && session.generations) {
+      const assetsMap = new Map(session.assets.map(asset => [asset.id, asset]));
+      const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
+      const restoredVideos: CanvasVideo[] = session.canvasItems
+        .map(item => {
+          const asset = assetsMap.get(item.assetId);
+          if (!asset) return null;
+          canvasItemIdMap.current.set(`item-${item.id}`, item.id);
+          let prompt: string | undefined;
+          if (asset.generationId) {
+            const generation = generationsMap.get(asset.generationId.toString());
+            if (generation?.prompt) prompt = generation.prompt;
+          }
+          return {
+            id: `item-${item.id}`,
+            url: asset.downloadUrl || asset.ossKey || '',
+            x: item.x,
+            y: item.y,
+            width: item.width,
+            height: item.height,
+            type: asset.type === 'video' ? 'video' : 'image',
+            prompt,
+          } as CanvasVideo;
+        })
+        .filter((item): item is CanvasVideo => item !== null);
+      setCanvasVideos(restoredVideos);
+    }
+
+    if (session.messages && session.generations) {
+      const assetsMap = new Map(session.assets?.map(asset => [asset.id, asset]) || []);
+      const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
+      const restoredMessages: ChatMessage[] = [];
+      session.messages.forEach(msg => {
+        if (msg.generationId) {
+          const generation = generationsMap.get(msg.generationId.toString());
+          if (generation?.prompt) {
+            restoredMessages.push({
+              id: `user-${msg.id}`,
+              type: 'user',
+              content: generation.prompt,
+              timestamp: new Date(generation.createTime || msg.createTime || Date.now()),
+            });
+          }
+        }
+        const systemMessage: ChatMessage = {
+          id: msg.id.toString(),
+          type: msg.type === 'user' ? 'user' : 'system',
+          content: msg.content,
+          timestamp: new Date(msg.createTime || Date.now()),
+          status: msg.status === 'complete' || msg.status === 'completed' ? 'completed' : msg.status === 'processing' ? 'processing' : msg.status === 'failed' ? 'failed' : 'queued',
+          resultSummary: msg.resultSummary,
+        };
+        if (msg.generationId) {
+          const generation = generationsMap.get(msg.generationId.toString());
+          if (generation) {
+            const designThoughts: string[] = [];
+            if (generation.prompt) designThoughts.push(t('toast.videoUnderstanding', { prompt: generation.prompt }));
+            const videoSeconds = session.settings?.seconds;
+            if (videoSeconds) designThoughts.push(t('toast.durationLabel', { seconds: videoSeconds }));
+            if (generation.size) designThoughts.push(t('toast.sizeLabel', { size: generation.size }));
+            if (designThoughts.length > 0) systemMessage.designThoughts = designThoughts;
+          }
+        }
+        if (msg.assetId && assetsMap.has(msg.assetId)) {
+          const asset = assetsMap.get(msg.assetId)!;
+          if (asset.type === 'video') systemMessage.video = asset.downloadUrl || asset.ossKey || '';
+        }
+        restoredMessages.push(systemMessage);
+      });
+      const pendingGenerations = session.generations.filter(
+        (g): g is typeof g & { status: 'queued' | 'processing' } =>
+          g.status === 'queued' || g.status === 'processing'
+      );
+      pendingGenerations.forEach(gen => {
+        restoredMessages.push({
+          id: `gen-${gen.id}`,
+          type: 'system',
+          content: gen.status === 'processing' ? t('toast.generatingVideo') : t('toast.taskQueued'),
+          timestamp: new Date(gen.createTime || Date.now()),
+          status: gen.status === 'processing' ? 'processing' : 'queued',
+        });
+      });
+      restoredMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      setMessages(restoredMessages);
+    }
+  }, [t]);
+
+  // 仅用会话详情更新本地 messages（落库后刷新聊天栏，不更新画布）
+  const applySessionMessagesToState = useCallback((session: SessionDetail) => {
+    if (!session.messages || !session.generations) return;
+    const assetsMap = new Map(session.assets?.map(asset => [asset.id, asset]) || []);
+    const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
+    const restoredMessages: ChatMessage[] = [];
+    session.messages.forEach(msg => {
+      if (msg.generationId) {
+        const generation = generationsMap.get(msg.generationId.toString());
+        if (generation?.prompt) {
+          restoredMessages.push({
+            id: `user-${msg.id}`,
+            type: 'user',
+            content: generation.prompt,
+            timestamp: new Date(generation.createTime || msg.createTime || Date.now()),
+          });
+        }
+      }
+      const systemMessage: ChatMessage = {
+        id: msg.id.toString(),
+        type: msg.type === 'user' ? 'user' : 'system',
+        content: msg.content,
+        timestamp: new Date(msg.createTime || Date.now()),
+        status: msg.status === 'complete' || msg.status === 'completed' ? 'completed' : msg.status === 'processing' ? 'processing' : msg.status === 'failed' ? 'failed' : 'queued',
+        resultSummary: msg.resultSummary,
+      };
+      if (msg.generationId) {
+        const generation = generationsMap.get(msg.generationId.toString());
+        if (generation) {
+          const designThoughts: string[] = [];
+          if (generation.prompt) designThoughts.push(t('toast.videoUnderstanding', { prompt: generation.prompt }));
+          const videoSeconds = session.settings?.seconds;
+          if (videoSeconds) designThoughts.push(t('toast.durationLabel', { seconds: videoSeconds }));
+          if (generation.size) designThoughts.push(t('toast.sizeLabel', { size: generation.size }));
+          if (designThoughts.length > 0) systemMessage.designThoughts = designThoughts;
+        }
+      }
+      if (msg.assetId && assetsMap.has(msg.assetId)) {
+        const asset = assetsMap.get(msg.assetId)!;
+        if (asset.type === 'video') systemMessage.video = asset.downloadUrl || asset.ossKey || '';
+      }
+      restoredMessages.push(systemMessage);
+    });
+    const pendingGenerations = session.generations.filter(
+      (g): g is typeof g & { status: 'queued' | 'processing' } =>
+        g.status === 'queued' || g.status === 'processing'
+    );
+    pendingGenerations.forEach(gen => {
+      restoredMessages.push({
+        id: `gen-${gen.id}`,
+        type: 'system',
+        content: gen.status === 'processing' ? t('toast.generatingVideo') : t('toast.taskQueued'),
+        timestamp: new Date(gen.createTime || Date.now()),
+        status: gen.status === 'processing' ? 'processing' : 'queued',
+      });
+    });
+    restoredMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    setMessages(restoredMessages);
+  }, [t]);
+
   // 处理加载历史会话（获取指定会话的聊天内容和画布内容）
   const handleLoadSession = useCallback(async (sessionId: string) => {
     try {
-      // 使用 getSessionDetail 获取指定会话的完整内容（聊天内容和画布内容）
       const response = await getSessionDetail(sessionId);
-      
       if (response.success && response.data) {
         const session = response.data;
         setCurrentSessionId(session.id);
-        
-        // 恢复画布视图（缩放和平移）
-        setCanvasView(session.canvasView || { zoom: 1, pan: { x: 0, y: 0 } });
-        
-        // 恢复画布元素（图片/视频）
-        if (session.canvasItems && session.assets && session.generations) {
-          const assetsMap = new Map(session.assets.map(asset => [asset.id, asset]));
-          const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
-          
-          const restoredVideos: CanvasVideo[] = session.canvasItems
-            .map(item => {
-              const asset = assetsMap.get(item.assetId);
-              if (!asset) return null;
-              
-              // 保存画布元素ID映射，用于后续更新
-              canvasItemIdMap.current.set(`item-${item.id}`, item.id);
-              
-              // 通过 asset.generationId 获取 prompt
-              let prompt: string | undefined;
-              if (asset.generationId) {
-                const generation = generationsMap.get(asset.generationId.toString());
-                if (generation && generation.prompt) {
-                  prompt = generation.prompt;
-                }
-              }
-              
-              const videoItem: CanvasVideo = {
-                id: `item-${item.id}`,
-                url: asset.downloadUrl || asset.ossKey || '',
-                x: item.x,
-                y: item.y,
-                width: item.width,
-                height: item.height,
-                type: asset.type === 'video' ? 'video' : 'image',
-                prompt,
-              };
-              
-              return videoItem;
-            })
-            .filter((item): item is CanvasVideo => item !== null);
-          
-          setCanvasVideos(restoredVideos);
-        }
-        
-        // 恢复聊天内容（用户消息和系统消息）
-        if (session.messages && session.generations) {
-          const assetsMap = new Map(session.assets?.map(asset => [asset.id, asset]) || []);
-          const generationsMap = new Map(session.generations.map(gen => [gen.id.toString(), gen]));
-          
-          const restoredMessages: ChatMessage[] = [];
-          
-          session.messages.forEach(msg => {
-            // 如果消息有 generationId，说明这是系统消息，需要先创建用户消息（包含 prompt）
-            if (msg.generationId) {
-              const generation = generationsMap.get(msg.generationId.toString());
-              if (generation && generation.prompt) {
-                // 创建用户消息（包含 prompt）
-                const userMessage: ChatMessage = {
-                  id: `user-${msg.id}`,
-                  type: 'user',
-                  content: generation.prompt,
-                  timestamp: new Date(generation.createTime || msg.createTime || Date.now()),
-                };
-                restoredMessages.push(userMessage);
-              }
-            }
-            
-                // 创建系统消息
-                const systemMessage: ChatMessage = {
-                  id: msg.id.toString(),
-                  type: msg.type === 'user' ? 'user' : 'system',
-                  content: msg.content,
-                  timestamp: new Date(msg.createTime || Date.now()),
-                  status: msg.status === 'complete' || msg.status === 'completed' ? 'completed' : msg.status === 'processing' ? 'processing' : msg.status === 'failed' ? 'failed' : 'queued',
-                  resultSummary: msg.resultSummary,
-                };
-                
-                // 如果消息有 generationId，从 generations 中获取详细信息
-                if (msg.generationId) {
-                  const generation = generationsMap.get(msg.generationId.toString());
-                  if (generation) {
-                    // 构建 designThoughts 数组
-                    const designThoughts: string[] = [];
-                    
-                    // 添加视频理解（使用 generation.prompt）
-                    if (generation.prompt) {
-                      designThoughts.push(
-                        t('toast.videoUnderstanding', { prompt: generation.prompt })
-                      );
-                    }
-                    
-                    // 添加时长信息（从 session.settings.seconds 获取）
-                    const videoSeconds = session.settings?.seconds;
-                    if (videoSeconds) {
-                      designThoughts.push(
-                        t('toast.durationLabel', { seconds: videoSeconds })
-                      );
-                    }
-                    
-                    // 添加尺寸信息
-                    if (generation.size) {
-                      designThoughts.push(
-                        t('toast.sizeLabel', { size: generation.size })
-                      );
-                    }
-                    
-                    if (designThoughts.length > 0) {
-                      systemMessage.designThoughts = designThoughts;
-                    }
-                  }
-                }
-                
-                // 如果有关联的资产，恢复视频URL
-                if (msg.assetId && assetsMap.has(msg.assetId)) {
-                  const asset = assetsMap.get(msg.assetId)!;
-                  if (asset.type === 'video') {
-                    systemMessage.video = asset.downloadUrl || asset.ossKey || '';
-                  }
-                }
-                
-                restoredMessages.push(systemMessage);
-          });
-          
-          // 根据 generations 中 status 为 queued/processing 的项，补充系统消息（用于轮询进度展示）
-          const pendingGenerations = session.generations.filter(
-            (g): g is typeof g & { status: 'queued' | 'processing' } =>
-              g.status === 'queued' || g.status === 'processing'
-          );
-          pendingGenerations.forEach(gen => {
-            restoredMessages.push({
-              id: `gen-${gen.id}`,
-              type: 'system',
-              content: gen.status === 'processing' ? t('toast.generatingVideo') : t('toast.taskQueued'),
-              timestamp: new Date(gen.createTime || Date.now()),
-              status: gen.status === 'processing' ? 'processing' : 'queued',
-            });
-          });
-          
-          // 按时间戳排序
-          restoredMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-          
-          setMessages(restoredMessages);
-        }
-        
+        applySessionDetailToState(session);
         setShowHistory(false);
         
         // 会话详情中 generations[].status 为 processing（或 queued）时，用 generations[].id 作为任务 id 执行轮询
@@ -854,7 +860,7 @@ export function useTextToVideo() {
       console.error('Failed to load session:', error);
       toast.error(t('toast.loadSessionFailed'));
     }
-  }, [t]);
+  }, [t, applySessionDetailToState]);
 
   // 处理视频移动
   const handleVideoMove = useCallback((id: string, x: number, y: number) => {
@@ -1044,8 +1050,10 @@ export function useTextToVideo() {
               console.error(`Failed to save pasted item ${index}:`, error);
             }
           }));
-          // 刷新历史记录
+          // 刷新历史记录并拉取当前会话详情，仅刷新聊天栏
           await loadSessions(1, false);
+          const detailRes = await getSessionDetail(String(currentSessionId));
+          if (detailRes.success && detailRes.data) applySessionMessagesToState(detailRes.data);
         } catch (error) {
           console.error('Failed to save pasted videos/images:', error);
         }
@@ -1124,8 +1132,10 @@ export function useTextToVideo() {
           if (saveResponse.success && saveResponse.data) {
             // 保存画布元素ID映射
             canvasItemIdMap.current.set(newVideo.id, saveResponse.data.canvasItemId);
-            // 刷新历史记录
+            // 刷新历史记录并拉取当前会话详情，仅刷新聊天栏
             await loadSessions(1, false);
+            const detailRes = await getSessionDetail(String(currentSessionId));
+            if (detailRes.success && detailRes.data) applySessionMessagesToState(detailRes.data);
           }
         } catch (error) {
           console.error('Failed to save pasted video/image:', error);
@@ -1134,7 +1144,7 @@ export function useTextToVideo() {
       
       toast.success(t('toast.pastedToCanvas'));
     }
-  }, [copiedVideo, copiedVideos, t, getVideoDimensions, getImageDimensions, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions]);
+  }, [copiedVideo, copiedVideos, t, getVideoDimensions, getImageDimensions, isVideoUrl, currentSessionId, model, size, seconds, canvasVideos, loadSessions, getSessionDetail, applySessionMessagesToState]);
 
   // 上传状态管理
   const [uploadingFiles, setUploadingFiles] = useState<Map<string, { progress: number; id: string }>>(new Map());
@@ -1253,8 +1263,10 @@ export function useTextToVideo() {
             canvasItemIdMap.current.set(tempId, saveResponse.data.canvasItemId);
           }
           
-          // 刷新历史记录
+          // 刷新历史记录并拉取当前会话详情，仅刷新聊天栏
           await loadSessions(1, false);
+          const detailRes = await getSessionDetail(String(currentSessionId));
+          if (detailRes.success && detailRes.data) applySessionMessagesToState(detailRes.data);
         } catch (error) {
           console.error('Failed to save uploaded image:', error);
         }
@@ -1268,7 +1280,7 @@ export function useTextToVideo() {
       // 清除上传状态
       setUploadingFiles(prev => new Map());
     }
-  }, [t, getImageDimensions, currentSessionId, model, size, canvasVideos, saveGenerationResult, loadSessions]);
+  }, [t, getImageDimensions, currentSessionId, model, size, canvasVideos, saveGenerationResult, loadSessions, getSessionDetail, applySessionMessagesToState]);
 
   // 拖拽处理
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1397,7 +1409,7 @@ export function useTextToVideo() {
         duration: parseInt(seconds, 10),
         aspectRatio: ensureAspectRatioEnum(size),
         resolution: resolutionOptions.length > 0 ? resolution : undefined,
-        ...(modelSupportsEnhanceSwitch(model) && { enhanceSwitch: enhanceSwitch }),
+        ...(modelSupportsEnhanceSwitch(model) && { enhanceSwitch: enhanceSwitch }), // 字符串：Enabled | Disabled
         sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
         canvasItem: {
           x: position.x,

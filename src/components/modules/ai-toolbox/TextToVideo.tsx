@@ -466,9 +466,9 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                       className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
                     >
                       <VideoIcon className="h-3.5 w-3.5" />
-                      {models.find(m => m.id === model)?.label}
-                      {enhanceSwitchSupported && enhanceSwitch && (
-                        <span className="opacity-80">| {t('textToVideo.hdVersion', { defaultValue: '高清版' })}</span>
+                      {t(`textToVideo.modelNames.${model}`, { defaultValue: models.find(m => m.id === model)?.label })}
+                      {enhanceSwitchSupported && enhanceSwitch === 'Enabled' && (
+                        <span className="opacity-80">| {t('textToVideo.hdVersion')}</span>
                       )}
                       <ChevronDown className="h-3 w-3 opacity-50" />
                     </Button>
@@ -477,47 +477,49 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                     {models.map((m) => {
                       const supportsEnhance = modelSupportsEnhanceSwitch(m.id as VideoModel);
                       const isSelected = model === m.id;
-                      const isSelectedStandard = isSelected && !enhanceSwitch;
-                      const isSelectedHd = isSelected && enhanceSwitch;
+                      const isSelectedStandard = isSelected && enhanceSwitch === 'Disabled';
+                      const isSelectedHd = isSelected && enhanceSwitch === 'Enabled';
                       if (supportsEnhance) {
+                        const modelLabel = t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label });
                         return (
                           <DropdownMenuSub key={m.id}>
                             <DropdownMenuSubTrigger className={cn(isSelected && 'bg-accent')}>
-                              {m.label}
+                              {modelLabel}
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
                               <DropdownMenuItem
                                 onClick={() => {
                                   setModel(m.id as VideoModel);
-                                  setEnhanceSwitch(false);
+                                  setEnhanceSwitch('Disabled');
                                 }}
                                 className={cn(isSelectedStandard && 'bg-accent')}
                               >
-                                {m.label}
+                                {modelLabel}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => {
                                   setModel(m.id as VideoModel);
-                                  setEnhanceSwitch(true);
+                                  setEnhanceSwitch('Enabled');
                                 }}
                                 className={cn(isSelectedHd && 'bg-accent')}
                               >
-                                {m.label} | {t('textToVideo.hdVersion', { defaultValue: '高清版' })}
+                                {modelLabel} | {t('textToVideo.hdVersion')}
                               </DropdownMenuItem>
                             </DropdownMenuSubContent>
                           </DropdownMenuSub>
                         );
                       }
+                      const modelLabel = t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label });
                       return (
                         <DropdownMenuItem
                           key={m.id}
                           onClick={() => {
                             setModel(m.id as VideoModel);
-                            setEnhanceSwitch(false);
+                            setEnhanceSwitch('Disabled');
                           }}
                           className={cn(isSelected && 'bg-accent')}
                         >
-                          {m.label}
+                          {modelLabel}
                         </DropdownMenuItem>
                       );
                     })}
@@ -631,7 +633,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                       {resolutionOptions.length > 0 && (
                         <div>
                           <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
-                            {t('textToVideo.resolution', { defaultValue: '分辨率' })}
+                            {t('textToVideo.resolution')}
                           </p>
                           <div className="relative flex p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] w-full">
                             <div

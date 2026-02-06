@@ -56,8 +56,8 @@ interface UniversalCanvasProps {
   onContextDownload?: () => void;
 }
 
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 1;
+const MIN_ZOOM = 0.2;   // 20%
+const MAX_ZOOM = 4;     // 400%
 const ZOOM_STEP = 0.1;
 
 // 判断URL是否为视频

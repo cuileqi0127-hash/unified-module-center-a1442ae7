@@ -186,6 +186,12 @@
     "inputPlaceholder": "Describe the image you want to generate...",
     "generate": "Generate Image",
     "generating": "Generating...",
+    "modelNames": {
+      "gemini-3-pro-image-preview-hd": "Nano Banana 2",
+      "gpt-image-1.5": "GPT-Image",
+      "jimeng": "Jimeng",
+      "unknown": "Unknown"
+    },
     "generatedImages": "Generated Images",
     "noImages": "No generated images yet",
     "startPrompt": "Start entering prompts to generate your first image",
@@ -207,6 +213,7 @@
     "createSessionToStart": "Create a session to start generating images",
     "newSession": "New Session",
     "describeImage": "Describe the image you want to generate...",
+    "items": "items",
     "images": "images",
     "messages": "messages",
     "model": "Model",
@@ -247,6 +254,13 @@
     "inputPlaceholder": "Describe the video you want to generate...",
     "generate": "Generate Video",
     "generating": "Generating...",
+    "modelNames": {
+      "OS": "Sora 2",
+      "Hailuo": "Hailuo",
+      "Kling": "Kling",
+      "Jimeng": "Jimeng",
+      "Vidu": "Vidu"
+    },
     "status": {
       "queued": "Queued...",
       "processing": "Processing...",
@@ -264,6 +278,7 @@
     "createSessionToStart": "Create a session to start generating videos",
     "newSession": "New Session",
     "describeVideo": "Describe the video you want to generate...",
+    "items": "items",
     "videos": "videos",
     "messages": "messages",
     "model": "Model",

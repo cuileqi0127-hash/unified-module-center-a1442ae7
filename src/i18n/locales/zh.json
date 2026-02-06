@@ -186,6 +186,12 @@
     "inputPlaceholder": "发送指令，让遥鲟为您处理商品链接和图片",
     "generate": "生成图片",
     "generating": "生成中...",
+    "modelNames": {
+      "gemini-3-pro-image-preview-hd": "Nano Banana 2",
+      "gpt-image-1.5": "GPT-Image",
+      "jimeng": "即梦",
+      "unknown": "未知"
+    },
     "generatedImages": "生成的图片",
     "noImages": "还没有生成的图片",
     "startPrompt": "开始输入提示词来生成您的第一张图片",
@@ -248,6 +254,13 @@
     "inputPlaceholder": "描述您想要生成的视频...",
     "generate": "生成视频",
     "generating": "生成中...",
+    "modelNames": {
+      "OS": "Sora 2",
+      "Hailuo": "海螺",
+      "Kling": "可灵",
+      "Jimeng": "即梦",
+      "Vidu": "Vidu"
+    },
     "status": {
       "queued": "排队中...",
       "processing": "生成中...",

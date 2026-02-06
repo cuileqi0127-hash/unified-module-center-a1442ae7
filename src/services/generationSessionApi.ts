@@ -292,8 +292,8 @@ export interface SubmitVideoTaskRequest {
   aspectRatio: string;
   /** 分辨率：768P / 1080P */
   resolution?: string;
-  /** 是否增强（仅部分模型支持） */
-  enhanceSwitch?: boolean;
+  /** 是否增强，字符串类型：Enabled / Disabled（默认 Disabled） */
+  enhanceSwitch?: string;
   sourceImages?: string[];
   canvasItem: CanvasItem;
 }
