@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback } from 'react';
-import {
+import { 
   Video,
   Image as ImageIcon,
   FileText,
   Sparkles,
   Loader2,
-  Copy,
+  Copy, 
   Download,
   X,
   Clock,
@@ -39,14 +39,15 @@ const cardGlass = cn(
   'rounded-2xl border-0 overflow-hidden',
   'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl',
   'shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.04),0_12px_24px_rgba(0,0,0,0.06)]',
-  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]'
+  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]',
+  'transition-all duration-200 ease-out hover:shadow-lg hover:-translate-y-0.5'
 );
 
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-
+  
   const [viewState, setViewState] = useState<ViewState>('upload');
   const [originalVideo, setOriginalVideo] = useState<UploadedFile | null>(null);
   const [referenceImage, setReferenceImage] = useState<UploadedFile | null>(null);
@@ -66,24 +67,24 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
 
   const processVideoFile = useCallback(
     async (file: File) => {
-      if (!file.type.startsWith('video/')) {
-        toast.error(t('videoReplication.uploadVideo'));
-        return;
-      }
+    if (!file.type.startsWith('video/')) {
+      toast.error(t('videoReplication.uploadVideo'));
+      return;
+    }
       if (file.size > 50 * 1024 * 1024) {
-        toast.error(t('videoReplication.errors.videoSizeLimit'));
-        return;
-      }
-      setIsVideoUploading(true);
-      try {
-        const url = URL.createObjectURL(file);
+      toast.error(t('videoReplication.errors.videoSizeLimit'));
+      return;
+    }
+    setIsVideoUploading(true);
+    try {
+    const url = URL.createObjectURL(file);
         setOriginalVideo({ id: crypto.randomUUID(), type: 'video', name: file.name, url, file });
-        toast.success(t('videoReplication.uploadSuccess'));
+      toast.success(t('videoReplication.uploadSuccess'));
       } catch (e) {
         toast.error(e instanceof Error ? e.message : t('videoReplication.uploadVideo'));
-      } finally {
-        setIsVideoUploading(false);
-      }
+    } finally {
+      setIsVideoUploading(false);
+    }
     },
     [t]
   );
@@ -145,8 +146,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
 
   const handleVideoDrop = useCallback(
     (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragOver(false);
+    e.preventDefault();
+    setIsDragOver(false);
       const file = e.dataTransfer.files?.[0];
       if (file) processVideoFile(file);
     },
@@ -154,9 +155,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   );
   const handleImageDrop = useCallback(
     (e: React.DragEvent) => {
-      e.preventDefault();
+    e.preventDefault();
       setIsImageDragOver(false);
-      const file = e.dataTransfer.files?.[0];
+    const file = e.dataTransfer.files?.[0];
       if (file) processImageFile(file);
     },
     [processImageFile]
@@ -316,7 +317,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
 
   if (viewState === 'result' && generatedVideo) {
     return (
-      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20">
+      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 opacity-0 animate-page-enter">
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <Video className="w-6 h-6 text-primary" />
@@ -339,14 +340,14 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             <div className={cn(cardGlass, 'overflow-hidden')}>
               <video src={generatedVideo} className="w-full aspect-video bg-black" controls autoPlay muted />
             </div>
-          </div>
+                </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden">
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden opacity-0 animate-page-enter">
       <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
 
@@ -363,7 +364,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           <Button variant="ghost" size="sm" className="rounded-xl gap-2 text-muted-foreground" disabled>
             <Clock className="w-4 h-4" />
             {t('videoReplication.historyVersion')}
-          </Button>
+                          </Button>
         </div>
       </header>
 
@@ -469,13 +470,13 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 <div className="flex items-center gap-2 mb-3 shrink-0">
                   <ListOrdered className="w-4 h-4 text-primary" />
                   <span className="text-xs font-semibold tracking-wider text-primary uppercase">{t('videoReplication.aiPromptLabel')}</span>
-                </div>
-                <Textarea
-                  value={sellingPoints}
-                  onChange={(e) => setSellingPoints(e.target.value)}
-                  placeholder={t('videoReplication.sellingPointsPlaceholder')}
+              </div>
+              <Textarea
+                value={sellingPoints}
+                onChange={(e) => setSellingPoints(e.target.value)}
+                    placeholder={t('videoReplication.sellingPointsPlaceholder')}
                   className="flex-1 min-h-[100px] rounded-xl border-border/80 bg-black/[0.02] dark:bg-white/[0.04] resize-none text-sm"
-                />
+              />
                 <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground shrink-0">
                   <FileText className="w-3.5 h-3.5 shrink-0" />
                   {t('videoReplication.centerTip')}
@@ -484,29 +485,29 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                   <Button variant="ghost" size="sm" className="rounded-lg gap-1.5" onClick={handleCopyPrompt} disabled={!sellingPoints.trim()}>
                     <Copy className="w-4 h-4" />
                     {t('videoReplication.copy')}
-                  </Button>
+              </Button>
                   {!sellingPoints.trim() && originalVideo ? (
-                    <Button
+            <Button 
                       className="rounded-xl gap-2 bg-primary hover:bg-primary/90"
                       disabled={isGenerating}
                       onClick={handleAnalyzeVideo}
                     >
                       {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                       {t('videoReplication.generatePrompt')}
-                    </Button>
+                        </Button>
                   ) : (
-                    <Button
+                      <Button 
                       className="rounded-xl gap-2 bg-primary hover:bg-primary/90"
                       disabled={!sellingPoints.trim() || !imageFileId || isReplicating}
                       onClick={handleStartReplication}
                     >
                       {isReplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                       {t('videoReplication.startReplication')}
-                    </Button>
-                  )}
+            </Button>
+                )}
                 </div>
               </div>
-            </div>
+                </div>
             <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0')}>
               <div className="flex items-center gap-2 mb-3 shrink-0">
                 <span className="text-xs font-semibold tracking-wider text-primary uppercase">{t('videoReplication.proTipLabel')}</span>
@@ -515,15 +516,15 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               <Button variant="outline" size="sm" className="mt-4 rounded-xl gap-2 w-full shrink-0" disabled>
                 <Settings className="w-4 h-4" />
                 {t('videoReplication.advancedCamera')}
-              </Button>
-            </div>
-        </div>
+                </Button>
+                  </div>
+                </div>
 
-        {generationError && (
+          {generationError && (
           <div className={cn(cardGlass, 'p-4 border-destructive/20 bg-destructive/5 shrink-0')}>
             <p className="text-sm font-medium text-destructive mb-2">{t('videoReplication.error')}</p>
             <p className="text-xs text-muted-foreground mb-3">{generationError}</p>
-            <div className="flex gap-2">
+              <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setViewState('image-upload')}>{t('videoReplication.retry')}</Button>
               <Button variant="ghost" size="sm" onClick={handleBackToStart}>{t('videoReplication.startOver')}</Button>
             </div>
@@ -536,7 +537,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             <FolderOpen className="w-4 h-4" />
             {t('videoReplication.assetsVaultHint')}
           </Button>
-        </div>
+      </div>
       </div>
 
       {(viewState === 'analyzing' || viewState === 'generating') && (

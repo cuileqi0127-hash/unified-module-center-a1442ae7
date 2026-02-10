@@ -15,7 +15,8 @@ const cardGlass = cn(
   'rounded-2xl border-0 overflow-hidden',
   'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl',
   'shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.04),0_12px_24px_rgba(0,0,0,0.06)]',
-  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]'
+  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]',
+  'transition-all duration-200 ease-out hover:shadow-lg hover:-translate-y-0.5'
 );
 
 interface BrandHealthProps {
@@ -37,8 +38,21 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
   const competitorInputRef = useRef<HTMLInputElement>(null);
   const [reportTaskId, setReportTaskId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [removingCompetitorIndex, setRemovingCompetitorIndex] = useState<number | null>(null);
 
   const { reportUrl, isPolling, error } = useReportPolling(reportTaskId, view === 'report');
+
+  useEffect(() => {
+    if (removingCompetitorIndex === null) return;
+    const timer = setTimeout(() => {
+      setFormData((prev) => ({
+        ...prev,
+        competitors: prev.competitors.filter((_, j) => j !== removingCompetitorIndex),
+      }));
+      setRemovingCompetitorIndex(null);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [removingCompetitorIndex]);
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -95,12 +109,15 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
 
   if (view === 'input') {
     return (
-      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden">
+      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden opacity-0 animate-page-enter">
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
           <div>
             <div className="flex items-center gap-3">
               <TrendingUp className="w-6 h-6 text-primary" />
               <h1 className="text-xl font-semibold text-foreground">{t('brandHealth.title')}</h1>
+              <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
+                {t('brandHealth.titleTag')}
+              </span>
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
           </div>
@@ -119,7 +136,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
         </header>
 
         <div className="flex-1 overflow-auto flex flex-col items-center justify-center p-6 md:p-10">
-          <div className="w-full max-w-[420px] animate-fade-in">
+          <div className="w-full max-w-[500px]">
             <div className={cn(cardGlass, 'p-6 md:p-8')}>
               <div className="space-y-5">
                 <div className="space-y-2">
@@ -219,19 +236,18 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                     {formData.competitors.map((tag, i) => (
                       <span
                         key={`${tag}-${i}`}
-                        className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-md bg-[#333] text-sm text-[#fff]"
+                        className={cn(
+                          'inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-md bg-[#333] text-sm text-[#fff]',
+                          'animate-tag-in transition-all duration-200 ease-out',
+                          removingCompetitorIndex === i && 'opacity-0 scale-90 pointer-events-none'
+                        )}
                       >
                         <span>{tag}</span>
                         <button
                           type="button"
                           aria-label={t('brandHealth.removeTag')}
                           className="p-0.5 rounded text-[#eee] hover:text-[#fff]"
-                          onClick={() =>
-                            setFormData({
-                              ...formData,
-                              competitors: formData.competitors.filter((_, j) => j !== i),
-                            })
-                          }
+                          onClick={() => setRemovingCompetitorIndex(i)}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -244,6 +260,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                       placeholder={formData.competitors.length === 0 ? t('brandHealth.competitorsPlaceholder') : ''}
                       value={competitorInput}
                       onChange={(e) => setCompetitorInput(e.target.value)}
+                      onBlur={() => setCompetitorInput('')}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ',') {
                           e.preventDefault();
@@ -291,6 +308,9 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <div className="flex items-center gap-3">
             <TrendingUp className="w-6 h-6 text-primary" />
             <h1 className="text-xl font-semibold text-foreground">{t('brandHealth.title')}</h1>
+            <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
+              {t('brandHealth.titleTag')}
+            </span>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
         </div>
