@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, Users, Sparkles, Package, MapPin, ChevronLeft, X } from 'lucide-react';
+import { BarChart3, Package, Sparkles, Tag, ChevronLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { submitBrandHealthTask } from '@/services/reportApi';
+import { submitTiktokInsightTask } from '@/services/reportApi';
 import { useReportPolling } from '@/hooks/useReportPolling';
 import { ReportDisplay, ReportPollingOverlay } from './ReportDisplay';
 import { ReportHistorySheet } from './ReportHistorySheet';
@@ -18,23 +18,21 @@ const cardGlass = cn(
   'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]'
 );
 
-interface BrandHealthProps {
+interface TikTokInsightsProps {
   onNavigate?: (itemId: string) => void;
 }
 
-export function BrandHealth({ onNavigate }: BrandHealthProps) {
+export function TikTokInsights({ onNavigate }: TikTokInsightsProps) {
   const { t } = useTranslation();
 
   const [view, setView] = useState<'input' | 'report'>('input');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    brandName: '',
     category: '',
-    region: '',
-    competitors: [] as string[],
+    sellingPoints: [] as string[],
   });
-  const [competitorInput, setCompetitorInput] = useState('');
-  const competitorInputRef = useRef<HTMLInputElement>(null);
+  const [sellingPointInput, setSellingPointInput] = useState('');
+  const sellingPointInputRef = useRef<HTMLInputElement>(null);
   const [reportTaskId, setReportTaskId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -42,7 +40,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
-      if (e.data?.type === 'brand-health-report-back') setView('input');
+      if (e.data?.type === 'tiktok-insight-report-back') setView('input');
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
@@ -56,41 +54,39 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
   }, [error]);
 
   const handleGenerate = async () => {
-    if (!formData.brandName.trim() || !formData.region.trim()) return;
+    if (!formData.category.trim()) return;
     setIsLoading(true);
     try {
-      const competitorsList = formData.competitors.filter((s) => s.trim()).map((s) => s.trim());
-      const res = await submitBrandHealthTask({
-        brandName: formData.brandName.trim(),
-        category: formData.category.trim() || undefined,
-        competitors: competitorsList.length > 0 ? competitorsList : undefined,
-        region: formData.region.trim(),
+      const sellingPointsList = formData.sellingPoints.filter((s) => s.trim()).map((s) => s.trim());
+      const res = await submitTiktokInsightTask({
+        category: formData.category.trim(),
+        sellingPoints: sellingPointsList.length > 0 ? sellingPointsList : [],
       });
       if (res?.success && res?.data) {
         setReportTaskId(String(res.data.taskId ?? ''));
         setView('report');
       } else {
-        toast.error(res?.msg ?? t('brandHealth.submitFailed'));
+        toast.error(res?.msg ?? t('tiktokInsights.submitFailed'));
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('brandHealth.submitFailed'));
+      toast.error(e instanceof Error ? e.message : t('tiktokInsights.submitFailed'));
     } finally {
       setIsLoading(false);
     }
   };
 
   const historyLabels = {
-    title: t('brandHealth.historyRecords'),
-    triggerButton: t('brandHealth.historyRecords'),
-    empty: t('brandHealth.historyEmpty'),
-    loadFailed: t('brandHealth.historyLoadFailed'),
-    total: t('brandHealth.historyTotal', { total: 0 }).replace('0', '{{total}}'),
-    prevPage: t('brandHealth.prevPage'),
-    nextPage: t('brandHealth.nextPage'),
-    statusCompleted: t('brandHealth.statusCompleted'),
-    statusProcessing: t('brandHealth.statusProcessing'),
-    statusFailed: t('brandHealth.statusFailed'),
-    statusQueued: t('brandHealth.statusQueued'),
+    title: t('tiktokInsights.historyRecords'),
+    triggerButton: t('tiktokInsights.historyRecords'),
+    empty: t('tiktokInsights.historyEmpty'),
+    loadFailed: t('tiktokInsights.historyLoadFailed'),
+    total: t('tiktokInsights.historyTotal', { total: 0 }).replace('0', '{{total}}'),
+    prevPage: t('tiktokInsights.prevPage'),
+    nextPage: t('tiktokInsights.nextPage'),
+    statusCompleted: t('tiktokInsights.statusCompleted'),
+    statusProcessing: t('tiktokInsights.statusProcessing'),
+    statusFailed: t('tiktokInsights.statusFailed'),
+    statusQueued: t('tiktokInsights.statusQueued'),
   };
 
   if (view === 'input') {
@@ -99,15 +95,15 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
           <div>
             <div className="flex items-center gap-3">
-              <TrendingUp className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-semibold text-foreground">{t('brandHealth.title')}</h1>
+              <BarChart3 className="w-6 h-6 text-primary" />
+              <h1 className="text-xl font-semibold text-foreground">{t('tiktokInsights.title')}</h1>
             </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t('tiktokInsights.subtitle')}</p>
           </div>
           <ReportHistorySheet
             open={historyOpen}
             onOpenChange={setHistoryOpen}
-            reportType="brand_health"
+            reportType="tiktok_insight"
             onSelectTask={(taskId) => {
               setReportTaskId(taskId);
               setView('report');
@@ -124,36 +120,10 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               <div className="space-y-5">
                 <div className="space-y-2">
                   <Label
-                    htmlFor="brandName"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
-                  >
-                    {t('brandHealth.brandName')} <span className="text-destructive/90">*</span>
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
-                      <TrendingUp className="w-4 h-4" />
-                    </span>
-                    <Input
-                      id="brandName"
-                      placeholder={t('brandHealth.brandNamePlaceholder')}
-                      value={formData.brandName}
-                      onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
-                      className={cn(
-                        'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
-                        'placeholder:text-muted-foreground/60',
-                        'focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30',
-                        'transition-colors duration-200'
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
                     htmlFor="category"
                     className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
                   >
-                    {t('brandHealth.category')}
+                    {t('tiktokInsights.category')} <span className="text-destructive/90">*</span>
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
@@ -161,7 +131,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                     </span>
                     <Input
                       id="category"
-                      placeholder={t('brandHealth.categoryPlaceholder')}
+                      placeholder={t('tiktokInsights.categoryPlaceholder')}
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       className={cn(
@@ -176,36 +146,10 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
 
                 <div className="space-y-2">
                   <Label
-                    htmlFor="region"
+                    htmlFor="sellingPoints"
                     className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
                   >
-                    {t('brandHealth.region')} <span className="text-destructive/90">*</span>
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
-                      <MapPin className="w-4 h-4" />
-                    </span>
-                    <Input
-                      id="region"
-                      placeholder={t('brandHealth.regionPlaceholder')}
-                      value={formData.region}
-                      onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                      className={cn(
-                        'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
-                        'placeholder:text-muted-foreground/60',
-                        'focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30',
-                        'transition-colors duration-200'
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="competitors"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
-                  >
-                    {t('brandHealth.competitors')}
+                    {t('tiktokInsights.sellingPoints')}
                   </Label>
                   <div
                     className={cn(
@@ -214,9 +158,9 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                     )}
                   >
                     <span className="text-muted-foreground/60 shrink-0">
-                      <Users className="w-4 h-4" />
+                      <Tag className="w-4 h-4" />
                     </span>
-                    {formData.competitors.map((tag, i) => (
+                    {formData.sellingPoints.map((tag, i) => (
                       <span
                         key={`${tag}-${i}`}
                         className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-md bg-[#333] text-sm text-[#fff]"
@@ -224,12 +168,12 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                         <span>{tag}</span>
                         <button
                           type="button"
-                          aria-label={t('brandHealth.removeTag')}
+                          aria-label={t('tiktokInsights.removeTag')}
                           className="p-0.5 rounded text-[#eee] hover:text-[#fff]"
                           onClick={() =>
                             setFormData({
                               ...formData,
-                              competitors: formData.competitors.filter((_, j) => j !== i),
+                              sellingPoints: formData.sellingPoints.filter((_, j) => j !== i),
                             })
                           }
                         >
@@ -238,19 +182,19 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                       </span>
                     ))}
                     <input
-                      ref={competitorInputRef}
-                      id="competitors"
+                      ref={sellingPointInputRef}
+                      id="sellingPoints"
                       type="text"
-                      placeholder={formData.competitors.length === 0 ? t('brandHealth.competitorsPlaceholder') : ''}
-                      value={competitorInput}
-                      onChange={(e) => setCompetitorInput(e.target.value)}
+                      placeholder={formData.sellingPoints.length === 0 ? t('tiktokInsights.sellingPointsPlaceholder') : ''}
+                      value={sellingPointInput}
+                      onChange={(e) => setSellingPointInput(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ',') {
                           e.preventDefault();
-                          const v = competitorInput.trim();
+                          const v = sellingPointInput.trim();
                           if (v) {
-                            setFormData({ ...formData, competitors: [...formData.competitors, v] });
-                            setCompetitorInput('');
+                            setFormData({ ...formData, sellingPoints: [...formData.sellingPoints, v] });
+                            setSellingPointInput('');
                           }
                         }
                       }}
@@ -263,17 +207,17 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               <Button
                 className="mt-6 h-12 w-full rounded-xl gap-2 text-[15px] font-medium bg-primary hover:bg-primary/90"
                 onClick={handleGenerate}
-                disabled={!formData.brandName.trim() || !formData.region.trim() || isLoading}
+                disabled={!formData.category.trim() || isLoading}
               >
                 {isLoading ? (
                   <>
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    {t('brandHealth.generating')}
+                    {t('tiktokInsights.generating')}
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    {t('brandHealth.generateReport')}
+                    {t('tiktokInsights.generateReport')}
                   </>
                 )}
               </Button>
@@ -289,16 +233,16 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
       <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
         <div>
           <div className="flex items-center gap-3">
-            <TrendingUp className="w-6 h-6 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">{t('brandHealth.title')}</h1>
+            <BarChart3 className="w-6 h-6 text-primary" />
+            <h1 className="text-xl font-semibold text-foreground">{t('tiktokInsights.title')}</h1>
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('tiktokInsights.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <ReportHistorySheet
             open={historyOpen}
             onOpenChange={setHistoryOpen}
-            reportType="brand_health"
+            reportType="tiktok_insight"
             onSelectTask={(taskId) => {
               setReportTaskId(taskId);
               setView('report');
@@ -309,20 +253,20 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           />
           <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setView('input')}>
             <ChevronLeft className="w-4 h-4" />
-            {t('brandHealth.backToRegenerate')}
+            {t('tiktokInsights.backToRegenerate')}
           </Button>
         </div>
       </header>
       <div className="flex-1 min-h-0 relative flex flex-col">
         <ReportPollingOverlay
           show={isPolling}
-          generatingLabel={t('brandHealth.generating')}
-          generatingHint={t('brandHealth.pollingHint')}
+          generatingLabel={t('tiktokInsights.generating')}
+          generatingHint={t('tiktokInsights.pollingHint')}
         />
         {reportUrl && (
           <ReportDisplay
             reportUrl={reportUrl}
-            reportTitle={t('brandHealth.reportTitleSuffix')}
+            reportTitle={t('tiktokInsights.reportTitleSuffix')}
           />
         )}
       </div>

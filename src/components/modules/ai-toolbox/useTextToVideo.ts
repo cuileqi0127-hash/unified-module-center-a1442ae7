@@ -23,6 +23,7 @@ import {
   type Session,
   type SessionDetail,
 } from '@/services/generationSessionApi';
+import { redirectToLogin } from '@/services/oauthApi';
 import { debounce } from '@/utils/debounce';
 import { findNonOverlappingPosition } from './canvasUtils';
 import {
@@ -525,6 +526,7 @@ export function useTextToVideo() {
         } catch (error) {
           console.error('Failed to create session:', error);
           toast.error(t('toast.createSessionFailed'));
+          redirectToLogin();
         }
       }
       } finally {
@@ -672,6 +674,7 @@ export function useTextToVideo() {
     } catch (error) {
       console.error('Failed to create session:', error);
       toast.error(t('toast.createSessionFailed'));
+      redirectToLogin();
     }
   }, [model, size, seconds, t, loadSessions]);
 

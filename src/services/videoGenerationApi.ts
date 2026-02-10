@@ -23,7 +23,7 @@ export type VideoSeconds = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' |
 export type VideoSize = '16:9' | '9:16' | '1:1' | '4:3' | '3:4';
 
 // 支持的分辨率
-export type VideoResolution = '768P' | '1080P';
+export type VideoResolution = '720P' | '768P' | '1080P';
 
 /**
  * 将尺寸比例转换为 API 需要的像素格式

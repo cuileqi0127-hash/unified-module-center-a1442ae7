@@ -629,7 +629,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                           })}
                         </div>
                       </div>
-                      {/* 分辨率 - 768P / 1080P（多选项时展示） */}
+                      {/* 分辨率 - 720P / 1080P（多选项时展示） */}
                       {resolutionOptions.length > 0 && (
                         <div>
                           <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
@@ -680,12 +680,14 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleUploadImage(file);
-                        // Reset input to allow selecting the same file again
+                      const fileList = e.target.files;
+                      if (fileList?.length) {
+                        for (let i = 0; i < fileList.length; i++) {
+                          handleUploadImage(fileList[i]);
+                        }
                         e.target.value = '';
                       }
                     }}

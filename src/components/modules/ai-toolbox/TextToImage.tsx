@@ -94,6 +94,9 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     style,
     setStyle,
     styleOptions,
+    outputNumber,
+    setOutputNumber,
+    outputNumberOptions,
     messages,
     isGenerating,
     canvasImages,
@@ -618,6 +621,36 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                           </div>
                         );
                       })()}
+                      {/* 输出数量：1、2、3、4 张 */}
+                      <div>
+                        <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
+                          {t('textToImage.outputNumber')}
+                        </p>
+                        <div className="relative flex p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] w-full">
+                          <div
+                            className="absolute top-1 bottom-1 rounded-lg bg-white dark:bg-white/10 shadow-sm transition-[left] duration-200 ease-out pointer-events-none"
+                            style={{
+                              left: `calc(${outputNumberOptions.indexOf(outputNumber)} * (100% - 8px) / ${outputNumberOptions.length} + 4px)`,
+                              width: `calc((100% - 8px) / ${outputNumberOptions.length} - 0px)`,
+                            }}
+                          />
+                          {outputNumberOptions.map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setOutputNumber(num)}
+                              disabled={ num != 1 }
+                              className={cn(
+                                "relative z-10 flex-1 min-w-0 py-2 rounded-lg text-sm font-medium transition-colors duration-200 tabular-nums",
+                                outputNumber === num ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                                num != 1 ? "text-[#ccc] hover:text-[#ccc]" : ""
+                              )}
+                            >
+                              {num}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -627,12 +660,14 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleUploadImage(file);
-                        // Reset input to allow selecting the same file again
+                      const fileList = e.target.files;
+                      if (fileList?.length) {
+                        for (let i = 0; i < fileList.length; i++) {
+                          handleUploadImage(fileList[i]);
+                        }
                         e.target.value = '';
                       }
                     }}

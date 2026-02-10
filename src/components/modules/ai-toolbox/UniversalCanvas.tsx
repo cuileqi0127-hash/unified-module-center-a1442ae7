@@ -1089,8 +1089,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                     ? 'cursor-default pointer-events-none' 
                     : 'cursor-move',
                   (selectedItemId === item.id || selectedItemIds.includes(item.id))
-                    ? 'ring-2 ring-primary shadow-xl z-50'
-                    : 'ring-1 ring-border hover:shadow-xl',
+                    ? 'ring-2 ring-primary shadow-xl z-50 shadow-[#666]'
+                    : 'ring-inset ring-border hover:shadow-xl',
                   highlightedItemId === item.id && 'ring-2 ring-green-500 shadow-xl animate-pulse',
                   isPlaceholder && 'bg-muted/50',
                   deletingItemIds.includes(item.id) && 'opacity-0 scale-75 pointer-events-none',
@@ -1146,6 +1146,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                   willChange: (isPanning || isResizing) ? 'transform' : 'auto',
                   // 启用硬件加速
                   backfaceVisibility: 'hidden',
+                  transition: '0.1s all'
                 }}
                 onMouseDown={(e) => {
                   // 如果按住 Ctrl/Cmd 键，这是画布平移操作，不处理图层点击
@@ -1329,7 +1330,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                   <div className="h-full w-full overflow-hidden rounded-lg min-w-0 min-h-0">
                     <div
                       className={cn(
-                        'h-full w-full rounded-lg origin-center transition-transform duration-200 ease-out',
+                        'h-full w-full rounded-lg origin-center transition-transform duration-500 ease-out',
                         hoveredItemId === item.id && 'scale-105'
                       )}
                     >
@@ -1365,7 +1366,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                   <>
                     {/* 左上角 - 可拖拽调整大小 */}
                     <div
-                      className="absolute -left-2 -top-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nwse-resize hover:bg-primary/10 hover:scale-110 transition-transform z-[60] shadow-sm"
+                      className="absolute -left-2 -top-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nwse-resize hover:bg-primary/10 hover:scale-125 transition-transform z-[60] shadow-sm"
                       onMouseDown={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
@@ -1381,10 +1382,11 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                           y: item.y,
                         };
                       }}
+                      style={{transition: '0.5s all'}}
                     />
                     {/* 右上角 - 可拖拽调整大小 */}
                     <div
-                      className="absolute -right-2 -top-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nesw-resize hover:bg-primary/10 hover:scale-110 transition-transform z-[60] shadow-sm"
+                      className="absolute -right-2 -top-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nesw-resize hover:bg-primary/10 hover:scale-125 transition-transform z-[60] shadow-sm"
                       onMouseDown={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
@@ -1400,10 +1402,11 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                           y: item.y,
                         };
                       }}
+                      style={{transition: '0.5s all'}}
                     />
                     {/* 左下角 - 可拖拽调整大小 */}
                     <div
-                      className="absolute -left-2 -bottom-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nesw-resize hover:bg-primary/10 hover:scale-110 transition-transform z-[60] shadow-sm"
+                      className="absolute -left-2 -bottom-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nesw-resize hover:bg-primary/10 hover:scale-125 transition-transform z-[60] shadow-sm"
                       onMouseDown={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
@@ -1419,10 +1422,11 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                           y: item.y,
                         };
                       }}
+                      style={{transition: '0.5s all'}}
                     />
                     {/* 右下角 - 可拖拽调整大小 */}
                     <div
-                      className="absolute -right-2 -bottom-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nwse-resize hover:bg-primary/10 hover:scale-110 transition-transform z-[60] shadow-sm"
+                      className="absolute -right-2 -bottom-2 h-4 w-4 rounded-full border-2 border-primary bg-background cursor-nwse-resize hover:bg-primary/10 hover:scale-125 transition-transform z-[60] shadow-sm"
                       onMouseDown={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
@@ -1438,6 +1442,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                           y: item.y,
                         };
                       }}
+                      style={{transition: '0.5s all'}}
                     />
                   </>
                 )}

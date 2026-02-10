@@ -3,6 +3,7 @@ import { TextToImage } from './TextToImage';
 import { TextToVideo } from './TextToVideo';
 import { AppPlaza } from './AppPlaza';
 import { BrandHealth } from './BrandHealth';
+import { TikTokInsights } from './TikTokInsights';
 import { VideoReplication } from './VideoReplication';
 
 interface AIToolboxModuleProps {
@@ -27,6 +28,8 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
     // Market Insights
     case 'brand-health':
       return <BrandHealth onNavigate={onNavigate} />;
+    case 'tiktok-insights':
+      return <TikTokInsights onNavigate={onNavigate} />;
     case 'trend-analysis':
       return <PlaceholderPage title={t('placeholder.trendAnalysis')} description={t('placeholder.trendAnalysisDesc')} />;
     case 'competitor-monitor':

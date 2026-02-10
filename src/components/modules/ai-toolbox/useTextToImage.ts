@@ -23,8 +23,10 @@ import {
   type Session,
   type SessionDetail,
 } from '@/services/generationSessionApi';
+import { redirectToLogin } from '@/services/oauthApi';
 import { debounce } from '@/utils/debounce';
 import { findNonOverlappingPosition } from './canvasUtils';
+import { OUTPUT_NUMBER_OPTIONS, type OutputNumberOption } from './textToImageConfig';
 import {
   getModelList,
   getModelSizes,
@@ -156,7 +158,7 @@ export function useTextToImage() {
   const [aspectRatio, setAspectRatio] = useState<string>(getModelDefaultSize(DEFAULT_MODEL));
   const [quality, setQuality] = useState<string>(getModelDefaultQuality(DEFAULT_MODEL) ?? '');
   const [style, setStyle] = useState<string>(getModelDefaultStyle(DEFAULT_MODEL) ?? '');
-  const [outputNumber, setOutputNumber] = useState(1); // 单次生成数量 1–4
+  const [outputNumber, setOutputNumber] = useState(1); // 单次生成数量：1、2、3、4 张
   const [messages, setMessages] = useState<ChatMessage[]>(mockHistory);
   const [isGenerating, setIsGenerating] = useState(false);
   const [canvasImages, setCanvasImages] = useState<CanvasImage[]>(initialCanvasImages);
@@ -517,6 +519,7 @@ export function useTextToImage() {
         } catch (error) {
           console.error('Failed to create session:', error);
           toast.error(t('toast.createSessionFailed'));
+          redirectToLogin();
         }
       }
       } finally {
@@ -604,12 +607,17 @@ export function useTextToImage() {
     } catch (error) {
       console.error('Failed to create session:', error);
       toast.error(t('toast.createSessionFailed'));
+      redirectToLogin();
     }
   }, [model, aspectRatio, quality, style, outputNumber, t, loadSessions]);
 
   // 将会话详情应用到本地状态（画布 + 聊天栏），用于加载会话或落库后刷新
   const applySessionDetailToState = useCallback((session: SessionDetail) => {
     setCanvasView(session.canvasView || { zoom: 1, pan: { x: 0, y: 0 } });
+    const outNum = (session.settings as { outputNumber?: number })?.outputNumber;
+    // if (typeof outNum === 'number' && OUTPUT_NUMBER_OPTIONS.includes(outNum as OutputNumberOption)) {
+    //   setOutputNumber(outNum);
+    // }
 
     if (session.canvasItems && session.assets && session.generations) {
       const assetsMap = new Map(session.assets.map(asset => [asset.id, asset]));
@@ -1679,7 +1687,7 @@ export function useTextToImage() {
         size: aspectRatio,
         quality: quality || null,
         style: style || null,
-        n: 1,
+        n: outputNumber,
         canvasItem: {
           x: position.x,
           y: position.y,
@@ -2106,6 +2114,9 @@ export function useTextToImage() {
     style,
     setStyle,
     styleOptions,
+    outputNumber,
+    setOutputNumber,
+    outputNumberOptions: OUTPUT_NUMBER_OPTIONS,
     messages,
     isGenerating,
     canvasImages,
