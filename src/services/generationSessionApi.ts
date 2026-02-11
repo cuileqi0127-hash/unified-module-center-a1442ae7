@@ -290,7 +290,7 @@ export interface SubmitVideoTaskRequest {
   prompt: string;
   duration: number;
   aspectRatio: string;
-  /** 分辨率：768P / 1080P */
+  /** 分辨率：720P / 768P / 1080P */
   resolution?: string;
   /** 是否增强，字符串类型：Enabled / Disabled（默认 Disabled） */
   enhanceSwitch?: string;

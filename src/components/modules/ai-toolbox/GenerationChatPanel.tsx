@@ -156,7 +156,7 @@ export function GenerationChatPanel({
                         message.status === 'analyzing'
                       }
                     />
-                    {message.progress !== undefined && ` (${message.progress}%)`}
+                    {/* {message.progress !== undefined && ` (${message.progress}%)`} */}
                   </span>
                 </div>
               )}

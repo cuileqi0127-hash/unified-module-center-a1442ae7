@@ -23,6 +23,7 @@ import {
   type Session,
   type SessionDetail,
 } from '@/services/generationSessionApi';
+import { redirectToLogin } from '@/services/oauthApi';
 import { debounce } from '@/utils/debounce';
 import { findNonOverlappingPosition } from './canvasUtils';
 import {
@@ -41,8 +42,8 @@ import {
   DEFAULT_VIDEO_MODEL,
 } from './textToVideoConfig';
 import { type SelectedImage } from './ImageCapsule';
-import { batchDownload, MediaItem } from '@/utils/batchDownloader';
 import { uploadFile, validateFileFormat, validateFileSize } from '@/services/fileUploadApi';
+import { toolsDownloadByUrls } from '@/services/toolsDownloadApi';
 
 // 类型定义
 export interface ChatMessage {
@@ -177,6 +178,7 @@ export function useTextToVideo() {
   const [viewerIndex, setViewerIndex] = useState(0);
   const [chatPanelWidth, setChatPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isChatPanelCollapsed, setIsChatPanelCollapsed] = useState(false);
   const [taskPlaceholders, setTaskPlaceholders] = useState<CanvasVideo[]>([]);
   
@@ -2296,34 +2298,41 @@ export function useTextToVideo() {
     await handleDeleteVideo();
   }, [selectedVideoId, selectedVideoIds, canvasVideos, handleCopyVideo, handleBatchCopyVideos, handleDeleteVideo]);
 
-  // 处理批量下载视频
+  // 处理批量下载视频（走后端 /tools/download，避免前端直连 OSS 导致 CORS/net::ERR_FAILED）
   const handleBatchDownloadVideos = useCallback(async () => {
     const videosToDownload = selectedVideoIds.length > 1
       ? canvasVideos.filter(v => selectedVideoIds.includes(v.id))
       : selectedVideoId
         ? canvasVideos.filter(v => v.id === selectedVideoId)
         : [];
-    
-    if (videosToDownload.length === 0) return;
-    
+    const withUrl = videosToDownload.filter(v => !!v.url);
+    if (withUrl.length === 0) return;
+    if (withUrl.length > 6) {
+      toast.error(t('toast.downloadMaxSix'));
+      return;
+    }
+    const urls = withUrl.slice(0, 6).map(v => v.url);
+    setIsDownloading(true);
     try {
-      console.log(videosToDownload,'videosToDownload')
-      // 转换为 MediaItem 格式
-      const mediaItems: MediaItem[] = videosToDownload.map(video => ({
-        id: video.id,
-        url: video.url,
-        type: video.type || 'video',
-        name: `video-${video.id}`,
-      }));
-      
-      // 使用批量下载工具
-      await batchDownload(mediaItems, {
-        zip: mediaItems.length > 1,
-        folderName: 'videos',
-      });
+      const blob = await toolsDownloadByUrls(urls);
+      const ext = urls.length === 1 && /\.(mp4|webm|mov|avi|gif|png|jpg|jpeg|webp)(\?|$)/i.test(urls[0])
+        ? (urls[0].match(/\.(mp4|webm|mov|avi|gif|png|jpg|jpeg|webp)/i)?.[1] ?? 'bin')
+        : 'zip';
+      const filename = urls.length === 1 ? `download.${ext}` : `videos-${Date.now()}.zip`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(t('toast.downloadVideoStarted'));
     } catch (err) {
       console.error('Download failed:', err);
       toast.error(`${t('toast.downloadFailed')}: ${err instanceof Error ? err.message : t('toast.unknownError')}`);
+    } finally {
+      setIsDownloading(false);
     }
   }, [selectedVideoIds, selectedVideoId, canvasVideos, t]);
 
@@ -2428,6 +2437,7 @@ export function useTextToVideo() {
     highlightedVideoId,
     chatPanelWidth,
     isResizing,
+    isDownloading,
     isChatPanelCollapsed,
     handleToggleChatPanel,
     canvasView,

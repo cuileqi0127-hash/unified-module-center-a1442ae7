@@ -24,8 +24,9 @@ export interface VideoModelConfig {
   supportsEnhanceSwitch: boolean;
 }
 
-// 模型配置映射（与产品规格表一致）
+// 模型配置映射（与产品规格表一致：可灵 2.6 / Google veo 3.1 / SORA 2.0 / Vidu q2-turubo / 海螺 2.3 / 即梦 3.0pro）
 export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'>> = {
+  // SORA 2.0：768P(默认)/1080P，16:9(默认)/9:16，4/8(默认)/12s，支持高清
   OS: {
     label: 'Sora 2',
     seconds: ['4', '8', '12'],
@@ -37,49 +38,65 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     defaultModelVersion: '2.0',
     supportsEnhanceSwitch: true,
   },
-  Hailuo: {
-    label: '海螺',
-    seconds: ['6', '8'],
+  // Google veo 3.1：720P(默认)/1080P，16:9(默认)/9:16，4/8(默认)/12s，支持高清
+  GV: {
+    label: 'Google veo 3.1',
+    seconds: ['4', '8', '12'],
     sizes: ['16:9', '9:16'],
-    defaultSeconds: '6',
+    defaultSeconds: '8',
     defaultSize: '16:9',
-    resolutions: ['768P', '1080P'],
-    defaultResolution: '768P',
-    defaultModelVersion: '2.3',
+    resolutions: ['720P', '1080P'],
+    defaultResolution: '720P',
+    defaultModelVersion: '3.1',
     supportsEnhanceSwitch: true,
   },
+  // 可灵 2.6：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9/2:3，5(默认)/10s，支持高清
   Kling: {
     label: '可灵',
     seconds: ['5', '10'],
-    sizes: ['16:9', '9:16', '1:1'],
+    sizes: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '2:3'],
     defaultSeconds: '5',
     defaultSize: '16:9',
-    resolutions: ['768P', '1080P'],
-    defaultResolution: '768P',
-    defaultModelVersion: '2.5',
+    resolutions: ['720P', '1080P'],
+    defaultResolution: '720P',
+    defaultModelVersion: '2.6',
     supportsEnhanceSwitch: true,
   },
+  // 海螺 2.3：720P(默认)/1080P，仅 16:9，6(默认)/10s，无高清
+  Hailuo: {
+    label: '海螺',
+    seconds: ['6', '10'],
+    sizes: ['16:9'],
+    defaultSeconds: '6',
+    defaultSize: '16:9',
+    resolutions: ['720P', '1080P'],
+    defaultResolution: '720P',
+    defaultModelVersion: '2.3',
+    supportsEnhanceSwitch: false,
+  },
+  // 即梦 3.0pro：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9，5(默认)/10s，无高清
   Jimeng: {
     label: '即梦',
-    seconds: ['10'],
-    sizes: ['16:9'], // 表格仅支持 16:9
-    defaultSeconds: '10',
+    seconds: ['5', '10'],
+    sizes: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+    defaultSeconds: '5',
     defaultSize: '16:9',
-    resolutions: ['1080P'],
-    defaultResolution: '1080P',
-    defaultModelVersion: '3.0pro',
-    supportsEnhanceSwitch: true,
+    resolutions: ['720P', '1080P'],
+    defaultResolution: '720P',
+    defaultModelVersion: '3.0',
+    supportsEnhanceSwitch: false,
   },
+  // Vidu q2-turubo：720P(默认)/1080P，16:9/9:16/4:3/3:4/1:1，1–10s(默认5)，无高清
   Vidu: {
     label: 'Vidu',
     seconds: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
     sizes: ['16:9', '9:16', '4:3', '3:4', '1:1'],
     defaultSeconds: '5',
     defaultSize: '16:9',
-    resolutions: ['768P', '1080P'],
-    defaultResolution: '768P',
+    resolutions: ['720P', '1080P'],
+    defaultResolution: '720P',
     defaultModelVersion: 'q2-turbo',
-    supportsEnhanceSwitch: true,
+    supportsEnhanceSwitch: false,
   },
 };
 

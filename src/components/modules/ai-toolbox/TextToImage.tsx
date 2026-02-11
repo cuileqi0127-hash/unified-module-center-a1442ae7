@@ -1,5 +1,6 @@
 import { 
   Download, 
+  Loader2,
   Send,
   ChevronDown,
   ChevronLeft,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -70,7 +71,11 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   
   // Canvas ref 用于恢复视频播放、聚焦等
   const canvasRef = useRef<UniversalCanvasHandle>(null);
-  
+  /** 画布容器：点击此区域外且不在输入卡内时清除图层选中 */
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  /** 输入区（图2 范围）：该区域内点击不清除选中 */
+  const inputPanelRef = useRef<HTMLDivElement>(null);
+
   // 从业务逻辑层获取所有状态和处理函数
   const {
     // Refs
@@ -94,6 +99,9 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     style,
     setStyle,
     styleOptions,
+    outputNumber,
+    setOutputNumber,
+    outputNumberOptions,
     messages,
     isGenerating,
     canvasImages,
@@ -144,6 +152,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     handleCutImage,
     handleBatchCopyImages,
     handleBatchDownloadImages,
+    isDownloading,
     handleCopyImageToClipboard,
     handleResizeStart,
     handleUploadImage,
@@ -162,6 +171,21 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
   };
 
   const selectedImage = canvasImages.find(img => img.id === selectedImageId);
+
+  // 点击画布外区域清除图层选中，不包含图2（输入区）范围；下拉/弹出层内点击也不清除
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!containerRef.current?.contains(target)) return;
+      if (canvasContainerRef.current?.contains(target)) return;
+      if (inputPanelRef.current?.contains(target)) return;
+      if (target.closest('[data-radix-popper-content-wrapper]') ?? target.closest('[role="menu"]') ?? target.closest('[role="dialog"]')) return;
+      setSelectedImageId(null);
+      setSelectedImageIds([]);
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [setSelectedImageId, setSelectedImageIds]);
 
   return (
     <div ref={containerRef} className="flex h-[calc(100vh-3.5rem)] gap-0 animate-fade-in overflow-hidden bg-background relative">
@@ -344,8 +368,8 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
           )}
         </div>
 
-        {/* Bottom Input Area - Fixed at bottom */}
-        <div className="border-t border-border bg-background p-4 flex-shrink-0">
+        {/* Bottom Input Area - Fixed at bottom（图2 范围：此处点击不清除画布选中） */}
+        <div ref={inputPanelRef} className="border-t border-border bg-background p-4 flex-shrink-0">
           {/* Input Container with Drop Zone */}
           <div 
             className={cn(
@@ -618,6 +642,34 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                           </div>
                         );
                       })()}
+                      {/* 输出数量：1、2、3、4 张 */}
+                      <div>
+                        <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
+                          {t('textToImage.outputNumber')}
+                        </p>
+                        <div className="relative flex p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] w-full">
+                          <div
+                            className="absolute top-1 bottom-1 rounded-lg bg-white dark:bg-white/10 shadow-sm transition-[left] duration-200 ease-out pointer-events-none"
+                            style={{
+                              left: `calc(${outputNumberOptions.indexOf(outputNumber)} * (100% - 8px) / ${outputNumberOptions.length} + 4px)`,
+                              width: `calc((100% - 8px) / ${outputNumberOptions.length} - 0px)`,
+                            }}
+                          />
+                          {outputNumberOptions.map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => setOutputNumber(num)}
+                              className={cn(
+                                "relative z-10 flex-1 min-w-0 py-2 rounded-lg text-sm font-medium transition-colors duration-200 tabular-nums",
+                                outputNumber === num ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {num}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -627,12 +679,14 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleUploadImage(file);
-                        // Reset input to allow selecting the same file again
+                      const fileList = e.target.files;
+                      if (fileList?.length) {
+                        for (let i = 0; i < fileList.length; i++) {
+                          handleUploadImage(fileList[i]);
+                        }
                         e.target.value = '';
                       }
                     }}
@@ -687,8 +741,9 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
         />
       )}
 
-      {/* Right Panel - Infinite Canvas */}
+      {/* Right Panel - Infinite Canvas（画布区域：仅此处点击空白由 canvas 内部处理清除选中） */}
       <div 
+        ref={canvasContainerRef}
         className={cn(
           "relative flex flex-col bg-muted/20",
           // 只有在非拖动状态下才应用过渡动画
@@ -765,9 +820,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               size="icon" 
               className="h-8 w-8 rounded-full"
               onClick={handleBatchDownloadImages}
+              disabled={isDownloading}
               title={selectedImageIds.length > 1 ? t('textToImage.actions.downloadAll') : t('textToImage.actions.download')}
             >
-              <Download className="h-4 w-4" />
+              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </Button>
             <Button 
               variant="ghost" 

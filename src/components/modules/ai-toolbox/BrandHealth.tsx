@@ -1,96 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Download, FileImage, FileText, AlertTriangle, TrendingUp, Users, Target, Shield, Zap, ChevronRight, ExternalLink } from 'lucide-react';
+import { TrendingUp, Users, Sparkles, Package, MapPin, ChevronLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import {
-  LineChart,
-  Line,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ScatterChart,
-  Scatter,
-  Cell,
-  ZAxis,
-} from 'recharts';
+import { toast } from 'sonner';
+import { submitBrandHealthTask } from '@/services/reportApi';
+import { useReportPolling } from '@/hooks/useReportPolling';
+import { ReportDisplay, ReportPollingOverlay } from './ReportDisplay';
+import { ReportHistorySheet } from './ReportHistorySheet';
 
-// Mock data for charts
-const industryTrendData = [
-  { week: 'W1', heat: 65 },
-  { week: 'W2', heat: 72 },
-  { week: 'W3', heat: 68 },
-  { week: 'W4', heat: 85 },
-  { week: 'W5', heat: 78 },
-  { week: 'W6', heat: 92 },
-  { week: 'W7', heat: 88 },
-  { week: 'W8', heat: 95 },
-];
-
-const radarData = [
-  { subject: '内容质量', myBrand: 85, competitor: 70, fullMark: 100 },
-  { subject: 'SEO表现', myBrand: 72, competitor: 85, fullMark: 100 },
-  { subject: '价格竞争力', myBrand: 78, competitor: 65, fullMark: 100 },
-  { subject: '品牌声量', myBrand: 65, competitor: 80, fullMark: 100 },
-  { subject: '用户互动', myBrand: 90, competitor: 75, fullMark: 100 },
-];
-
-const demographicsData = [
-  { age: '18-24', percentage: 35 },
-  { age: '25-30', percentage: 42 },
-  { age: '31-40', percentage: 18 },
-  { age: '41-50', percentage: 4 },
-  { age: '50+', percentage: 1 },
-];
-
-const demandMatrixData = [
-  { x: 75, y: 85, z: 200, name: '产品质量', quadrant: 1 },
-  { x: 45, y: 80, z: 150, name: '价格敏感', quadrant: 2 },
-  { x: 80, y: 35, z: 180, name: '物流速度', quadrant: 4 },
-  { x: 30, y: 40, z: 120, name: '售后服务', quadrant: 3 },
-  { x: 65, y: 60, z: 160, name: '品牌信任', quadrant: 1 },
-];
-
-const seoKeywordsData = [
-  { keyword: '美妆护肤', ranking: 2, traffic: 12500 },
-  { keyword: '平价彩妆', ranking: 5, traffic: 8200 },
-  { keyword: '学生党好物', ranking: 3, traffic: 9800 },
-  { keyword: '口红推荐', ranking: 8, traffic: 5600 },
-];
-
-const contentAuditData = [
-  { id: 1, title: '夏日清爽妆容教程', type: 'Video', interactions: 25600, risk: 'low', date: '2024-01-15' },
-  { id: 2, title: '新品唇釉试色', type: 'Video', interactions: 18900, risk: 'low', date: '2024-01-14' },
-  { id: 3, title: '敏感肌护肤分享', type: 'Image', interactions: 12300, risk: 'medium', date: '2024-01-13' },
-  { id: 4, title: '促销活动预告', type: 'Image', interactions: 8700, risk: 'high', date: '2024-01-12' },
-];
-
-const riskData = [
-  { item: 'SEO关键词覆盖不足', level: 'high', signal: '主要关键词排名下降15位', advice: '增加长尾关键词内容布局' },
-  { item: '内容更新频率低', level: 'medium', signal: '周均发布量低于竞品40%', advice: '提升至每日1-2条优质内容' },
-  { item: '用户互动率下滑', level: 'medium', signal: '评论回复率仅23%', advice: '建立24小时内回复机制' },
-];
-
-const actionPlanData = [
-  { period: '第1-2周', seo: '关键词优化，提升TOP10占比', social: '日更1条短视频', operation: '搭建私域流量池' },
-  { period: '第3-4周', seo: '竞品关键词狙击', social: '达人合作3-5位', operation: '会员体系上线' },
-  { period: '第5-8周', seo: '品牌词霸屏策略', social: '直播带货测试', operation: '复购激励计划' },
-];
+const cardGlass = cn(
+  'rounded-2xl border-0 overflow-hidden',
+  'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl',
+  'shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.04),0_12px_24px_rgba(0,0,0,0.06)]',
+  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]',
+  'transition-all duration-200 ease-out hover:shadow-lg hover:-translate-y-0.5'
+);
 
 interface BrandHealthProps {
   onNavigate?: (itemId: string) => void;
@@ -103,513 +30,322 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     brandName: '',
-    shopLink: '',
-    competitors: '',
+    category: '',
+    region: '',
+    competitors: [] as string[],
   });
+  const [competitorInput, setCompetitorInput] = useState('');
+  const competitorInputRef = useRef<HTMLInputElement>(null);
+  const [reportTaskId, setReportTaskId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [removingCompetitorIndex, setRemovingCompetitorIndex] = useState<number | null>(null);
 
-  const handleGenerate = () => {
-    if (!formData.brandName.trim()) return;
+  const { reportUrl, isPolling, error } = useReportPolling(reportTaskId, view === 'report');
+
+  useEffect(() => {
+    if (removingCompetitorIndex === null) return;
+    const timer = setTimeout(() => {
+      setFormData((prev) => ({
+        ...prev,
+        competitors: prev.competitors.filter((_, j) => j !== removingCompetitorIndex),
+      }));
+      setRemovingCompetitorIndex(null);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [removingCompetitorIndex]);
+
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === 'brand-health-report-back') setView('input');
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      setView('input');
+    }
+  }, [error]);
+
+  const handleGenerate = async () => {
+    if (!formData.brandName.trim() || !formData.region.trim()) return;
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const competitorsList = formData.competitors.filter((s) => s.trim()).map((s) => s.trim());
+      const res = await submitBrandHealthTask({
+        brandName: formData.brandName.trim(),
+        category: formData.category.trim() || undefined,
+        competitors: competitorsList.length > 0 ? competitorsList : undefined,
+        region: formData.region.trim(),
+      });
+      if (res?.success && res?.data) {
+        setReportTaskId(String(res.data.taskId ?? ''));
+        setView('report');
+      } else {
+        toast.error(res?.msg ?? t('brandHealth.submitFailed'));
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('brandHealth.submitFailed'));
+    } finally {
       setIsLoading(false);
-      setView('report');
-    }, 1500);
+    }
   };
 
-  const handleBack = () => {
-    setView('input');
+  const historyLabels = {
+    title: t('brandHealth.historyRecords'),
+    triggerButton: t('brandHealth.historyRecords'),
+    empty: t('brandHealth.historyEmpty'),
+    loadFailed: t('brandHealth.historyLoadFailed'),
+    total: t('brandHealth.historyTotal', { total: 0 }).replace('0', '{{total}}'),
+    prevPage: t('brandHealth.prevPage'),
+    nextPage: t('brandHealth.nextPage'),
+    statusCompleted: t('brandHealth.statusCompleted'),
+    statusProcessing: t('brandHealth.statusProcessing'),
+    statusFailed: t('brandHealth.statusFailed'),
+    statusQueued: t('brandHealth.statusQueued'),
   };
 
-  // Input Form View
   if (view === 'input') {
     return (
-      <div className="min-h-full bg-muted/30 p-6 md:p-8">
-        <div className="mx-auto max-w-2xl animate-fade-in">
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold text-foreground md:text-3xl">
-              {t('brandHealth.title')}
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              {t('brandHealth.subtitle')}
-            </p>
+      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden opacity-0 animate-page-enter">
+        <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
+          <div>
+            <div className="flex items-center gap-3">
+              <TrendingUp className="w-6 h-6 text-primary" />
+              <h1 className="text-xl font-semibold text-foreground">{t('brandHealth.title')}</h1>
+              <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
+                {t('brandHealth.titleTag')}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
           </div>
+          <ReportHistorySheet
+            open={historyOpen}
+            onOpenChange={setHistoryOpen}
+            reportType="brand_health"
+            onSelectTask={(taskId) => {
+              setReportTaskId(taskId);
+              setView('report');
+              setHistoryOpen(false);
+            }}
+            labels={historyLabels}
+            onLoadError={(msg) => toast.error(msg)}
+          />
+        </header>
 
-          {/* Input Card */}
-          <Card className="shadow-lg">
-            <CardContent className="space-y-6 p-6 md:p-8">
-              {/* Brand Name */}
+        <div className="flex-1 overflow-auto flex flex-col items-center justify-center p-6 md:p-10">
+          <div className="w-full max-w-[500px]">
+            <div className={cn(cardGlass, 'p-6 md:p-8')}>
+              <div className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="brandName" className="text-sm font-medium">
-                  {t('brandHealth.brandName')} <span className="text-destructive">*</span>
+                  <Label
+                    htmlFor="brandName"
+                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
+                  >
+                    {t('brandHealth.brandName')} <span className="text-destructive/90">*</span>
                 </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
+                      <TrendingUp className="w-4 h-4" />
+                    </span>
                 <Input
                   id="brandName"
                   placeholder={t('brandHealth.brandNamePlaceholder')}
                   value={formData.brandName}
                   onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
-                  className="h-11"
-                />
+                      className={cn(
+                        'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
+                        'placeholder:text-muted-foreground/60',
+                        'focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30',
+                        'transition-colors duration-200'
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="category"
+                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
+                  >
+                    {t('brandHealth.category')}
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
+                      <Package className="w-4 h-4" />
+                    </span>
+                    <Input
+                      id="category"
+                      placeholder={t('brandHealth.categoryPlaceholder')}
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className={cn(
+                        'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
+                        'placeholder:text-muted-foreground/60',
+                        'focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30',
+                        'transition-colors duration-200'
+                      )}
+                    />
+                  </div>
               </div>
 
-              {/* Shop Link */}
               <div className="space-y-2">
-                <Label htmlFor="shopLink" className="text-sm font-medium">
-                  {t('brandHealth.shopLink')}
+                  <Label
+                    htmlFor="region"
+                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
+                  >
+                    {t('brandHealth.region')} <span className="text-destructive/90">*</span>
                 </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
+                      <MapPin className="w-4 h-4" />
+                    </span>
                 <Input
-                  id="shopLink"
-                  placeholder={t('brandHealth.shopLinkPlaceholder')}
-                  value={formData.shopLink}
-                  onChange={(e) => setFormData({ ...formData, shopLink: e.target.value })}
-                  className="h-11"
-                />
+                      id="region"
+                      placeholder={t('brandHealth.regionPlaceholder')}
+                      value={formData.region}
+                      onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                      className={cn(
+                        'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
+                        'placeholder:text-muted-foreground/60',
+                        'focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30',
+                        'transition-colors duration-200'
+                      )}
+                    />
+                  </div>
               </div>
 
-              {/* Competitors */}
               <div className="space-y-2">
-                <Label htmlFor="competitors" className="text-sm font-medium">
+                  <Label
+                    htmlFor="competitors"
+                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
+                  >
                   {t('brandHealth.competitors')}
                 </Label>
-                <Input
+                  <div
+                    className={cn(
+                      'min-h-11 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 flex flex-wrap items-center gap-2',
+                      'focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-colors duration-200',
+                    )}
+                  >
+                    <span className="text-muted-foreground/60 shrink-0">
+                      <Users className="w-4 h-4" />
+                    </span>
+                    {formData.competitors.map((tag, i) => (
+                      <span
+                        key={`${tag}-${i}`}
+                        className={cn(
+                          'inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-md bg-[#333] text-sm text-[#fff]',
+                          'animate-tag-in transition-all duration-200 ease-out',
+                          removingCompetitorIndex === i && 'opacity-0 scale-90 pointer-events-none'
+                        )}
+                      >
+                        <span>{tag}</span>
+                        <button
+                          type="button"
+                          aria-label={t('brandHealth.removeTag')}
+                          className="p-0.5 rounded text-[#eee] hover:text-[#fff]"
+                          onClick={() => setRemovingCompetitorIndex(i)}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      ref={competitorInputRef}
                   id="competitors"
-                  placeholder={t('brandHealth.competitorsPlaceholder')}
-                  value={formData.competitors}
-                  onChange={(e) => setFormData({ ...formData, competitors: e.target.value })}
-                  className="h-11"
-                />
+                      type="text"
+                      placeholder={formData.competitors.length === 0 ? t('brandHealth.competitorsPlaceholder') : ''}
+                      value={competitorInput}
+                      onChange={(e) => setCompetitorInput(e.target.value)}
+                      onBlur={() => setCompetitorInput('')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault();
+                          const v = competitorInput.trim();
+                          if (v) {
+                            setFormData({ ...formData, competitors: [...formData.competitors, v] });
+                            setCompetitorInput('');
+                          }
+                        }
+                      }}
+                      className="flex-1 min-w-[120px] h-7 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/60"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Generate Button */}
               <Button
-                className="h-12 w-full bg-orange-500 text-base font-medium hover:bg-orange-600"
+                className="mt-6 h-12 w-full rounded-xl gap-2 text-[15px] font-medium bg-primary hover:bg-primary/90"
                 onClick={handleGenerate}
-                disabled={!formData.brandName.trim() || isLoading}
+                disabled={!formData.brandName.trim() || !formData.region.trim() || isLoading}
               >
                 {isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     {t('brandHealth.generating')}
-                  </div>
+                  </>
                 ) : (
-                  t('brandHealth.generateReport')
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    {t('brandHealth.generateReport')}
+                  </>
                 )}
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Report Dashboard View
   return (
-    <ScrollArea className="h-[calc(100vh-4rem)]">
-      <div className="min-h-full bg-muted/30 p-4 md:p-6">
-        <div className="mx-auto max-w-7xl animate-fade-in">
-          {/* Top Bar */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <Button variant="ghost" onClick={handleBack} className="gap-2 text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" />
-              {t('brandHealth.backToRegenerate')}
-            </Button>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <FileImage className="h-4 w-4" />
-                {t('brandHealth.exportImage')}
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <FileText className="h-4 w-4" />
-                {t('brandHealth.exportPdf')}
-              </Button>
-            </div>
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
+        <div>
+          <div className="flex items-center gap-3">
+            <TrendingUp className="w-6 h-6 text-primary" />
+            <h1 className="text-xl font-semibold text-foreground">{t('brandHealth.title')}</h1>
+            <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
+              {t('brandHealth.titleTag')}
+            </span>
           </div>
-
-          {/* Report Title */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-foreground">
-              {formData.brandName} {t('brandHealth.reportTitleSuffix')}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t('brandHealth.generatedTime')}
-            </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
           </div>
-
-          {/* Section 0: Summary & Risks */}
-          <div className="mb-6 grid gap-6 lg:grid-cols-2">
-            {/* Executive Summary */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Zap className="h-5 w-5 text-orange-500" />
-                  {t('brandHealth.executiveSummary')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-start gap-2">
-                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
-                    <span>{t('brandHealth.summary1')}</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
-                    <span>{t('brandHealth.summary2')}</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
-                    <span>{t('brandHealth.summary3')}</span>
-                  </li>
-                </ul>
-                <div className="grid grid-cols-3 gap-3 border-t pt-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-500">72</div>
-                    <div className="text-xs text-muted-foreground">{t('brandHealth.seoVisibility')}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-500">85</div>
-                    <div className="text-xs text-muted-foreground">{t('brandHealth.socialInteraction')}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-500">68</div>
-                    <div className="text-xs text-muted-foreground">{t('brandHealth.competitionIndex')}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Risk Redlines */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                  {t('brandHealth.riskRedlines')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {riskData.map((risk, idx) => (
-                    <div key={idx} className="rounded-lg border bg-muted/30 p-3">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-medium">{risk.item}</span>
-                        <Badge variant={risk.level === 'high' ? 'destructive' : 'secondary'} className="text-xs">
-                          {risk.level === 'high' ? t('brandHealth.riskHigh') : t('brandHealth.riskMedium')}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{risk.signal}</p>
-                      <p className="mt-1 text-xs text-orange-600">→ {risk.advice}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Section 1: Market Insights */}
-          <div className="mb-6">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-              <TrendingUp className="h-5 w-5 text-orange-500" />
-              {t('brandHealth.marketInsights')}
-            </h2>
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Industry Heat Trend */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t('brandHealth.industryHeatTrend')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={industryTrendData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="week" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Line 
-                        type="monotone" 
-                        dataKey="heat" 
-                        stroke="#f97316" 
-                        strokeWidth={2}
-                        dot={{ fill: '#f97316', strokeWidth: 2 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Competitor Radar */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t('brandHealth.competitorRadar')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <RadarChart data={radarData}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                      <Radar name={t('brandHealth.myBrand')} dataKey="myBrand" stroke="#f97316" fill="#f97316" fillOpacity={0.3} />
-                      <Radar name={t('brandHealth.competitorAvg')} dataKey="competitor" stroke="#6b7280" fill="#6b7280" fillOpacity={0.2} />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Section 2: Consumer Insights */}
-          <div className="mb-6">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-              <Users className="h-5 w-5 text-orange-500" />
-              {t('brandHealth.consumerInsights')}
-            </h2>
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Demographics */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t('brandHealth.demographics')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={demographicsData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis type="number" tick={{ fontSize: 12 }} unit="%" />
-                      <YAxis dataKey="age" type="category" tick={{ fontSize: 12 }} width={50} />
-                      <Tooltip formatter={(value) => `${value}%`} />
-                      <Bar dataKey="percentage" fill="#f97316" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Demand Matrix */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t('brandHealth.demandMatrix')}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {t('brandHealth.axisHint')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis type="number" dataKey="x" domain={[0, 100]} tick={{ fontSize: 10 }} />
-                      <YAxis type="number" dataKey="y" domain={[0, 100]} tick={{ fontSize: 10 }} />
-                      <ZAxis type="number" dataKey="z" range={[60, 200]} />
-                      <Tooltip 
-                        formatter={(value, name) => [value, name === 'x' ? t('brandHealth.satisfaction') : t('brandHealth.importance')]}
-                        labelFormatter={(_, payload) => payload?.[0]?.payload?.name || ''}
-                      />
-                      <Scatter data={demandMatrixData}>
-                        {demandMatrixData.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.quadrant === 1 ? '#22c55e' : entry.quadrant === 2 ? '#f97316' : entry.quadrant === 3 ? '#6b7280' : '#3b82f6'} 
-                          />
-                        ))}
-                      </Scatter>
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Section 3: Brand Health */}
-          <div className="mb-6">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-              <Target className="h-5 w-5 text-orange-500" />
-              {t('brandHealth.brandHealthSection')}
-            </h2>
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* SEO Dashboard */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t('brandHealth.seoDashboard')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg bg-orange-50 p-3 text-center dark:bg-orange-950/30">
-                      <div className="text-xl font-bold text-orange-600">12</div>
-                      <div className="text-xs text-muted-foreground">{t('brandHealth.topKeywords')}</div>
-                    </div>
-                    <div className="rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-950/30">
-                      <div className="text-xl font-bold text-blue-600">36.1K</div>
-                      <div className="text-xs text-muted-foreground">{t('brandHealth.trafficValue')}</div>
-                    </div>
-                    <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-950/30">
-                      <div className="text-xl font-bold text-green-600">+18%</div>
-                      <div className="text-xs text-muted-foreground">{t('brandHealth.wowGrowth')}</div>
-                    </div>
-                    <div className="rounded-lg bg-purple-50 p-3 text-center dark:bg-purple-950/30">
-                      <div className="text-xl font-bold text-purple-600">89</div>
-                      <div className="text-xs text-muted-foreground">{t('brandHealth.totalKeywords')}</div>
-                    </div>
-                  </div>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <BarChart data={seoKeywordsData}>
-                      <XAxis dataKey="keyword" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip />
-                      <Bar dataKey="traffic" fill="#f97316" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Content Audit */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t('brandHealth.contentAudit')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {contentAuditData.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between rounded-lg border bg-muted/20 p-2.5">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-sm font-medium">{item.title}</span>
-                            <Badge variant="outline" className="text-xs shrink-0">
-                              {item.type}
-                            </Badge>
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {item.interactions.toLocaleString()} {t('brandHealth.interactions')}
-                          </div>
-                        </div>
-                        <Badge 
-                          variant={item.risk === 'high' ? 'destructive' : item.risk === 'medium' ? 'secondary' : 'outline'}
-                          className="ml-2 shrink-0 text-xs"
-                        >
-                          {item.risk === 'high' ? t('brandHealth.riskHigh') : item.risk === 'medium' ? t('brandHealth.riskMedium') : t('brandHealth.riskLow')}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Section 4: Strategy */}
-          <div className="mb-6">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-              <Shield className="h-5 w-5 text-orange-500" />
-              {t('brandHealth.strategyRecommendations')}
-            </h2>
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* SWOT Analysis */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t('brandHealth.swotAnalysis')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg bg-green-50 p-3 dark:bg-green-950/30">
-                      <div className="mb-2 text-sm font-semibold text-green-700 dark:text-green-400">
-                        {t('brandHealth.strengths')}
-                      </div>
-                      <ul className="space-y-1 text-xs text-green-600 dark:text-green-300">
-                        <li>• {t('brandHealth.strength1')}</li>
-                        <li>• {t('brandHealth.strength2')}</li>
-                      </ul>
-                    </div>
-                    <div className="rounded-lg bg-red-50 p-3 dark:bg-red-950/30">
-                      <div className="mb-2 text-sm font-semibold text-red-700 dark:text-red-400">
-                        {t('brandHealth.weaknesses')}
-                      </div>
-                      <ul className="space-y-1 text-xs text-red-600 dark:text-red-300">
-                        <li>• {t('brandHealth.weakness1')}</li>
-                        <li>• {t('brandHealth.weakness2')}</li>
-                      </ul>
-                    </div>
-                    <div className="rounded-lg bg-orange-50 p-3 dark:bg-orange-950/30">
-                      <div className="mb-2 text-sm font-semibold text-orange-700 dark:text-orange-400">
-                        {t('brandHealth.opportunities')}
-                      </div>
-                      <ul className="space-y-1 text-xs text-orange-600 dark:text-orange-300">
-                        <li>• {t('brandHealth.opportunity1')}</li>
-                        <li>• {t('brandHealth.opportunity2')}</li>
-                      </ul>
-                    </div>
-                    <div className="rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950/30">
-                      <div className="mb-2 text-sm font-semibold text-yellow-700 dark:text-yellow-400">
-                        {t('brandHealth.threats')}
-                      </div>
-                      <ul className="space-y-1 text-xs text-yellow-600 dark:text-yellow-300">
-                        <li>• {t('brandHealth.threat1')}</li>
-                        <li>• {t('brandHealth.threat2')}</li>
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Action Plan */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{t('brandHealth.actionPlan')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="pb-2 text-left font-medium text-muted-foreground">{t('brandHealth.period')}</th>
-                          <th className="pb-2 text-left font-medium text-muted-foreground">{t('brandHealth.seoColumn')}</th>
-                          <th className="pb-2 text-left font-medium text-muted-foreground">{t('brandHealth.social')}</th>
-                          <th className="pb-2 text-left font-medium text-muted-foreground">{t('brandHealth.ops')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {actionPlanData.map((row, idx) => (
-                          <tr key={idx} className="border-b last:border-0">
-                            <td className="py-2 font-medium text-orange-600">{row.period}</td>
-                            <td className="py-2 text-muted-foreground">{row.seo}</td>
-                            <td className="py-2 text-muted-foreground">{row.social}</td>
-                            <td className="py-2 text-muted-foreground">{row.operation}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Footer: Data Sources */}
-          <Card className="mb-6">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{t('brandHealth.dataSources')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3" />
-                  <span>{t('brandHealth.dataSourceTiktok')}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3" />
-                  <span>{t('brandHealth.dataSourceGoogle')}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3" />
-                  <span>{t('brandHealth.dataSourceSemrush')}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3" />
-                  <span>{t('brandHealth.dataSourceCrm')}</span>
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground/70">
-                {t('brandHealth.dataUpdated')}
-              </p>
-            </CardContent>
-          </Card>
+        <div className="flex items-center gap-2">
+          <ReportHistorySheet
+            open={historyOpen}
+            onOpenChange={setHistoryOpen}
+            reportType="brand_health"
+            onSelectTask={(taskId) => {
+              setReportTaskId(taskId);
+              setView('report');
+              setHistoryOpen(false);
+            }}
+            labels={historyLabels}
+            onLoadError={(msg) => toast.error(msg)}
+          />
+          <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setView('input')}>
+            <ChevronLeft className="w-4 h-4" />
+            {t('brandHealth.backToRegenerate')}
+          </Button>
         </div>
+      </header>
+      <div className="flex-1 min-h-0 relative flex flex-col">
+        <ReportPollingOverlay
+          show={isPolling}
+          generatingLabel={t('brandHealth.generating')}
+          generatingHint={t('brandHealth.pollingHint')}
+        />
+        {reportUrl && (
+          <ReportDisplay
+            reportUrl={reportUrl}
+            reportTitle={t('brandHealth.reportTitleSuffix')}
+          />
+        )}
       </div>
-    </ScrollArea>
+    </div>
   );
 }

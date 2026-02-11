@@ -190,3 +190,7 @@ export const DEFAULT_MODEL: ImageModel = 'gemini-3-pro-image-preview-hd';
 
 // 默认尺寸（会根据模型自动调整）
 export const DEFAULT_SIZE = '1:1';
+
+/** 文生图单次生成数量可选值：1、2、3、4 张 */
+export const OUTPUT_NUMBER_OPTIONS = [1, 2, 3, 4] as const;
+export type OutputNumberOption = (typeof OUTPUT_NUMBER_OPTIONS)[number];

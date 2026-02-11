@@ -1,27 +1,34 @@
 /**
  * API Interceptor
  * API 拦截器 - 处理 token 失效等情况
+ * 统一：401/400/404/500/501（HTTP 状态或 body.code）时清空缓存与 token，并跳转登录
  */
 
-import { getCachedToken, clearOAuthCache } from './oauthApi';
+import { getCachedToken, clearOAuthCache, redirectToLogin } from './oauthApi';
 
-// 全局登录弹窗显示函数（由 OAuthContext 提供）
-let showLoginDialogFn: (() => void) | null = null;
+/** 触发清空 token 并跳转登录的 code 或 HTTP 状态 */
+const AUTH_ERROR_CODES = [401, 400, 404, 500, 501];
+
+/** 判断响应 code 是否需清 token 并跳转登录 */
+export function isAuthErrorCode(code: number | string | undefined): boolean {
+  if (code === undefined || code === null) return false;
+  const n = typeof code === 'string' ? parseInt(code, 10) : code;
+  return AUTH_ERROR_CODES.includes(n);
+}
+
 // 全局清除用户状态函数（由 OAuthContext 提供）
 let clearUserStateFn: (() => void) | null = null;
-
-/**
- * 设置登录弹窗显示函数
- */
-export function setShowLoginDialog(fn: () => void) {
-  showLoginDialogFn = fn;
-}
 
 /**
  * 设置清除用户状态函数
  */
 export function setClearUserState(fn: () => void) {
   clearUserStateFn = fn;
+}
+
+/** @deprecated 仅兼容旧调用，行为与 clearTokenAndRedirectToLogin 一致 */
+export function setShowLoginDialog(_fn: () => void) {
+  // 已统一为 redirectToLogin，不再使用弹窗
 }
 
 /**
@@ -47,64 +54,48 @@ export function getAuthHeaders(): HeadersInit {
  * oauth_token 请求头的接口如果请求失败就弹窗提示请重新登录
  */
 /**
- * 处理 401 错误：清除用户状态并显示登录弹窗
+ * 清空 token/缓存并跳转登录（401/400/404/500/501 时统一调用）
+ */
+export function clearTokenAndRedirectToLogin() {
+  clearOAuthCache();
+  if (clearUserStateFn) clearUserStateFn();
+  redirectToLogin();
+}
+
+/**
+ * 处理认证/错误码：清除用户状态并跳转登录
  * 导出为公共函数，供其他模块使用
  */
 export function handle401Error() {
-  // 清除缓存的 token
-  clearOAuthCache();
-  
-  // 清除用户状态
-  if (clearUserStateFn) {
-    clearUserStateFn();
-  }
-  
-  // 显示登录弹窗提示请重新登录
-  if (showLoginDialogFn) {
-    showLoginDialogFn();
-  }
+  clearTokenAndRedirectToLogin();
 }
 
 export async function handleApiResponse(response: Response): Promise<Response> {
-  // 如果响应状态是 401 未授权或 403 禁止访问 500 网路异常，说明 token 失效或无效
-  if (response.status === 401 || response.status === 403 || response.status === 500) {
-    handle401Error();
+  // HTTP 状态码 401/400/404/500/501：清空 token 并跳转登录
+  if (AUTH_ERROR_CODES.includes(response.status) || response.status === 403) {
+    clearTokenAndRedirectToLogin();
     throw new Error('Token expired or invalid, please login again');
   }
 
-  // 如果 HTTP 状态码是 200，还需要检查响应 JSON 中的 code 字段
-  // 某些接口可能返回 HTTP 200，但 JSON 中的 code 为 401 表示 token 过期
+  // HTTP 200 时检查响应体中的 code 字段（401/400/404/500/501 同样处理）
   if (response.status === 200) {
     try {
-      // 克隆响应对象，避免影响调用方读取响应体
       const clonedResponse = response.clone();
       const contentType = clonedResponse.headers.get('content-type');
-      
-      // 只检查 JSON 响应
       if (contentType && contentType.includes('application/json')) {
         const data = await clonedResponse.json();
-        console.log(data,'data');
-        
-        // 检查 code 字段是否为 401（token 过期）
-        // 兼容 code 为数字或字符串的情况
-        const code = data.code;
-        const isCode401 = (typeof code === 'number' && code === 401) || 
-                         (typeof code === 'string' && code === '401');
-        
-        if (data && isCode401) {
-          handle401Error();
+        if (data && isAuthErrorCode(data.code)) {
+          clearTokenAndRedirectToLogin();
           throw new Error('Token expired or invalid, please login again');
         }
       }
     } catch (error) {
-      // 如果解析 JSON 失败或已经抛出错误，直接抛出
       if (error instanceof Error && error.message === 'Token expired or invalid, please login again') {
         throw error;
       }
-      // 其他错误（如 JSON 解析失败）忽略，继续返回原始响应
     }
   }
-  
+
   return response;
 }
 

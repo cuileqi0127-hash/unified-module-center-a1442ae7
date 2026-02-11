@@ -1,5 +1,6 @@
 import { 
   Download, 
+  Loader2,
   Send,
   ChevronDown,
   ChevronLeft,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -40,7 +41,7 @@ import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem, type UniversalCanvasHandle } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToVideo, type CanvasVideo } from './useTextToVideo';
-import { modelSupportsEnhanceSwitch } from './textToVideoConfig';
+import { modelSupportsEnhanceSwitch, getModelVersion } from './textToVideoConfig';
 import type { VideoModel } from '@/services/videoGenerationApi';
 import { AnimatedText } from './AnimatedText';
 import { MediaViewer } from './MediaViewer';
@@ -75,7 +76,11 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
   
   // Canvas ref 用于恢复视频播放、聚焦等
   const canvasRef = useRef<UniversalCanvasHandle>(null);
-  
+  /** 画布容器：点击此区域外且不在输入卡内时清除图层选中 */
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  /** 输入区（图1 范围）：该区域内点击不清除选中 */
+  const inputPanelRef = useRef<HTMLDivElement>(null);
+
   // 从业务逻辑层获取所有状态和处理函数
   const {
     // Refs
@@ -151,6 +156,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     handleCutVideo,
     handleBatchCopyVideos,
     handleBatchDownloadVideos,
+    isDownloading,
     handleResizeStart,
     handleUploadImage,
     // Utils
@@ -168,6 +174,21 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
   };
 
   const selectedVideo = canvasVideos.find(v => v.id === selectedVideoId);
+
+  // 点击画布外区域清除图层选中，不包含图1（输入区）范围；下拉/弹出层内点击也不清除
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!containerRef.current?.contains(target)) return;
+      if (canvasContainerRef.current?.contains(target)) return;
+      if (inputPanelRef.current?.contains(target)) return;
+      if (target.closest('[data-radix-popper-content-wrapper]') ?? target.closest('[role="menu"]') ?? target.closest('[role="dialog"]')) return;
+      setSelectedVideoId(null);
+      setSelectedVideoIds([]);
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [setSelectedVideoId, setSelectedVideoIds]);
 
   return (
     <div ref={containerRef} className="flex h-[calc(100vh-3.5rem)] gap-0 animate-fade-in overflow-hidden bg-background relative">
@@ -348,8 +369,8 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           )}
         </div>
 
-        {/* Bottom Input Area */}
-        <div className="border-t border-border bg-background p-4 flex-shrink-0">
+        {/* Bottom Input Area（图1 范围：此处点击不清除画布选中） */}
+        <div ref={inputPanelRef} className="border-t border-border bg-background p-4 flex-shrink-0">
           <div 
             className={cn(
               "relative rounded-xl border bg-muted/30 shadow-sm transition-all",
@@ -466,7 +487,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                       className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
                     >
                       <VideoIcon className="h-3.5 w-3.5" />
-                      {t(`textToVideo.modelNames.${model}`, { defaultValue: models.find(m => m.id === model)?.label })}
+                      {t(`textToVideo.modelNames.${model}`, { defaultValue: models.find(m => m.id === model)?.label })} {getModelVersion(model as VideoModel)}
                       {enhanceSwitchSupported && enhanceSwitch === 'Enabled' && (
                         <span className="opacity-80">| {t('textToVideo.hdVersion')}</span>
                       )}
@@ -480,7 +501,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                       const isSelectedStandard = isSelected && enhanceSwitch === 'Disabled';
                       const isSelectedHd = isSelected && enhanceSwitch === 'Enabled';
                       if (supportsEnhance) {
-                        const modelLabel = t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label });
+                        const modelLabel = `${t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label })} ${getModelVersion(m.id as VideoModel)}`;
                         return (
                           <DropdownMenuSub key={m.id}>
                             <DropdownMenuSubTrigger className={cn(isSelected && 'bg-accent')}>
@@ -509,7 +530,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                           </DropdownMenuSub>
                         );
                       }
-                      const modelLabel = t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label });
+                      const modelLabel = `${t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label })} ${getModelVersion(m.id as VideoModel)}`;
                       return (
                         <DropdownMenuItem
                           key={m.id}
@@ -629,7 +650,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                           })}
                         </div>
                       </div>
-                      {/* 分辨率 - 768P / 1080P（多选项时展示） */}
+                      {/* 分辨率 - 720P / 1080P（多选项时展示） */}
                       {resolutionOptions.length > 0 && (
                         <div>
                           <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
@@ -680,12 +701,14 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleUploadImage(file);
-                        // Reset input to allow selecting the same file again
+                      const fileList = e.target.files;
+                      if (fileList?.length) {
+                        for (let i = 0; i < fileList.length; i++) {
+                          handleUploadImage(fileList[i]);
+                        }
                         e.target.value = '';
                       }
                     }}
@@ -740,8 +763,9 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
         />
       )}
 
-      {/* Right Panel - Video Canvas */}
-      <div 
+      {/* Right Panel - Video Canvas（画布区域：仅此处点击空白由 canvas 内部处理清除选中） */}
+      <div
+        ref={canvasContainerRef}
         className={cn(
           "relative flex flex-col bg-muted/20",
           // 只有在非拖动状态下才应用过渡动画
@@ -819,9 +843,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
               size="icon" 
               className="h-8 w-8 rounded-full"
               onClick={handleBatchDownloadVideos}
+              disabled={isDownloading}
               title={selectedVideoIds.length > 1 ? t('textToVideo.actions.downloadAll') : t('textToVideo.actions.download')}
             >
-              <Download className="h-4 w-4" />
+              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </Button>
             <Button 
               variant="ghost" 

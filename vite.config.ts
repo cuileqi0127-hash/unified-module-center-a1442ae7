@@ -36,6 +36,15 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/proxy/, '/api/proxy'),
       },
+      // 工具下载：大文件流，延长代理超时，避免 net::ERR_FAILED 200
+      '/api/tools/download': {
+        // target: 'http://94.74.101.163:28080',
+        target: 'http://192.168.112.253:8000/',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        timeout: 300000,
+        proxyTimeout: 300000,
+      },
       '/api': {
         // target: 'http://94.74.101.163:28080',
         target: 'http://192.168.112.253:8000/',

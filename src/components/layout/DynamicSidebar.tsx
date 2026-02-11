@@ -127,6 +127,7 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
       isGroupHeader: true,
       items: [
         { id: 'brand-health', labelKey: 'sidebar.brandHealth', icon: <TrendingUp className="w-4 h-4" /> },
+        { id: 'tiktok-insights', labelKey: 'sidebar.tiktokInsights', icon: <BarChart3 className="w-4 h-4" /> },
       ],
     },
     {
@@ -212,8 +213,8 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     setOpenSections((prev) => ({ ...prev, [titleKey]: !prev[titleKey] }));
   };
 
-  // 定义 Coming Soon 的页面列表
-  const comingSoonItems = ['brand-health', 'campaign-planner', 'digital-human'];
+  // 定义 Coming Soon 的页面列表（品牌健康度诊断已开放）
+  const comingSoonItems = ['campaign-planner', 'digital-human'];
 
   const renderItem = (item: SidebarItem) => {
     const isComingSoon = comingSoonItems.includes(item.id);

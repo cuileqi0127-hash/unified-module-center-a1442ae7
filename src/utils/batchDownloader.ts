@@ -172,7 +172,7 @@ export class BatchDownloader {
       // 统计成功和失败的任务
       let successCount = 0;
       let failedCount = 0;
-
+      console.log(this.tasks,'this.tasks')
       // 将成功下载的文件添加到 zip，按照文件类型组织
       this.tasks.forEach(task => {
         if (task.status === 'completed' && task.blob) {
