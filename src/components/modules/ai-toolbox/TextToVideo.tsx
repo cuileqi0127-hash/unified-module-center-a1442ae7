@@ -1,6 +1,5 @@
 import { 
   Download, 
-  Loader2,
   Send,
   ChevronDown,
   ChevronLeft,
@@ -11,6 +10,7 @@ import {
   PanelRightClose,
   MessageSquare,
   VideoIcon,
+  Volume2,
   RatioIcon,
   X,
   Copy,
@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +42,7 @@ import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem, type UniversalCanvasHandle } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToVideo, type CanvasVideo } from './useTextToVideo';
-import { modelSupportsEnhanceSwitch, getModelVersion } from './textToVideoConfig';
+import { modelSupportsEnhanceSwitch, getModelVersion, VIDEO_MODEL_CONFIGS } from './textToVideoConfig';
 import type { VideoModel } from '@/services/videoGenerationApi';
 import { AnimatedText } from './AnimatedText';
 import { MediaViewer } from './MediaViewer';
@@ -196,7 +197,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
       {isInitializing && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100 mx-auto"></div>
+            <LoadingSpinner className="mx-auto" />
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               {t('textToVideo.loadingHistory')}
             </p>
@@ -500,12 +501,18 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                       const isSelected = model === m.id;
                       const isSelectedStandard = isSelected && enhanceSwitch === 'Disabled';
                       const isSelectedHd = isSelected && enhanceSwitch === 'Enabled';
+                      const isSound = VIDEO_MODEL_CONFIGS[m.id as VideoModel]?.isSound ?? false;
+                      const soundIcon = isSound ? <Volume2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null;
                       if (supportsEnhance) {
+                        const modelParentLabel = `${t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label })}`;
                         const modelLabel = `${t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label })} ${getModelVersion(m.id as VideoModel)}`;
                         return (
                           <DropdownMenuSub key={m.id}>
                             <DropdownMenuSubTrigger className={cn(isSelected && 'bg-accent')}>
-                              {modelLabel}
+                              <span className="flex items-center gap-1.5">
+                                {soundIcon}
+                                {modelParentLabel}
+                              </span>
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
                               <DropdownMenuItem
@@ -515,7 +522,9 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                                 }}
                                 className={cn(isSelectedStandard && 'bg-accent')}
                               >
-                                {modelLabel}
+                                <span className="flex items-center gap-1.5">
+                                  {modelLabel}
+                                </span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => {
@@ -524,7 +533,9 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                                 }}
                                 className={cn(isSelectedHd && 'bg-accent')}
                               >
-                                {modelLabel} | {t('textToVideo.hdVersion')}
+                                <span className="flex items-center gap-1.5">
+                                  {modelLabel} | {t('textToVideo.hdVersion')}
+                                </span>
                               </DropdownMenuItem>
                             </DropdownMenuSubContent>
                           </DropdownMenuSub>
@@ -540,7 +551,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                           }}
                           className={cn(isSelected && 'bg-accent')}
                         >
-                          {modelLabel}
+                          <span className="flex items-center gap-1.5">
+                            {soundIcon}
+                            {modelLabel}
+                          </span>
                         </DropdownMenuItem>
                       );
                     })}
@@ -735,7 +749,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                 disabled={!currentSessionId || !prompt.trim() || isGenerating}
               >
                 {isGenerating ? (
-                  <Sparkles className="h-4 w-4 animate-spin" />
+                  <LoadingSpinner size="sm" className="h-4 w-4" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
@@ -846,7 +860,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
               disabled={isDownloading}
               title={selectedVideoIds.length > 1 ? t('textToVideo.actions.downloadAll') : t('textToVideo.actions.download')}
             >
-              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {isDownloading ? <LoadingSpinner size="sm" className="h-4 w-4" /> : <Download className="h-4 w-4" />}
             </Button>
             <Button 
               variant="ghost" 

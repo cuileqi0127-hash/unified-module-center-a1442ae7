@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ZoomIn, ZoomOut, Maximize, Move, Play, Pause, Copy, Scissors, ClipboardPaste, Trash2, Crosshair, Share2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
 
 // 统一的画布媒体项类型（支持图片和视频）
@@ -1237,16 +1238,9 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                       }} 
                     />
                     
-                    {/* 中心加载指示器 - 更美观的加载动画 */}
+                    {/* 中心加载指示器 - 全局 C 形 loading 图标 */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="relative w-12 h-12">
-                        {/* 外圈脉冲 */}
-                        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-primary/20 animate-ping" />
-                        {/* 中圈旋转 */}
-                        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-t-primary/40 animate-spin" style={{ animationDuration: '1s' }} />
-                        {/* 内圈点 */}
-                        {/* <div className="w-6 h-6 rounded-full bg-primary/30 animate-pulse" /> */}
-                      </div>
+                      <LoadingSpinner className="w-12 h-12 text-primary/80" />
                     </div>
                     
                     {/* 底部提示文字（可选） */}

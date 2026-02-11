@@ -1,6 +1,5 @@
 import { 
   Download, 
-  Loader2,
   Send,
   ChevronDown,
   ChevronLeft,
@@ -22,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -193,7 +193,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
       {isInitializing && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100 mx-auto"></div>
+            <LoadingSpinner className="mx-auto" />
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               {t('textToImage.loadingHistory')}
             </p>
@@ -713,7 +713,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                 disabled={!currentSessionId || !prompt.trim() || isGenerating}
               >
                 {isGenerating ? (
-                  <Sparkles className="h-4 w-4 animate-spin" />
+                  <LoadingSpinner size="sm" className="h-4 w-4" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
@@ -823,7 +823,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               disabled={isDownloading}
               title={selectedImageIds.length > 1 ? t('textToImage.actions.downloadAll') : t('textToImage.actions.download')}
             >
-              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {isDownloading ? <LoadingSpinner size="sm" className="h-4 w-4" /> : <Download className="h-4 w-4" />}
             </Button>
             <Button 
               variant="ghost" 

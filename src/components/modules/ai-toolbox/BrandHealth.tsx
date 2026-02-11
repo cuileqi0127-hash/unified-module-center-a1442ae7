@@ -10,6 +10,7 @@ import { submitBrandHealthTask } from '@/services/reportApi';
 import { useReportPolling } from '@/hooks/useReportPolling';
 import { ReportDisplay, ReportPollingOverlay } from './ReportDisplay';
 import { ReportHistorySheet } from './ReportHistorySheet';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 const cardGlass = cn(
   'rounded-2xl border-0 overflow-hidden',
@@ -70,14 +71,14 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
   }, [error]);
 
   const handleGenerate = async () => {
-    if (!formData.brandName.trim() || !formData.region.trim()) return;
+    const competitorsList = formData.competitors.filter((s) => s.trim()).map((s) => s.trim());
+    if (!formData.brandName.trim() || !formData.category.trim() || !formData.region.trim() || competitorsList.length === 0) return;
     setIsLoading(true);
     try {
-      const competitorsList = formData.competitors.filter((s) => s.trim()).map((s) => s.trim());
       const res = await submitBrandHealthTask({
         brandName: formData.brandName.trim(),
-        category: formData.category.trim() || undefined,
-        competitors: competitorsList.length > 0 ? competitorsList : undefined,
+        category: formData.category.trim(),
+        competitors: competitorsList,
         region: formData.region.trim(),
       });
       if (res?.success && res?.data) {
@@ -170,7 +171,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                     htmlFor="category"
                     className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
                   >
-                    {t('brandHealth.category')}
+                    {t('brandHealth.category')} <span className="text-destructive/90">*</span>
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
@@ -222,7 +223,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                     htmlFor="competitors"
                     className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
                   >
-                  {t('brandHealth.competitors')}
+                  {t('brandHealth.competitors')} <span className="text-destructive/90">*</span>
                 </Label>
                   <div
                     className={cn(
@@ -280,11 +281,11 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               <Button
                 className="mt-6 h-12 w-full rounded-xl gap-2 text-[15px] font-medium bg-primary hover:bg-primary/90"
                 onClick={handleGenerate}
-                disabled={!formData.brandName.trim() || !formData.region.trim() || isLoading}
+                disabled={!formData.brandName.trim() || !formData.category.trim() || !formData.region.trim() || formData.competitors.filter((s) => s.trim()).length === 0 || isLoading}
               >
                 {isLoading ? (
                   <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <LoadingSpinner size="sm" className="h-4 w-4 text-white" />
                     {t('brandHealth.generating')}
                   </>
                 ) : (

@@ -9,6 +9,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { getReportList } from '@/services/reportApi';
 import type { ReportListItem } from '@/services/reportApi';
 
@@ -99,7 +100,7 @@ export function ReportHistorySheet({
         <div className="flex-1 overflow-auto mt-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <LoadingSpinner className="h-6 w-6 text-primary" />
             </div>
           ) : list.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">{labels.empty}</p>

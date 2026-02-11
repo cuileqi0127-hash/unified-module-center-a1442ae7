@@ -22,13 +22,14 @@ export interface VideoModelConfig {
   defaultResolution: VideoResolution;
   defaultModelVersion: string;
   supportsEnhanceSwitch: boolean;
+  isSound: boolean;
 }
 
 // 模型配置映射（与产品规格表一致：可灵 2.6 / Google veo 3.1 / SORA 2.0 / Vidu q2-turubo / 海螺 2.3 / 即梦 3.0pro）
 export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'>> = {
   // SORA 2.0：768P(默认)/1080P，16:9(默认)/9:16，4/8(默认)/12s，支持高清
   OS: {
-    label: 'Sora 2',
+    label: 'Sora',
     seconds: ['4', '8', '12'],
     sizes: ['16:9', '9:16'],
     defaultSeconds: '8',
@@ -37,10 +38,11 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     defaultResolution: '768P',
     defaultModelVersion: '2.0',
     supportsEnhanceSwitch: true,
+    isSound: true,
   },
   // Google veo 3.1：720P(默认)/1080P，16:9(默认)/9:16，4/8(默认)/12s，支持高清
   GV: {
-    label: 'Google veo 3.1',
+    label: 'Google veo',
     seconds: ['4', '8', '12'],
     sizes: ['16:9', '9:16'],
     defaultSeconds: '8',
@@ -49,6 +51,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     defaultResolution: '720P',
     defaultModelVersion: '3.1',
     supportsEnhanceSwitch: true,
+    isSound: true,
   },
   // 可灵 2.6：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9/2:3，5(默认)/10s，支持高清
   Kling: {
@@ -61,6 +64,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     defaultResolution: '720P',
     defaultModelVersion: '2.6',
     supportsEnhanceSwitch: true,
+    isSound: true,
   },
   // 海螺 2.3：720P(默认)/1080P，仅 16:9，6(默认)/10s，无高清
   Hailuo: {
@@ -72,7 +76,8 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     resolutions: ['720P', '1080P'],
     defaultResolution: '720P',
     defaultModelVersion: '2.3',
-    supportsEnhanceSwitch: false,
+    supportsEnhanceSwitch: true,
+    isSound: false,
   },
   // 即梦 3.0pro：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9，5(默认)/10s，无高清
   Jimeng: {
@@ -84,7 +89,8 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     resolutions: ['720P', '1080P'],
     defaultResolution: '720P',
     defaultModelVersion: '3.0',
-    supportsEnhanceSwitch: false,
+    supportsEnhanceSwitch: true,
+    isSound: false,
   },
   // Vidu q2-turubo：720P(默认)/1080P，16:9/9:16/4:3/3:4/1:1，1–10s(默认5)，无高清
   Vidu: {
@@ -96,7 +102,8 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     resolutions: ['720P', '1080P'],
     defaultResolution: '720P',
     defaultModelVersion: 'q2-turbo',
-    supportsEnhanceSwitch: false,
+    supportsEnhanceSwitch: true,
+    isSound: false,
   },
 };
 

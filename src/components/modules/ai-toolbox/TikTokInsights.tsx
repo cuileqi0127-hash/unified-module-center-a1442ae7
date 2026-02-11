@@ -11,6 +11,7 @@ import { categoryTreeZh, categoryTreeEn, type CategoryTree } from '@/data/tiktok
 import { CategoryCascader } from './CategoryCascader';
 import { ReportDisplay, ReportPollingOverlay } from './ReportDisplay';
 import { ReportHistorySheet } from './ReportHistorySheet';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 const cardGlass = cn(
   'rounded-2xl border-0 overflow-hidden',
@@ -71,13 +72,13 @@ export function TikTokInsights({ onNavigate }: TikTokInsightsProps) {
   }, [error]);
 
   const handleGenerate = async () => {
-    if (!formData.categoryLevel3.trim()) return;
+    const sellingPointsList = formData.sellingPoints.filter((s) => s.trim()).map((s) => s.trim());
+    if (!formData.categoryLevel3.trim() || sellingPointsList.length === 0) return;
     setIsLoading(true);
     try {
-      const sellingPointsList = formData.sellingPoints.filter((s) => s.trim()).map((s) => s.trim());
       const res = await submitTiktokInsightTask({
         category: formData.categoryLevel3.trim(),
-        sellingPoints: sellingPointsList.length > 0 ? sellingPointsList : [],
+        sellingPoints: sellingPointsList,
       });
       if (res?.success && res?.data) {
         setReportTaskId(String(res.data.taskId ?? ''));
@@ -159,7 +160,7 @@ export function TikTokInsights({ onNavigate }: TikTokInsightsProps) {
                     htmlFor="sellingPoints"
                     className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
                   >
-                    {t('tiktokInsights.sellingPoints')}
+                    {t('tiktokInsights.sellingPoints')} <span className="text-destructive/90">*</span>
                   </Label>
                   <div
                     className={cn(
@@ -217,11 +218,11 @@ export function TikTokInsights({ onNavigate }: TikTokInsightsProps) {
               <Button
                 className="mt-6 h-12 w-full rounded-xl gap-2 text-[15px] font-medium bg-primary hover:bg-primary/90"
                 onClick={handleGenerate}
-                disabled={!formData.categoryLevel3.trim() || isLoading}
+                disabled={!formData.categoryLevel3.trim() || formData.sellingPoints.filter((s) => s.trim()).length === 0 || isLoading}
               >
                 {isLoading ? (
                   <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <LoadingSpinner size="sm" className="h-4 w-4 text-white" />
                     {t('tiktokInsights.generating')}
                   </>
                 ) : (
