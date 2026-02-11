@@ -9,7 +9,7 @@
  * - Token 过期处理
  */
 
-import { authenticatedFetch, getAuthHeaders, handleApiResponse, handle401Error } from './apiInterceptor';
+import { authenticatedFetch, getAuthHeaders, handleApiResponse, handle401Error, isAuthErrorCode } from './apiInterceptor';
 
 // 根据环境变量判断使用代理还是直接访问
 // 生产环境也使用相对路径，通过 Nginx 代理转发
@@ -73,12 +73,7 @@ export async function apiGet<T = any>(
 
   if (parseJson) {
     const data = await response.json();
-    // 检查 JSON 响应中的 code 字段是否为 401
-    const code = data?.code;
-    const isCode401 = (typeof code === 'number' && code === 401) || 
-                     (typeof code === 'string' && code === '401');
-    if (isCode401) {
-      // 处理 401 错误：清除用户状态并显示登录弹窗
+    if (isAuthErrorCode(data?.code)) {
       handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
@@ -147,12 +142,7 @@ export async function apiPost<T = any>(
 
   if (parseJson) {
     const data = await response.json();
-    // 检查 JSON 响应中的 code 字段是否为 401
-    const code = data?.code;
-    const isCode401 = (typeof code === 'number' && code === 401) || 
-                     (typeof code === 'string' && code === '401');
-    if (isCode401) {
-      // 处理 401 错误：清除用户状态并显示登录弹窗
+    if (isAuthErrorCode(data?.code)) {
       handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
@@ -215,12 +205,7 @@ export async function apiPatch<T = any>(
 
   if (parseJson) {
     const data = await response.json();
-    // 检查 JSON 响应中的 code 字段是否为 401
-    const code = data?.code;
-    const isCode401 = (typeof code === 'number' && code === 401) || 
-                     (typeof code === 'string' && code === '401');
-    if (isCode401) {
-      // 处理 401 错误：清除用户状态并显示登录弹窗
+    if (isAuthErrorCode(data?.code)) {
       handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
@@ -287,12 +272,7 @@ export async function apiDelete<T = any>(
 
   if (parseJson) {
     const data = await response.json();
-    // 检查 JSON 响应中的 code 字段是否为 401
-    const code = data?.code;
-    const isCode401 = (typeof code === 'number' && code === 401) || 
-                     (typeof code === 'string' && code === '401');
-    if (isCode401) {
-      // 处理 401 错误：清除用户状态并显示登录弹窗
+    if (isAuthErrorCode(data?.code)) {
       handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }
@@ -355,12 +335,7 @@ export async function apiPut<T = any>(
 
   if (parseJson) {
     const data = await response.json();
-    // 检查 JSON 响应中的 code 字段是否为 401
-    const code = data?.code;
-    const isCode401 = (typeof code === 'number' && code === 401) || 
-                     (typeof code === 'string' && code === '401');
-    if (isCode401) {
-      // 处理 401 错误：清除用户状态并显示登录弹窗
+    if (isAuthErrorCode(data?.code)) {
       handle401Error();
       throw new Error('Token expired or invalid, please login again');
     }

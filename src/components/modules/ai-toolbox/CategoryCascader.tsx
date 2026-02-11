@@ -19,7 +19,7 @@ export function findPathInTree(tree: CategoryTree, leafValue: string): [string, 
 }
 
 const columnItemBase = cn(
-  'flex items-center justify-between w-full px-3 py-2 text-sm rounded-md cursor-pointer',
+  'flex items-center justify-between w-full px-3 py-2 text-sm cursor-pointer',
   'hover:bg-accent hover:text-accent-foreground',
   'transition-colors duration-150 ease-out'
 );

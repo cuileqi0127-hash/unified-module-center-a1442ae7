@@ -25,7 +25,7 @@ interface BrandHealthProps {
 
 export function BrandHealth({ onNavigate }: BrandHealthProps) {
   const { t } = useTranslation();
-
+  
   const [view, setView] = useState<'input' | 'report'>('input');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -139,22 +139,22 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <div className="w-full max-w-[500px]">
             <div className={cn(cardGlass, 'p-6 md:p-8')}>
               <div className="space-y-5">
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label
                     htmlFor="brandName"
                     className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
                   >
                     {t('brandHealth.brandName')} <span className="text-destructive/90">*</span>
-                  </Label>
+                </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
                       <TrendingUp className="w-4 h-4" />
                     </span>
-                    <Input
-                      id="brandName"
-                      placeholder={t('brandHealth.brandNamePlaceholder')}
-                      value={formData.brandName}
-                      onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                <Input
+                  id="brandName"
+                  placeholder={t('brandHealth.brandNamePlaceholder')}
+                  value={formData.brandName}
+                  onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
                       className={cn(
                         'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
                         'placeholder:text-muted-foreground/60',
@@ -189,20 +189,20 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                       )}
                     />
                   </div>
-                </div>
+              </div>
 
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label
                     htmlFor="region"
                     className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
                   >
                     {t('brandHealth.region')} <span className="text-destructive/90">*</span>
-                  </Label>
+                </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
                       <MapPin className="w-4 h-4" />
                     </span>
-                    <Input
+                <Input
                       id="region"
                       placeholder={t('brandHealth.regionPlaceholder')}
                       value={formData.region}
@@ -215,15 +215,15 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                       )}
                     />
                   </div>
-                </div>
+              </div>
 
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label
                     htmlFor="competitors"
                     className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
                   >
-                    {t('brandHealth.competitors')}
-                  </Label>
+                  {t('brandHealth.competitors')}
+                </Label>
                   <div
                     className={cn(
                       'min-h-11 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 flex flex-wrap items-center gap-2',
@@ -255,7 +255,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                     ))}
                     <input
                       ref={competitorInputRef}
-                      id="competitors"
+                  id="competitors"
                       type="text"
                       placeholder={formData.competitors.length === 0 ? t('brandHealth.competitorsPlaceholder') : ''}
                       value={competitorInput}
@@ -313,7 +313,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
             </span>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
-        </div>
+          </div>
         <div className="flex items-center gap-2">
           <ReportHistorySheet
             open={historyOpen}

@@ -488,53 +488,58 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       const deltaCanvasX = deltaScreenX / displayZoom;
       const deltaCanvasY = deltaScreenY / displayZoom;
       
-      let newWidth = resizeStartSize.current.width;
-      let newHeight = resizeStartSize.current.height;
-      let newX = resizeStartSize.current.x;
-      let newY = resizeStartSize.current.y;
+      const startW = resizeStartSize.current.width;
+      const startH = resizeStartSize.current.height;
+      const aspectRatio = startW / startH;
+      const minSize = 50 / displayZoom; // 最小 50 像素（屏幕坐标）
       
-      // 根据拖拽的角计算新的尺寸和位置
+      // 根据拖拽的角计算“自由”尺寸，再按等比例缩放到 newWidth / newHeight = aspectRatio
+      let rawW: number;
+      let rawH: number;
       switch (resizeHandle) {
         case 'nw': // 左上角：保持右下角固定
-          newWidth = resizeStartSize.current.width - deltaCanvasX;
-          newHeight = resizeStartSize.current.height - deltaCanvasY;
-          newX = resizeStartSize.current.x + deltaCanvasX;
-          newY = resizeStartSize.current.y + deltaCanvasY;
+          rawW = startW - deltaCanvasX;
+          rawH = startH - deltaCanvasY;
           break;
         case 'ne': // 右上角：保持左下角固定
-          newWidth = resizeStartSize.current.width + deltaCanvasX;
-          newHeight = resizeStartSize.current.height - deltaCanvasY;
-          newY = resizeStartSize.current.y + deltaCanvasY;
+          rawW = startW + deltaCanvasX;
+          rawH = startH - deltaCanvasY;
           break;
         case 'sw': // 左下角：保持右上角固定
-          newWidth = resizeStartSize.current.width - deltaCanvasX;
-          newHeight = resizeStartSize.current.height + deltaCanvasY;
-          newX = resizeStartSize.current.x + deltaCanvasX;
+          rawW = startW - deltaCanvasX;
+          rawH = startH + deltaCanvasY;
           break;
         case 'se': // 右下角：保持左上角固定
-          newWidth = resizeStartSize.current.width + deltaCanvasX;
-          newHeight = resizeStartSize.current.height + deltaCanvasY;
+          rawW = startW + deltaCanvasX;
+          rawH = startH + deltaCanvasY;
           break;
       }
       
-      // 限制最小尺寸
-      const minSize = 50 / displayZoom; // 最小 50 像素（屏幕坐标）
-      newWidth = Math.max(minSize, newWidth);
-      newHeight = Math.max(minSize, newHeight);
+      // 等比例：取缩放比例，使新尺寸保持 startW/startH
+      let scale = Math.min(rawW / startW, rawH / startH);
+      if (scale <= 0) scale = minSize / Math.min(startW, startH);
+      let newWidth = startW * scale;
+      let newHeight = startH * scale;
       
-      // 如果位置改变，需要调整位置以保持固定角不变
-      if (resizeHandle === 'nw') {
-        // 左上角：保持右下角固定
-        newX = resizeStartSize.current.x + resizeStartSize.current.width - newWidth;
-        newY = resizeStartSize.current.y + resizeStartSize.current.height - newHeight;
-      } else if (resizeHandle === 'ne') {
-        // 右上角：保持左下角固定
-        newY = resizeStartSize.current.y + resizeStartSize.current.height - newHeight;
-      } else if (resizeHandle === 'sw') {
-        // 左下角：保持右上角固定
-        newX = resizeStartSize.current.x + resizeStartSize.current.width - newWidth;
+      // 限制最小尺寸（等比例放大以满足最小边）
+      if (newWidth < minSize || newHeight < minSize) {
+        const fixScale = minSize / Math.min(newWidth, newHeight);
+        scale *= fixScale;
+        newWidth = startW * scale;
+        newHeight = startH * scale;
       }
-      // se (右下角) 保持左上角固定，不需要调整位置
+      
+      // 根据固定角计算新位置
+      let newX = resizeStartSize.current.x;
+      let newY = resizeStartSize.current.y;
+      if (resizeHandle === 'nw') {
+        newX = resizeStartSize.current.x + startW - newWidth;
+        newY = resizeStartSize.current.y + startH - newHeight;
+      } else if (resizeHandle === 'ne') {
+        newY = resizeStartSize.current.y + startH - newHeight;
+      } else if (resizeHandle === 'sw') {
+        newX = resizeStartSize.current.x + startW - newWidth;
+      }
       
       // 更新画布元素尺寸
       onItemResize?.(resizingItemId, newWidth, newHeight);

@@ -258,7 +258,8 @@
     "generate": "Generate Video",
     "generating": "Generating...",
     "modelNames": {
-      "OS": "Sora 2",
+      "OS": "Sora",
+      "GV": "Google veo",
       "Hailuo": "Hailuo",
       "Kling": "Kling",
       "Jimeng": "Jimeng",
@@ -512,6 +513,7 @@
     "fileTooLarge": "File too large",
     "shareComingSoon": "Share coming soon",
     "noItemsToDownload": "No items to download",
+    "downloadMaxSix": "Maximum 6 items for download, please reduce selection",
     "downloadingFiles": "Downloading files...",
     "downloadedCount": "Downloaded {{successCount}} files ({{failedCount}} failed)",
     "generationComplete": "Generation complete",

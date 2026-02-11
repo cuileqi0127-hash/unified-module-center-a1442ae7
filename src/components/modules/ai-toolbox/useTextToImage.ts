@@ -40,8 +40,8 @@ import {
   DEFAULT_MODEL,
 } from './textToImageConfig';
 import { type SelectedImage } from './ImageCapsule';
-import { batchDownload, MediaItem } from '@/utils/batchDownloader';
 import { uploadFile, validateFileFormat, validateFileSize } from '@/services/fileUploadApi';
+import { toolsDownloadByUrls } from '@/services/toolsDownloadApi';
 
 // 类型定义
 export interface ChatMessage {
@@ -173,6 +173,7 @@ export function useTextToImage() {
   const [highlightedImageId, setHighlightedImageId] = useState<string | null>(null);
   const [chatPanelWidth, setChatPanelWidth] = useState(30);
   const [isResizing, setIsResizing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isChatPanelCollapsed, setIsChatPanelCollapsed] = useState(false);
   const [taskPlaceholders, setTaskPlaceholders] = useState<CanvasImage[]>([]);
   
@@ -519,7 +520,6 @@ export function useTextToImage() {
         } catch (error) {
           console.error('Failed to create session:', error);
           toast.error(t('toast.createSessionFailed'));
-          redirectToLogin();
         }
       }
       } finally {
@@ -607,7 +607,6 @@ export function useTextToImage() {
     } catch (error) {
       console.error('Failed to create session:', error);
       toast.error(t('toast.createSessionFailed'));
-      redirectToLogin();
     }
   }, [model, aspectRatio, quality, style, outputNumber, t, loadSessions]);
 
@@ -1983,35 +1982,43 @@ export function useTextToImage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedImageId, selectedImageIds, canvasImages, copiedImage, copiedImages.length, handleCopyImage, handlePasteImage, handleBatchCopyImages]);
 
-  // 处理批量下载图片
+  // 处理批量下载图片（走后端 /tools/download，避免前端直连 OSS 导致 CORS/net::ERR_FAILED）
   const handleBatchDownloadImages = useCallback(async () => {
     const imagesToDownload = selectedImageIds.length > 1
       ? canvasImages.filter(img => selectedImageIds.includes(img.id))
       : selectedImageId
         ? canvasImages.filter(img => img.id === selectedImageId)
         : [];
-    
-    if (imagesToDownload.length === 0) return;
-    
+    const withUrl = imagesToDownload.filter(
+      (img): img is CanvasImage & { type: 'image' | 'video' } => img.type !== 'placeholder' && !!img.url
+    );
+    if (withUrl.length === 0) return;
+    if (withUrl.length > 6) {
+      toast.error(t('toast.downloadMaxSix'));
+      return;
+    }
+    const urls = withUrl.slice(0, 6).map(img => img.url);
+    setIsDownloading(true);
     try {
-      // 转换为 MediaItem 格式（仅图片/视频，占位符不参与下载）
-      const mediaItems: MediaItem[] = imagesToDownload
-        .filter((img): img is CanvasImage & { type: 'image' | 'video' } => img.type !== 'placeholder')
-        .map(img => ({
-          id: img.id,
-          url: img.url,
-          type: img.type === 'video' ? 'video' : 'image',
-          name: `image-${img.id}`,
-        }));
-      
-      // 使用批量下载工具
-      await batchDownload(mediaItems, {
-        zip: mediaItems.length > 1,
-        folderName: 'images',
-      });
+      const blob = await toolsDownloadByUrls(urls);
+      const ext = urls.length === 1 && /\.(mp4|webm|mov|avi|gif|png|jpg|jpeg|webp)(\?|$)/i.test(urls[0])
+        ? (urls[0].match(/\.(mp4|webm|mov|avi|gif|png|jpg|jpeg|webp)/i)?.[1] ?? 'bin')
+        : 'zip';
+      const filename = urls.length === 1 ? `download.${ext}` : `images-${Date.now()}.zip`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(t('toast.downloadStarted'));
     } catch (err) {
       console.error('Download failed:', err);
       toast.error(`${t('toast.downloadFailed')}: ${err instanceof Error ? err.message : t('toast.unknownError')}`);
+    } finally {
+      setIsDownloading(false);
     }
   }, [selectedImageIds, selectedImageId, canvasImages, t]);
 
@@ -2132,6 +2139,7 @@ export function useTextToImage() {
     highlightedImageId,
     chatPanelWidth,
     isResizing,
+    isDownloading,
     isChatPanelCollapsed,
     handleToggleChatPanel,
     canvasView,
