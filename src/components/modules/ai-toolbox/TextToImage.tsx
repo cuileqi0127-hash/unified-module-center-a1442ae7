@@ -660,9 +660,11 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                               key={num}
                               type="button"
                               onClick={() => setOutputNumber(num)}
+                              disabled={num !=1 }
                               className={cn(
                                 "relative z-10 flex-1 min-w-0 py-2 rounded-lg text-sm font-medium transition-colors duration-200 tabular-nums",
-                                outputNumber === num ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                                outputNumber === num ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                                num != 1 ? "text-[#999] hover:text-[#999]" : ""
                               )}
                             >
                               {num}
