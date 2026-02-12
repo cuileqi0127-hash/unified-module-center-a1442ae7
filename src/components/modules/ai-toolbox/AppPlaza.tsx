@@ -134,8 +134,8 @@ interface AppPlazaProps {
 export function AppPlaza({ onNavigate }: AppPlazaProps) {
   const { t } = useTranslation();
 
-  // 定义「即将上线」的页面列表
-  const comingSoonItems = ['campaign-planner', 'digital-human', 'ecommerce-assets', 'reference-to-image', 'reference-to-video'];
+  // 定义「即将上线」的页面列表（含 TikTok 洞察、品牌健康度、复刻视频，禁止进入）
+  const comingSoonItems = ['brand-health', 'tiktok-insights', 'reference-to-video', 'campaign-planner', 'digital-human', 'ecommerce-assets', 'reference-to-image'];
 
   const marketInsightTools = [
     { id: 'brand-health', titleKey: 'appPlaza.tools.brandHealth.title', descKey: 'appPlaza.tools.brandHealth.description', icon: <TrendingUp className="w-5 h-5 text-muted-foreground" />, views: 561, copies: 141 },

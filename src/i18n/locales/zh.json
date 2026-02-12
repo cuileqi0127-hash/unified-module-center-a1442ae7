@@ -20,7 +20,10 @@
     "digitalHuman": "数字人生成",
     "digitalHumanDesc": "创建 AI 数字人形象",
     "tiktokInsights": "TikTok 洞察报告",
-    "tiktokInsightsDesc": "TikTok 数据与内容洞察分析"
+    "tiktokInsightsDesc": "TikTok 数据与内容洞察分析",
+    "brandHealthComingSoon": "该功能即将上线，敬请期待",
+    "tiktokInsightsComingSoon": "该功能即将上线，敬请期待",
+    "videoReplicationComingSoon": "该功能即将上线，敬请期待"
   },
   "infiniteCanvas": {
     "delete": "删除",
@@ -208,6 +211,7 @@
     "history": "历史",
     "historyRecords": "历史记录",
     "loadingHistory": "正在加载历史记录...",
+    "loadingSession": "正在加载会话...",
     "loading": "加载中...",
     "allRecordsLoaded": "已加载全部记录",
     "startConversation": "开始一个新的对话",
@@ -274,6 +278,7 @@
     "history": "历史",
     "historyRecords": "历史记录",
     "loadingHistory": "正在加载历史记录...",
+    "loadingSession": "正在加载会话...",
     "loading": "加载中...",
     "allRecordsLoaded": "已加载全部记录",
     "startConversation": "开始一个新的对话",

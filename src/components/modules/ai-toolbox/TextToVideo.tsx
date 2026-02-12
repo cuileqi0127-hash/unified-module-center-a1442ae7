@@ -137,6 +137,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     isLoadingHistory,
     loadMoreHistory,
     isInitializing,
+    isLoadingSession,
     // Handlers
     handleNewConversation,
     handleLoadSession,
@@ -193,13 +194,13 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
 
   return (
     <div ref={containerRef} className="flex h-[calc(100vh-3.5rem)] gap-0 animate-fade-in overflow-hidden bg-background relative">
-      {/* 初始化 Loading 遮罩 */}
-      {isInitializing && (
+      {/* 初始化 / 切换会话 Loading 遮罩 */}
+      {(isInitializing || isLoadingSession) && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="text-center">
             <LoadingSpinner className="mx-auto" />
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {t('textToVideo.loadingHistory')}
+              {isLoadingSession ? t('textToVideo.loadingSession') : t('textToVideo.loadingHistory')}
             </p>
           </div>
         </div>
