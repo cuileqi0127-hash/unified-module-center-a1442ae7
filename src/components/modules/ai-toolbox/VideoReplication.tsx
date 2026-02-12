@@ -4,7 +4,6 @@ import {
   Image as ImageIcon,
   FileText,
   Sparkles,
-  Loader2,
   Copy, 
   Download,
   X,
@@ -17,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { uploadVideoFile, uploadMediaFile, createVideoTask, pollTaskUntilComplete } from '@/services/videoReplicationApi';
@@ -270,7 +270,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           onClick={() => !isUploading && (type === 'video' ? fileInputRef.current?.click() : imageInputRef.current?.click())}
         >
           {isUploading ? (
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <LoadingSpinner size="lg" className="w-10 h-10 text-primary" />
           ) : type === 'video' ? (
             <Video className="w-12 h-12 text-muted-foreground/70 shrink-0" />
           ) : (
@@ -284,13 +284,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           </Button>
         </div>
       ) : filePreview && (
-        <div className="rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04] overflow-hidden flex-1 flex flex-col min-h-0">
-          <div className="flex items-center justify-between p-2 border-b border-border/50 shrink-0">
-            <span className="text-sm font-medium truncate">{filePreview.name}</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClear}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+        <div className="relative rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04] overflow-hidden flex-1 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 flex items-center justify-center bg-black/5">
             {type === 'video' ? (
               <video src={filePreview.url} className="w-full h-full object-contain bg-black" controls />
@@ -298,14 +292,21 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               <img src={filePreview.url} alt="" className="max-w-full max-h-full object-contain" />
             )}
           </div>
+          <div className="absolute top-0 w-full flex items-center justify-between p-2">
+            {/* <span className="text-sm font-medium truncate">{filePreview.name}</span> */}
+            <div></div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full opacity-50 bg-[#fff] transition duration-300 ease-in-out hover:opacity-100" onClick={onClear}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
           {type === 'video' && onReversePrompt && (
-            <div className="pt-3 shrink-0">
+            <div className="absolute bottom-0 w-full p-[15px_20px] bg-white/10 backdrop-blur-[10px] rounded-xl">
               <Button
                 className="w-full rounded-xl gap-2 bg-primary hover:bg-primary/90"
                 disabled={isReversePromptLoading}
                 onClick={(e) => { e.stopPropagation(); onReversePrompt(); }}
               >
-                {isReversePromptLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {isReversePromptLoading ? <LoadingSpinner size="sm" className="h-4 w-4" /> : <Sparkles className="w-4 h-4" />}
                 {t('videoReplication.reversePrompt')}
               </Button>
             </div>
@@ -492,7 +493,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                       disabled={isGenerating}
                       onClick={handleAnalyzeVideo}
                     >
-                      {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      {isGenerating ? <LoadingSpinner size="sm" className="h-4 w-4" /> : <Sparkles className="w-4 h-4" />}
                       {t('videoReplication.generatePrompt')}
                         </Button>
                   ) : (
@@ -501,7 +502,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                       disabled={!sellingPoints.trim() || !imageFileId || isReplicating}
                       onClick={handleStartReplication}
                     >
-                      {isReplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      {isReplicating ? <LoadingSpinner size="sm" className="h-4 w-4" /> : <Sparkles className="w-4 h-4" />}
                       {t('videoReplication.startReplication')}
             </Button>
                 )}
@@ -543,7 +544,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       {(viewState === 'analyzing' || viewState === 'generating') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="text-center">
-            <Loader2 className="w-14 h-14 text-primary animate-spin mx-auto mb-4" />
+            <LoadingSpinner size="lg" className="w-14 h-14 text-primary mx-auto mb-4" />
             <p className="font-medium text-foreground">{viewState === 'analyzing' ? t('videoReplication.analyzingVideo') : t('videoReplication.generatingVideo')}</p>
             <p className="text-sm text-muted-foreground mt-1">{viewState === 'analyzing' ? t('videoReplication.analyzingVideoHint') : t('videoReplication.generatingVideoHint')}</p>
           </div>

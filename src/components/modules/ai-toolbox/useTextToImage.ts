@@ -184,6 +184,7 @@ export function useTextToImage() {
   const [hasMoreHistory, setHasMoreHistory] = useState(true); // 是否还有更多历史记录
   const [isLoadingHistory, setIsLoadingHistory] = useState(false); // 是否正在加载历史记录
   const [isInitializing, setIsInitializing] = useState(true); // 是否正在初始化（首次加载历史记录）
+  const [isLoadingSession, setIsLoadingSession] = useState(false); // 点击历史记录切换会话时的 loading
   const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   
   // 画布元素ID映射（用于更新数据库）
@@ -779,6 +780,7 @@ export function useTextToImage() {
 
   // 处理加载历史会话（获取指定会话的聊天内容和画布内容）
   const handleLoadSession = useCallback(async (sessionId: string) => {
+    setIsLoadingSession(true);
     try {
       const response = await getSessionDetail(sessionId);
       if (response.success && response.data) {
@@ -827,6 +829,8 @@ export function useTextToImage() {
     } catch (error) {
       console.error('Failed to load session:', error);
       toast.error(t('toast.loadSessionFailed'));
+    } finally {
+      setIsLoadingSession(false);
     }
   }, [t, applySessionDetailToState]);
 
@@ -1436,7 +1440,7 @@ export function useTextToImage() {
       const position = findNonOverlappingPosition(
         { width: task.width, height: task.height },
         allExistingRects,
-        300, 200, 50, 50, 100, 30
+        300, 200, 10, 10, 100, 12
       );
       placeholders.push({
         id: `placeholder-${task.taskId}`,
@@ -1668,67 +1672,124 @@ export function useTextToImage() {
         width: img.width,
         height: img.height,
       }));
-      const position = findNonOverlappingPosition(
-        { width: defaultWidth, height: defaultHeight },
-        existingRects,
-        300,
-        200,
-        50,
-        50,
-        100,
-        30
-      );
+      const batchRects: { x: number; y: number; width: number; height: number }[] = [];
+      const queueItemsToAdd: ImageTaskQueueItem[] = [];
+      let lastCompletedImage: CanvasImage | null = null;
 
-      const response = await submitImageTask(currentSessionId, {
-        model,
-        prompt: currentPrompt,
-        sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
-        size: aspectRatio,
-        quality: quality || null,
-        style: style || null,
-        n: outputNumber,
-        canvasItem: {
-          x: position.x,
-          y: position.y,
-          width: defaultWidth,
-          height: defaultHeight,
-          rotate: 0,
-          visible: true,
-          zindex: canvasImages.length,
-        },
-      });
-
-      if (!response.success || !response.data) {
-        throw new Error(response.msg || 'Submit image task failed');
-      }
-
-      const data = response.data;
-      if (data.status === 'failed' && data.failMessage) {
-        throw new Error(data.failMessage);
-      }
-
-      // 若接口已返回 completed 且带 downloadUrl，直接落画布并更新消息，不入队
-      if (data.status === 'completed' && data.downloadUrl) {
-        const firstImage: CanvasImage = {
-          id: `img-${Date.now()}`,
-          url: data.downloadUrl,
-          x: position.x,
-          y: position.y,
-          width: defaultWidth,
-          height: defaultHeight,
+      // 根据输出数量循环提交，每次 submitImageTask 的 n 固定为 1
+      for (let i = 0; i < outputNumber; i++) {
+        const position = findNonOverlappingPosition(
+          { width: defaultWidth, height: defaultHeight },
+          [...existingRects, ...batchRects],
+          300,
+          200,
+          10,
+          10,
+          100,
+          12
+        );
+        batchRects.push({ x: position.x, y: position.y, width: defaultWidth, height: defaultHeight });
+        // let model_async: string | null = null
+        // if(model === 'gemini-3-pro-image-preview-hd') {
+        //   if(quality === '1k') {
+        //     model_async = `gemini-3-pro-image-preview-async`
+        //   } else {
+        //     model_async = `gemini-3-pro-image-preview-${quality}-async`
+        //   }
+        // } else {
+        //   model_async = model
+        // }
+        const response = await submitImageTask(currentSessionId, {
+          model,
           prompt: currentPrompt,
-          type: 'image',
-        };
-        if (data.canvasItemId != null) {
-          canvasItemIdMap.current.set(firstImage.id, data.canvasItemId);
+          sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
+          size: aspectRatio,
+          quality: quality || null,
+          style: style || null,
+          n: 1,
+          canvasItem: {
+            x: position.x,
+            y: position.y,
+            width: defaultWidth,
+            height: defaultHeight,
+            rotate: 0,
+            visible: true,
+            zindex: canvasImages.length + i,
+          },
+        });
+
+        if (!response.success || !response.data) {
+          throw new Error(response.msg || 'Submit image task failed');
         }
+
+        const data = response.data;
+        if (data.status === 'failed' && data.failMessage) {
+          throw new Error(data.failMessage);
+        }
+
+        if (data.status === 'completed' && data.downloadUrl) {
+          const newImage: CanvasImage = {
+            id: `img-${Date.now()}-${i}`,
+            url: data.downloadUrl,
+            x: position.x,
+            y: position.y,
+            width: defaultWidth,
+            height: defaultHeight,
+            prompt: currentPrompt,
+            type: 'image',
+          };
+          if (data.canvasItemId != null) {
+            canvasItemIdMap.current.set(newImage.id, data.canvasItemId);
+          }
+          setCanvasImages(prev => [...prev, newImage]);
+          setSelectedImageId(newImage.id);
+          handleAddSelectedImage({ id: newImage.id, url: newImage.url, prompt: newImage.prompt });
+          lastCompletedImage = newImage;
+        } else {
+          queueItemsToAdd.push({
+            taskId: String(data.generationId),
+            messageId: systemMessage.id,
+            sessionId: currentSessionId,
+            prompt: currentPrompt,
+            model,
+            aspectRatio,
+            quality: quality || undefined,
+            style: style || undefined,
+            status: (data.status as 'queued' | 'processing') || 'queued',
+            progress: 0,
+            createdAt: Date.now(),
+            x: position.x,
+            y: position.y,
+            width: defaultWidth,
+            height: defaultHeight,
+          });
+        }
+      }
+
+      if (queueItemsToAdd.length > 0) {
+        queueItemsToAdd.forEach(item => addImageTaskToQueue(item));
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === systemMessage.id
+              ? {
+                  ...msg,
+                  status: 'queued' as const,
+                  content: t('toast.taskQueued', { defaultValue: '排队中' }),
+                  progress: 0,
+                }
+              : msg
+          )
+        );
+      }
+
+      if (lastCompletedImage && queueItemsToAdd.length === 0) {
         setMessages(prev =>
           prev.map(msg =>
             msg.id === systemMessage.id
               ? {
                   ...msg,
                   status: 'completed' as const,
-                  image: firstImage.url,
+                  image: lastCompletedImage!.url,
                   designThoughts: [
                     t('toast.imageUnderstanding', { prompt: currentPrompt }),
                     model === 'doubao-seedream-4-5-251128'
@@ -1744,55 +1805,19 @@ export function useTextToImage() {
               : msg
           )
         );
-        setCanvasImages(prev => [...prev, firstImage]);
-        setSelectedImageId(firstImage.id);
-        handleAddSelectedImage({ id: firstImage.id, url: firstImage.url, prompt: firstImage.prompt });
         try {
           await getSessionDetail(String(currentSessionId));
           await loadSessions(1, false);
         } catch (e) {
           console.error('Failed to refresh session after image task:', e);
         }
-        setIsGenerating(false);
-        return;
       }
 
-      // 与文生视频一致：queued/processing 时入队，轮询 /api/tools/gen/sessions/{会话id}/tasks/{任务id}
-      const queueItem: ImageTaskQueueItem = {
-        taskId: String(data.generationId),
-        messageId: systemMessage.id,
-        sessionId: currentSessionId,
-        prompt: currentPrompt,
-        model,
-        aspectRatio,
-        quality: quality || undefined,
-        style: style || undefined,
-        status: (data.status as 'queued' | 'processing') || 'queued',
-        progress: 0,
-        createdAt: Date.now(),
-        x: position.x,
-        y: position.y,
-        width: defaultWidth,
-        height: defaultHeight,
-      };
-      addImageTaskToQueue(queueItem);
-
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === systemMessage.id
-            ? {
-                ...msg,
-                status: 'queued' as const,
-                content: t('toast.taskQueued', { defaultValue: '排队中' }),
-                progress: 0,
-              }
-            : msg
-        )
-      );
-
       setIsGenerating(false);
-      updatePlaceholdersFromQueueRef.current?.();
-      processTaskQueueRef.current?.();
+      if (queueItemsToAdd.length > 0) {
+        updatePlaceholdersFromQueueRef.current?.();
+        processTaskQueueRef.current?.();
+      }
     } catch (error) {
       console.error('Generation error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -1811,7 +1836,7 @@ export function useTextToImage() {
         )
       );
     }
-  }, [prompt, isGenerating, model, aspectRatio, quality, style, selectedImages, selectedImageIds, selectedImageId, canvasImages, t, getImageDimensions, handleAddSelectedImage, currentSessionId, loadSessions]);
+  }, [prompt, isGenerating, model, aspectRatio, quality, style, outputNumber, selectedImages, selectedImageIds, selectedImageId, canvasImages, t, getImageDimensions, handleAddSelectedImage, currentSessionId, loadSessions]);
 
   // 处理键盘事件
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -2157,6 +2182,7 @@ export function useTextToImage() {
     isLoadingHistory,
     loadMoreHistory,
     isInitializing,
+    isLoadingSession,
     
     // Handlers
     handleNewConversation,

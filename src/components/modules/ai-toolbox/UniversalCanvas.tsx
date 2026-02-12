@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ZoomIn, ZoomOut, Maximize, Move, Play, Pause, Copy, Scissors, ClipboardPaste, Trash2, Crosshair, Share2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
 
 // 统一的画布媒体项类型（支持图片和视频）
@@ -1199,7 +1200,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                     {/* 基础背景 - 淡灰色背景 */}
                     <div className="absolute inset-0 bg-muted/20" />
                     
-                    {/* 网格图案 - 更明显的网格效果 */}
+                    {/* 网格图案 - 更明显的网格效果，随画布缩放 */}
                     <div 
                       className="absolute inset-0 opacity-30"
                       style={{
@@ -1207,7 +1208,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                           linear-gradient(90deg, rgba(0,0,0,0.08) 1px, transparent 1px),
                           linear-gradient(rgba(0,0,0,0.08) 1px, transparent 1px)
                         `,
-                        backgroundSize: '24px 24px',
+                        backgroundSize: `${24 * displayZoom}px ${24 * displayZoom}px`,
                       }}
                     />
                     
@@ -1237,22 +1238,28 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                       }} 
                     />
                     
-                    {/* 中心加载指示器 - 更美观的加载动画 */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="relative w-12 h-12">
-                        {/* 外圈脉冲 */}
-                        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-primary/20 animate-ping" />
-                        {/* 中圈旋转 */}
-                        <div className="absolute inset-0 w-12 h-12 rounded-full border-2 border-transparent border-t-primary/40 animate-spin" style={{ animationDuration: '1s' }} />
-                        {/* 内圈点 */}
-                        {/* <div className="w-6 h-6 rounded-full bg-primary/30 animate-pulse" /> */}
-                      </div>
+                    {/* 中心加载指示器 - 随画布缩放比例调整大小 */}
+                    <div
+                      role="status"
+                      aria-label="加载中"
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                      style={{
+                        fontSize: Math.max(16, Math.round(48 * displayZoom)),
+                      }}
+                    >
+                      <div className="rounded-full border-2 border-transparent border-b-current animate-spin text-primary/80 w-[1em] h-[1em] shrink-0" />
                     </div>
                     
-                    {/* 底部提示文字（可选） */}
+                    {/* 底部提示文字（可选），随画布缩放 */}
                     {item.prompt && (
-                      <div className="absolute bottom-2 left-2 right-2 text-center pointer-events-none">
-                        <p className="text-xs text-muted-foreground truncate px-2">
+                      <div
+                        className="absolute left-2 right-2 text-center pointer-events-none"
+                        style={{
+                          bottom: Math.max(4, 8 * displayZoom),
+                          fontSize: Math.max(10, 12 * displayZoom),
+                        }}
+                      >
+                        <p className="text-muted-foreground truncate px-2">
                           {item.prompt}
                         </p>
                       </div>

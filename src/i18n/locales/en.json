@@ -20,7 +20,10 @@
     "digitalHuman": "Digital Human",
     "digitalHumanDesc": "Create AI-powered digital human avatars.",
     "tiktokInsights": "TikTok Insights Report",
-    "tiktokInsightsDesc": "TikTok data and content insights analysis"
+    "tiktokInsightsDesc": "TikTok data and content insights analysis",
+    "brandHealthComingSoon": "This feature is coming soon.",
+    "tiktokInsightsComingSoon": "This feature is coming soon.",
+    "videoReplicationComingSoon": "This feature is coming soon."
   },
   "infiniteCanvas": {
     "delete": "Delete",
@@ -208,6 +211,7 @@
     "history": "History",
     "historyRecords": "History",
     "loadingHistory": "Loading history...",
+    "loadingSession": "Loading session...",
     "loading": "Loading...",
     "allRecordsLoaded": "All records loaded",
     "startConversation": "Start a new conversation",
@@ -274,6 +278,7 @@
     "history": "History",
     "historyRecords": "History",
     "loadingHistory": "Loading history...",
+    "loadingSession": "Loading session...",
     "loading": "Loading...",
     "allRecordsLoaded": "All records loaded",
     "startConversation": "Start a new conversation",

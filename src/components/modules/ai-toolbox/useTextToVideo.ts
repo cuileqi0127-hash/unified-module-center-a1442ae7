@@ -189,6 +189,7 @@ export function useTextToVideo() {
   const [hasMoreHistory, setHasMoreHistory] = useState(true); // 是否还有更多历史记录
   const [isLoadingHistory, setIsLoadingHistory] = useState(false); // 是否正在加载历史记录
   const [isInitializing, setIsInitializing] = useState(true); // 是否正在初始化（首次加载历史记录）
+  const [isLoadingSession, setIsLoadingSession] = useState(false); // 点击历史记录切换会话时的 loading
   const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   
   // 画布元素ID映射（用于更新数据库；接口返回 id 可能为字符串）
@@ -830,6 +831,7 @@ export function useTextToVideo() {
 
   // 处理加载历史会话（获取指定会话的聊天内容和画布内容）
   const handleLoadSession = useCallback(async (sessionId: string) => {
+    setIsLoadingSession(true);
     try {
       const response = await getSessionDetail(sessionId);
       if (response.success && response.data) {
@@ -870,6 +872,8 @@ export function useTextToVideo() {
     } catch (error) {
       console.error('Failed to load session:', error);
       toast.error(t('toast.loadSessionFailed'));
+    } finally {
+      setIsLoadingSession(false);
     }
   }, [t, applySessionDetailToState]);
 
@@ -1405,10 +1409,10 @@ export function useTextToVideo() {
         existingRects,
         300,
         200,
-        50,
-        50,
+        10,
+        10,
         100,
-        30
+        12
       );
 
       const response = await submitVideoTask(currentSessionId, {
@@ -1640,10 +1644,10 @@ export function useTextToVideo() {
             allExistingRects,
             300,
             200,
-            50,
-            50,
+            10,
+            10,
             100,
-            30 // 占位符之间的间隔 30 像素
+            12
           );
           
           const newPlaceholder: CanvasVideo = {
@@ -1865,10 +1869,10 @@ export function useTextToVideo() {
             existingRects,
             300,
             200,
-            50,
-            50,
+            10,
+            10,
             100,
-            30 // 视频之间的间隔 30 像素
+            12
           );
 
           const newVideo: CanvasVideo = {
@@ -2456,6 +2460,7 @@ export function useTextToVideo() {
     isLoadingHistory,
     loadMoreHistory,
     isInitializing,
+    isLoadingSession,
     
     // Handlers
     handleNewConversation,

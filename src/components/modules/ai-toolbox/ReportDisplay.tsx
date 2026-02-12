@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface ReportDisplayProps {
   reportUrl: string;
@@ -78,7 +79,7 @@ export function ReportPollingOverlay({
   if (!show) return null;
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
-      <span className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <LoadingSpinner className="text-primary" />
       <p className="mt-4 font-medium text-foreground">{generatingLabel}</p>
       <p className="mt-1 text-sm text-muted-foreground">{generatingHint}</p>
     </div>

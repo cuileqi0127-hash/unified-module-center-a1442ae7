@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
 
 interface MediaItem {
@@ -233,7 +234,7 @@ export function MediaViewer({ items, initialIndex, isOpen, onClose }: MediaViewe
             {shouldShowLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-10">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="h-10 w-10 border-2 border-white/30 border-t-white/90 rounded-full animate-spin" />
+                  <LoadingSpinner size="lg" className="h-10 w-10 text-white/90" />
                   <p className="text-sm text-white/80 font-medium">加载中...</p>
                 </div>
               </div>
@@ -294,7 +295,7 @@ export function MediaViewer({ items, initialIndex, isOpen, onClose }: MediaViewe
             {shouldShowLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-10">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="h-10 w-10 border-2 border-white/30 border-t-white/90 rounded-full animate-spin" />
+                  <LoadingSpinner size="lg" className="h-10 w-10 text-white/90" />
                   <p className="text-sm text-white/80 font-medium">加载中...</p>
                 </div>
               </div>

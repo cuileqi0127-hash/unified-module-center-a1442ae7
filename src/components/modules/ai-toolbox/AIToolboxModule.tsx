@@ -2,9 +2,6 @@ import { useTranslation } from 'react-i18next';
 import { TextToImage } from './TextToImage';
 import { TextToVideo } from './TextToVideo';
 import { AppPlaza } from './AppPlaza';
-import { BrandHealth } from './BrandHealth';
-import { TikTokInsights } from './TikTokInsights';
-import { VideoReplication } from './VideoReplication';
 
 interface AIToolboxModuleProps {
   activeItem: string;
@@ -25,11 +22,11 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
     case 'app-plaza':
       return <AppPlaza onNavigate={onNavigate} />;
     
-    // Market Insights
+    // Market Insights（Coming Soon，禁止进入）
     case 'brand-health':
-      return <BrandHealth onNavigate={onNavigate} />;
+      return <PlaceholderPage title={t('common.comingSoon')} description={t('placeholder.brandHealthComingSoon')} />;
     case 'tiktok-insights':
-      return <TikTokInsights onNavigate={onNavigate} />;
+      return <PlaceholderPage title={t('common.comingSoon')} description={t('placeholder.tiktokInsightsComingSoon')} />;
     case 'trend-analysis':
       return <PlaceholderPage title={t('placeholder.trendAnalysis')} description={t('placeholder.trendAnalysisDesc')} />;
     case 'competitor-monitor':
@@ -53,7 +50,7 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
     case 'text-to-video':
       return <TextToVideo onNavigate={onNavigate} />;
     case 'reference-to-video':
-      return <VideoReplication onNavigate={onNavigate} />;
+      return <PlaceholderPage title={t('common.comingSoon')} description={t('placeholder.videoReplicationComingSoon')} />;
     
     // Digital Human
     case 'digital-human':

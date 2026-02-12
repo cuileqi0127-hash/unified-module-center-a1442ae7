@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Pause, Play, X, Clock, RefreshCw } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { DownloadTask } from '@/utils/batchDownloader';
 
 interface DownloadProgressProps {
@@ -26,7 +27,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onRetry }) => {
       case 'pending':
         return <Clock className="h-4 w-4 text-gray-500" />;
       case 'downloading':
-        return <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />;
+        return <LoadingSpinner size="sm" className="h-4 w-4 text-blue-500" />;
       case 'completed':
         return <RefreshCw className="h-4 w-4 text-green-500" />;
       case 'failed':

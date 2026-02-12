@@ -213,8 +213,8 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     setOpenSections((prev) => ({ ...prev, [titleKey]: !prev[titleKey] }));
   };
 
-  // 定义 Coming Soon 的页面列表（品牌健康度诊断已开放）
-  const comingSoonItems = ['campaign-planner', 'digital-human'];
+  // 定义 Coming Soon 的页面列表（禁止进入）
+  const comingSoonItems = ['brand-health', 'tiktok-insights', 'reference-to-video', 'campaign-planner', 'digital-human'];
 
   const renderItem = (item: SidebarItem) => {
     const isComingSoon = comingSoonItems.includes(item.id);
@@ -297,7 +297,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
                     )}
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className={cn('space-y-2', sidebarCollapsed ? 'px-1' : 'px-2')}>
+                    <div className={cn('space-y-2', sidebarCollapsed ? 'px-3' : 'px-2')}>
                       {section.subgroups.map((subgroup) => (
                         <div key={subgroup.titleKey}>
                           {!sidebarCollapsed && (
@@ -321,7 +321,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
                       {t(section.titleKey)}
                     </div>
                   )}
-                  <nav className={cn('space-y-0.5', sidebarCollapsed ? 'px-1' : 'px-2')}>
+                  <nav className={cn('space-y-0.5', sidebarCollapsed ? 'px-3' : 'px-2')}>
                     {section.items?.map(renderItem)}
                   </nav>
                 </>
