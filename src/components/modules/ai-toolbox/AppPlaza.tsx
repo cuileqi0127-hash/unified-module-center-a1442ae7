@@ -16,6 +16,7 @@ import textToImageImg from '@/assets/text-to-image.png';
 import ecommerceAssetsImg from '@/assets/ecommerce-assets.png';
 import textToVideoImg from '@/assets/text-to-video.png';
 import referenceToVideoImg from '@/assets/reference-to-video.png';
+import { COMING_SOON_ITEMS } from '@/constants/comingSoon';
 
 interface ToolCardProps {
   title: string;
@@ -134,9 +135,6 @@ interface AppPlazaProps {
 export function AppPlaza({ onNavigate }: AppPlazaProps) {
   const { t } = useTranslation();
 
-  // 定义「即将上线」的页面列表
-  const comingSoonItems = ['campaign-planner', 'digital-human', 'ecommerce-assets', 'reference-to-image', 'reference-to-video'];
-
   const marketInsightTools = [
     { id: 'brand-health', titleKey: 'appPlaza.tools.brandHealth.title', descKey: 'appPlaza.tools.brandHealth.description', icon: <TrendingUp className="w-5 h-5 text-muted-foreground" />, views: 561, copies: 141 },
   ];
@@ -178,11 +176,11 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
           <Card 
                   className={cn(
                     "overflow-hidden group",
-                    comingSoonItems.includes('digital-human')
+                    COMING_SOON_ITEMS.includes('digital-human')
                       ? "opacity-50 cursor-not-allowed"
                       : "cursor-pointer"
                   )}
-                  onClick={() => !comingSoonItems.includes('digital-human') && onNavigate('digital-human')}
+                  onClick={() => !COMING_SOON_ITEMS.includes('digital-human') && onNavigate('digital-human')}
           >
             <div className="relative h-48 overflow-hidden">
               <img 
@@ -190,7 +188,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                 alt="Digital Human" 
                 className={cn(
                   "absolute inset-0 w-full h-full object-cover transition-transform duration-500",
-                  !comingSoonItems.includes('digital-human') && "group-hover:scale-110"
+                  !COMING_SOON_ITEMS.includes('digital-human') && "group-hover:scale-110"
                 )}
               />
               <div className="absolute inset-0 bg-gradient-to-r from-violet-900/80 to-transparent" />
@@ -203,7 +201,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                   <h2 className="text-2xl font-bold text-white mb-1">{t('appPlaza.digitalHuman.title')}</h2>
                   <p className="text-white/70 text-sm">{t('appPlaza.digitalHuman.subtitle')}</p>
                   <p className="text-white/60 text-xs mt-2 max-w-[200px]">{t('appPlaza.digitalHuman.description')}</p>
-                  {comingSoonItems.includes('digital-human') && (
+                  {COMING_SOON_ITEMS.includes('digital-human') && (
                     <div className="mt-2 text-xs font-medium text-white/90">{t('common.comingSoon')}</div>
                   )}
                 </div>
@@ -211,7 +209,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
             </div>
           </Card>
               </TooltipTrigger>
-              {comingSoonItems.includes('digital-human') && (
+              {COMING_SOON_ITEMS.includes('digital-human') && (
                 <TooltipContent>
                   <p>{t('common.comingSoon')}</p>
                 </TooltipContent>
@@ -262,11 +260,11 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                 views={tool.views}
                 copies={tool.copies}
                 onClick={() => onNavigate(tool.id)}
-                        isComingSoon={comingSoonItems.includes(tool.id)}
+                        isComingSoon={COMING_SOON_ITEMS.includes(tool.id)}
                       />
                     </div>
                   </TooltipTrigger>
-                  {comingSoonItems.includes(tool.id) && (
+                  {COMING_SOON_ITEMS.includes(tool.id) && (
                     <TooltipContent>
                       <p>{t('common.comingSoon')}</p>
                     </TooltipContent>
@@ -293,11 +291,11 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                 views={tool.views}
                 copies={tool.copies}
                 onClick={() => onNavigate(tool.id)}
-                        isComingSoon={comingSoonItems.includes(tool.id)}
+                        isComingSoon={COMING_SOON_ITEMS.includes(tool.id)}
                       />
                     </div>
                   </TooltipTrigger>
-                  {comingSoonItems.includes(tool.id) && (
+                  {COMING_SOON_ITEMS.includes(tool.id) && (
                     <TooltipContent>
                       <p>{t('common.comingSoon')}</p>
                     </TooltipContent>
@@ -329,11 +327,11 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                           views={tool.views}
                           copies={tool.copies}
                           onClick={() => onNavigate(tool.id)}
-                          isComingSoon={comingSoonItems.includes(tool.id)}
+                          isComingSoon={COMING_SOON_ITEMS.includes(tool.id)}
                         />
                       </div>
                     </TooltipTrigger>
-                    {comingSoonItems.includes(tool.id) && (
+                    {COMING_SOON_ITEMS.includes(tool.id) && (
                       <TooltipContent>
                         <p>{t('common.comingSoon')}</p>
                       </TooltipContent>
@@ -361,11 +359,11 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                           views={tool.views}
                           copies={tool.copies}
                           onClick={() => onNavigate(tool.id)}
-                          isComingSoon={comingSoonItems.includes(tool.id)}
+                          isComingSoon={COMING_SOON_ITEMS.includes(tool.id)}
                         />
                       </div>
                     </TooltipTrigger>
-                    {comingSoonItems.includes(tool.id) && (
+                    {COMING_SOON_ITEMS.includes(tool.id) && (
                       <TooltipContent>
                         <p>{t('common.comingSoon')}</p>
                       </TooltipContent>
@@ -392,11 +390,11 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
                   views={tool.views}
                   copies={tool.copies}
                   onClick={() => onNavigate(tool.id)}
-                          isComingSoon={comingSoonItems.includes(tool.id)}
+                          isComingSoon={COMING_SOON_ITEMS.includes(tool.id)}
                         />
                       </div>
                     </TooltipTrigger>
-                    {comingSoonItems.includes(tool.id) && (
+                    {COMING_SOON_ITEMS.includes(tool.id) && (
                       <TooltipContent>
                         <p>{t('common.comingSoon')}</p>
                       </TooltipContent>

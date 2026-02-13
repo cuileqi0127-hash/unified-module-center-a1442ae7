@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { COMING_SOON_ITEMS } from '@/constants/comingSoon';
 
 interface SidebarItem {
   id: string;
@@ -213,11 +214,8 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     setOpenSections((prev) => ({ ...prev, [titleKey]: !prev[titleKey] }));
   };
 
-  // 定义 Coming Soon 的页面列表（品牌健康度诊断已开放）
-  const comingSoonItems = ['campaign-planner', 'digital-human'];
-
   const renderItem = (item: SidebarItem) => {
-    const isComingSoon = comingSoonItems.includes(item.id);
+    const isComingSoon = COMING_SOON_ITEMS.includes(item.id);
     
     const button = (
       <button
