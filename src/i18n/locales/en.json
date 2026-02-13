@@ -20,10 +20,7 @@
     "digitalHuman": "Digital Human",
     "digitalHumanDesc": "Create AI-powered digital human avatars.",
     "tiktokInsights": "TikTok Insights Report",
-    "tiktokInsightsDesc": "TikTok data and content insights analysis",
-    "brandHealthComingSoon": "This feature is coming soon.",
-    "tiktokInsightsComingSoon": "This feature is coming soon.",
-    "videoReplicationComingSoon": "This feature is coming soon."
+    "tiktokInsightsDesc": "TikTok data and content insights analysis"
   },
   "infiniteCanvas": {
     "delete": "Delete",
@@ -253,7 +250,8 @@
     },
     "selected": "selected",
     "enhanceMode": "Enhance Mode",
-    "footerNote": "Please use authorized materials and use results legally"
+    "footerNote": "Please use authorized materials and use results legally",
+    "maxImagesExceeded": "{{modelName}} supports up to {{count}} image(s) only"
   },
   "textToVideo": {
     "title": "Video Generation",
@@ -311,7 +309,8 @@
       "cutSuccess": "Cut"
     },
     "selected": "selected",
-    "footerNote": "Please use authorized materials and use results legally"
+    "footerNote": "Please use authorized materials and use results legally",
+    "maxImagesExceeded": "{{modelName}} supports up to {{count}} image(s) only"
   },
   "videoReplication": {
     "uploadVideo": "Please upload a video file",

@@ -20,10 +20,7 @@
     "digitalHuman": "数字人生成",
     "digitalHumanDesc": "创建 AI 数字人形象",
     "tiktokInsights": "TikTok 洞察报告",
-    "tiktokInsightsDesc": "TikTok 数据与内容洞察分析",
-    "brandHealthComingSoon": "该功能即将上线，敬请期待",
-    "tiktokInsightsComingSoon": "该功能即将上线，敬请期待",
-    "videoReplicationComingSoon": "该功能即将上线，敬请期待"
+    "tiktokInsightsDesc": "TikTok 数据与内容洞察分析"
   },
   "infiniteCanvas": {
     "delete": "删除",
@@ -253,7 +250,8 @@
     },
     "selected": "已选择",
     "enhanceMode": "增强模式",
-    "footerNote": "请使用有权素材，并合法使用生成结果"
+    "footerNote": "请使用有权素材，并合法使用生成结果",
+    "maxImagesExceeded": "{{modelName}}仅支持上传{{count}}张图片"
   },
   "textToVideo": {
     "title": "视频生成",
@@ -310,7 +308,8 @@
       "deleteAll": "批量删除"
     },
     "selected": "已选择",
-    "footerNote": "请使用有权素材，并合法使用生成结果"
+    "footerNote": "请使用有权素材，并合法使用生成结果",
+    "maxImagesExceeded": "{{modelName}}仅支持上传{{count}}张图片"
   },
   "videoReplication": {
     "uploadVideo": "请上传视频文件",
