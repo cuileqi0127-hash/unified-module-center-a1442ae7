@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem, type UniversalCanvasHandle } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToVideo, type CanvasVideo } from './useTextToVideo';
-import { modelSupportsEnhanceSwitch, getModelVersion, VIDEO_MODEL_CONFIGS } from './textToVideoConfig';
+import { modelSupportsEnhanceSwitch, getModelVersion, getModelMaxImages, VIDEO_MODEL_CONFIGS } from './textToVideoConfig';
 import type { VideoModel } from '@/services/videoGenerationApi';
 import { AnimatedText } from './AnimatedText';
 import { MediaViewer } from './MediaViewer';
@@ -126,6 +126,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     currentSessionId,
     deletingVideoIds,
     addingVideoIds,
+    isOverImageLimit,
     // Config
     models,
     secondsOptions,
@@ -421,8 +422,13 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
               
               if (imagesToDisplay.length === 0) return null;
               
+              const maxImages = getModelMaxImages(model as VideoModel);
+              const modelLabel = VIDEO_MODEL_CONFIGS[model as VideoModel]?.label ?? model;
+              const showMaxImagesHint = imagesToDisplay.length > maxImages;
+              
               return (
-              <div className="flex flex-wrap items-center gap-2 px-4 pt-3 pb-1">
+              <div className="flex items-start flex-col gap-2 px-4 pt-3 pb-1">
+                <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
                   {imagesToDisplay.map((image) => (
                   <ImageCapsule
                       key={image.id}
@@ -437,6 +443,12 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                       }}
                   />
                 ))}
+                </div>
+                {showMaxImagesHint && (
+                  <p className="text-xs text-destructive shrink-0 whitespace-nowrap">
+                    {t('textToVideo.maxImagesExceeded', { modelName: modelLabel, count: maxImages })}
+                  </p>
+                )}
               </div>
               );
             })()}
@@ -747,10 +759,10 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                 size="icon"
                 className="h-8 w-8 shrink-0 rounded-full"
                 onClick={handleGenerate}
-                disabled={!currentSessionId || !prompt.trim() || isGenerating}
+                disabled={!currentSessionId || !prompt.trim() || isGenerating || isOverImageLimit}
               >
                 {isGenerating ? (
-                  <LoadingSpinner size="sm" className="h-4 w-4" />
+                  <LoadingSpinner size="sm" className="h-4 w-4 text-primary-foreground" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
@@ -875,12 +887,12 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
           </div>
         )}
 
-        {/* Video Count Badge */}
+        {/* Video Count Badge（与文生图一致：画布图层数 + 占位符数） */}
         <Badge 
           variant="secondary" 
           className="absolute right-4 top-4 shadow-sm"
         >
-          {canvasVideos.length} {t('textToVideo.items')}
+          {canvasVideos.length + taskPlaceholders.length} {t('textToVideo.items')}
         </Badge>
       </div>
 

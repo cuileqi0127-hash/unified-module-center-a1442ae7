@@ -212,7 +212,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
 
   // 调试：画布移动坐标与缩放比例打印到控制台
   useEffect(() => {
-    console.log('[UniversalCanvas] pan(移动坐标):', { x: pan.x, y: pan.y }, 'zoom(缩放比例):', zoom, 'zoom%:', Math.round(zoom * 100) + '%');
+    // console.log('[UniversalCanvas] pan(移动坐标):', { x: pan.x, y: pan.y }, 'zoom(缩放比例):', zoom, 'zoom%:', Math.round(zoom * 100) + '%');
   }, [pan.x, pan.y, zoom]);
 
   const [isPanning, setIsPanning] = useState(false);
@@ -220,15 +220,16 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
   const lastMousePos = useRef({ x: 0, y: 0 });
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
-  const [playingVideos, setPlayingVideos] = useState<Set<string>>(new Set());
+  // 画布同时只允许一个视频播放，点击图层切换播放
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const playingVideoIdRef = useRef<string | null>(null);
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
   const itemRefs = useRef<Map<string, React.RefObject<HTMLDivElement>>>(new Map());
   
-  // Hover 防抖：图片放大 / 视频播放 延迟触发，避免边缘抖动
+  // Hover 防抖：仅图片放大，视频改为点击播放
   const HOVER_DEBOUNCE_MS = 150;
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const hoverEnterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const videoHoverTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   
   // Box selection state
   const [isBoxSelecting, setIsBoxSelecting] = useState(false);
@@ -491,10 +492,10 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       
       const startW = resizeStartSize.current.width;
       const startH = resizeStartSize.current.height;
-      const aspectRatio = startW / startH;
-      const minSize = 50 / displayZoom; // 最小 50 像素（屏幕坐标）
-      
-      // 根据拖拽的角计算“自由”尺寸，再按等比例缩放到 newWidth / newHeight = aspectRatio
+      const minSize = 50 / displayZoom; // 最小 50 像素（画布坐标）
+      const freeResize = e.ctrlKey || e.metaKey; // Ctrl 或 Command 按住时为自由缩放，否则等比例
+
+      // 根据拖拽的角计算“自由”尺寸（rawW/rawH）
       let rawW: number;
       let rawH: number;
       switch (resizeHandle) {
@@ -515,19 +516,25 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
           rawH = startH + deltaCanvasY;
           break;
       }
-      
-      // 等比例：取缩放比例，使新尺寸保持 startW/startH
-      let scale = Math.min(rawW / startW, rawH / startH);
-      if (scale <= 0) scale = minSize / Math.min(startW, startH);
-      let newWidth = startW * scale;
-      let newHeight = startH * scale;
-      
-      // 限制最小尺寸（等比例放大以满足最小边）
-      if (newWidth < minSize || newHeight < minSize) {
-        const fixScale = minSize / Math.min(newWidth, newHeight);
-        scale *= fixScale;
+
+      let newWidth: number;
+      let newHeight: number;
+      if (freeResize) {
+        // 自由缩放：宽高独立，仅限制最小尺寸
+        newWidth = Math.max(minSize, rawW);
+        newHeight = Math.max(minSize, rawH);
+      } else {
+        // 等比例：取缩放比例，使新尺寸保持 startW/startH
+        let scale = Math.min(rawW / startW, rawH / startH);
+        if (scale <= 0) scale = minSize / Math.min(startW, startH);
         newWidth = startW * scale;
         newHeight = startH * scale;
+        if (newWidth < minSize || newHeight < minSize) {
+          const fixScale = minSize / Math.min(newWidth, newHeight);
+          scale *= fixScale;
+          newWidth = startW * scale;
+          newHeight = startH * scale;
+        }
       }
       
       // 根据固定角计算新位置
@@ -756,56 +763,49 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
     setIsPanning(false);
   }, [isResizing, isBoxSelecting, selectionBox, items, displayZoom, displayPan, selectedItemIds, onItemMultiSelect, onItemSelect, onViewChange]);
 
-  // Handle video play/pause
-  const toggleVideoPlay = useCallback((itemId: string) => {
+  // 与 state 同步，供 onPlay 等回调中读取“当前在播的 id”以暂停其他
+  useEffect(() => {
+    playingVideoIdRef.current = playingVideoId;
+  }, [playingVideoId]);
+
+  // 点击视频图层：仅当前图层播放，其他全部暂停（画布同时只播一个）
+  const playVideoOnly = useCallback((itemId: string) => {
     const video = videoRefs.current.get(itemId);
     if (!video) return;
-    
-    if (playingVideos.has(itemId)) {
-      video.pause();
-      setPlayingVideos(prev => {
-        const next = new Set(prev);
-        next.delete(itemId);
-        return next;
-      });
-    } else {
-      video.play();
-      setPlayingVideos(prev => new Set(prev).add(itemId));
-    }
-  }, [playingVideos]);
-  
-  // 保存当前播放状态
-  const savedPlayingVideos = useRef<Set<string>>(new Set());
-  
+    setPlayingVideoId(prev => {
+      if (prev === itemId) {
+        video.pause();
+        return null;
+      }
+      const prevVideo = prev ? videoRefs.current.get(prev) : null;
+      if (prevVideo) prevVideo.pause();
+      video.play().catch(() => {});
+      return itemId;
+    });
+  }, []);
+
+  // 保存当前播放的 id（用于恢复）
+  const savedPlayingVideoId = useRef<string | null>(null);
+
   // 暂停所有视频
   const pauseAllVideos = useCallback(() => {
-    // 保存当前播放状态
-    savedPlayingVideos.current = new Set(playingVideos);
-    // 暂停所有视频
-    playingVideos.forEach(itemId => {
-      const video = videoRefs.current.get(itemId);
-      if (video) {
-        video.pause();
-      }
-    });
-    // 清空播放状态
-    setPlayingVideos(new Set());
-  }, [playingVideos]);
-  
+    savedPlayingVideoId.current = playingVideoId;
+    if (playingVideoId) {
+      const video = videoRefs.current.get(playingVideoId);
+      if (video) video.pause();
+    }
+    setPlayingVideoId(null);
+  }, [playingVideoId]);
+
   // 恢复之前的播放状态
   const resumeVideos = useCallback(() => {
-    // 恢复之前的播放状态
-    savedPlayingVideos.current.forEach(itemId => {
-      const video = videoRefs.current.get(itemId);
-      if (video) {
-        video.play().catch(error => {
-          console.error('Error resuming video:', error);
-        });
-      }
-    });
-    setPlayingVideos(new Set(savedPlayingVideos.current));
-    // 清空保存的状态
-    savedPlayingVideos.current = new Set();
+    const id = savedPlayingVideoId.current;
+    if (id) {
+      const video = videoRefs.current.get(id);
+      if (video) video.play().catch(() => {});
+      setPlayingVideoId(id);
+    }
+    savedPlayingVideoId.current = null;
   }, []);
   
   const focusAnimationRef = useRef<number | null>(null);
@@ -1061,7 +1061,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
           const mediaType = getMediaType(item);
           const isVideo = mediaType === 'video';
           const isPlaceholder = mediaType === 'placeholder';
-          const isPlaying = isVideo && playingVideos.has(item.id);
+          const isPlaying = isVideo && playingVideoId === item.id;
           // 占位符完全禁止交互（拖动、选中、框选）
           const isPlaceholderDisabled = isPlaceholder;
           
@@ -1103,18 +1103,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                   addingItemIds.includes(item.id) && 'opacity-0 scale-90'
                 )}
                 onMouseEnter={() => {
-                  if (isVideo) {
-                    const id = item.id;
-                    if (videoHoverTimeoutRef.current[id]) {
-                      clearTimeout(videoHoverTimeoutRef.current[id]);
-                      delete videoHoverTimeoutRef.current[id];
-                    }
-                    videoHoverTimeoutRef.current[id] = setTimeout(() => {
-                      const video = videoRefs.current.get(id);
-                      if (video) video.play().catch(() => {});
-                      delete videoHoverTimeoutRef.current[id];
-                    }, HOVER_DEBOUNCE_MS);
-                  } else if (!isPlaceholder) {
+                  if (!isPlaceholder && !isVideo) {
                     if (hoverEnterTimeoutRef.current) {
                       clearTimeout(hoverEnterTimeoutRef.current);
                       hoverEnterTimeoutRef.current = null;
@@ -1126,15 +1115,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                   }
                 }}
                 onMouseLeave={() => {
-                  if (isVideo) {
-                    const id = item.id;
-                    if (videoHoverTimeoutRef.current[id]) {
-                      clearTimeout(videoHoverTimeoutRef.current[id]);
-                      delete videoHoverTimeoutRef.current[id];
-                    }
-                    const video = videoRefs.current.get(id);
-                    if (video) video.pause();
-                  } else if (!isPlaceholder) {
+                  if (!isPlaceholder && !isVideo) {
                     if (hoverEnterTimeoutRef.current) {
                       clearTimeout(hoverEnterTimeoutRef.current);
                       hoverEnterTimeoutRef.current = null;
@@ -1179,6 +1160,10 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                   } else {
                     onItemSelect?.(item.id);
                     onItemMultiSelect?.([item.id]);
+                    // 视频图层：点击切换播放（仅当前图层可播，其他自动暂停）
+                    if (isVideo) {
+                      playVideoOnly(item.id);
+                    }
                   }
                 }}
                 onDoubleClick={(e) => {
@@ -1281,21 +1266,19 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                     playsInline
                     loop
                     onPlay={() => {
-                      setPlayingVideos(prev => new Set(prev).add(item.id));
+                      // 通过原生控制条播放时，先暂停其他视频，保证画布只播一个
+                      const prevId = playingVideoIdRef.current;
+                      if (prevId && prevId !== item.id) {
+                        const prevVideo = videoRefs.current.get(prevId);
+                        if (prevVideo) prevVideo.pause();
+                      }
+                      setPlayingVideoId(item.id);
                     }}
                     onPause={() => {
-                      setPlayingVideos(prev => {
-                        const next = new Set(prev);
-                        next.delete(item.id);
-                        return next;
-                      });
+                      setPlayingVideoId(prev => (prev === item.id ? null : prev));
                     }}
                     onEnded={() => {
-                      setPlayingVideos(prev => {
-                        const next = new Set(prev);
-                        next.delete(item.id);
-                        return next;
-                      });
+                      setPlayingVideoId(prev => (prev === item.id ? null : prev));
                     }}
                     onClick={(e) => {
                       // 如果点击在控制栏区域，阻止事件冒泡到画布

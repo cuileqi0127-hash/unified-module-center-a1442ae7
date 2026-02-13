@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem, type UniversalCanvasHandle } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToImage, type CanvasImage } from './useTextToImage';
+import { getModelMaxImages, getModelConfig } from './textToImageConfig';
 import { AnimatedText } from './AnimatedText';
 import { MediaViewer } from './MediaViewer';
 import { GenerationChatPanel } from './GenerationChatPanel';
@@ -123,6 +124,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     currentSessionId,
     deletingImageIds,
     addingImageIds,
+    isOverImageLimit,
     // Config
     workModes,
     models,
@@ -420,8 +422,13 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
               
               if (imagesToDisplay.length === 0) return null;
               
+              const maxImages = getModelMaxImages(model);
+              const modelLabel = getModelConfig(model).label;
+              const showMaxImagesHint = imagesToDisplay.length > maxImages;
+              
               return (
-              <div className="flex flex-wrap items-center gap-2 px-4 pt-3 pb-1">
+              <div className="flex items-start flex-col gap-2 px-4 pt-3 pb-1">
+                <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
                   {imagesToDisplay.map((image) => (
                   <ImageCapsule
                       key={image.id}
@@ -439,6 +446,12 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                       }}
                   />
                 ))}
+                </div>
+                {showMaxImagesHint && (
+                  <p className="text-xs text-destructive shrink-0 whitespace-nowrap">
+                    {t('textToImage.maxImagesExceeded', { modelName: modelLabel, count: maxImages })}
+                  </p>
+                )}
               </div>
               );
             })()}
@@ -713,10 +726,10 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                 size="icon"
                 className="h-8 w-8 shrink-0 rounded-full"
                 onClick={handleGenerate}
-                disabled={!currentSessionId || !prompt.trim() || isGenerating}
+                disabled={!currentSessionId || !prompt.trim() || isGenerating || isOverImageLimit}
               >
                 {isGenerating ? (
-                  <LoadingSpinner size="sm" className="h-4 w-4" />
+                  <LoadingSpinner size="sm" className="h-4 w-4 text-primary-foreground" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}

@@ -35,11 +35,13 @@ import {
   getModelResolutions,
   getModelDefaultResolution,
   getModelVersion,
+  getModelMaxImages,
   modelSupportsEnhanceSwitch,
   isValidSecondsForModel,
   isValidSizeForModel,
   isValidResolutionForModel,
   DEFAULT_VIDEO_MODEL,
+  VIDEO_MODEL_CONFIGS,
 } from './textToVideoConfig';
 import { type SelectedImage } from './ImageCapsule';
 import { uploadFile, validateFileFormat, validateFileSize } from '@/services/fileUploadApi';
@@ -90,53 +92,8 @@ interface VideoTaskQueueItem {
   referenceFile?: File | string;
 }
 
-// 缓存键
-const TASK_QUEUE_CACHE_KEY = 'video_task_queue';
-
 const mockHistory: ChatMessage[] = [];
 const initialCanvasVideos: CanvasVideo[] = [];
-
-// 任务队列缓存管理函数
-function getTaskQueue(): VideoTaskQueueItem[] {
-  try {
-    const cached = localStorage.getItem(TASK_QUEUE_CACHE_KEY);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-  } catch (error) {
-    console.error('Failed to get task queue from cache:', error);
-  }
-  return [];
-}
-
-function saveTaskQueue(queue: VideoTaskQueueItem[]): void {
-  try {
-    localStorage.setItem(TASK_QUEUE_CACHE_KEY, JSON.stringify(queue));
-  } catch (error) {
-    console.error('Failed to save task queue to cache:', error);
-  }
-}
-
-function addTaskToQueue(task: VideoTaskQueueItem): void {
-  const queue = getTaskQueue();
-  queue.push(task);
-  saveTaskQueue(queue);
-}
-
-function removeTaskFromQueue(taskId: string): void {
-  const queue = getTaskQueue();
-  const filtered = queue.filter(t => t.taskId !== taskId);
-  saveTaskQueue(filtered);
-}
-
-function updateTaskInQueue(taskId: string, updates: Partial<VideoTaskQueueItem>): void {
-  const queue = getTaskQueue();
-  const index = queue.findIndex(t => t.taskId === taskId);
-  if (index !== -1) {
-    queue[index] = { ...queue[index], ...updates };
-    saveTaskQueue(queue);
-  }
-}
 
 export function useTextToVideo() {
   const { t } = useTranslation();
@@ -148,6 +105,25 @@ export function useTextToVideo() {
   const resizeStartX = useRef<number>(0);
   const resizeStartWidth = useRef<number>(0);
   const isResizingRef = useRef<boolean>(false);
+  /** 任务队列（仅内存，不落缓存） */
+  const videoTaskQueueRef = useRef<VideoTaskQueueItem[]>([]);
+
+  const getTaskQueue = useCallback((): VideoTaskQueueItem[] => videoTaskQueueRef.current, []);
+  const addTaskToQueue = useCallback((task: VideoTaskQueueItem) => {
+    videoTaskQueueRef.current = [...videoTaskQueueRef.current, task];
+    updatePlaceholdersFromQueueRef.current?.();
+  }, []);
+  const removeTaskFromQueue = useCallback((taskId: string) => {
+    videoTaskQueueRef.current = videoTaskQueueRef.current.filter(t => t.taskId !== taskId);
+    updatePlaceholdersFromQueueRef.current?.();
+  }, []);
+  const updateTaskInQueue = useCallback((taskId: string, updates: Partial<VideoTaskQueueItem>) => {
+    const q = videoTaskQueueRef.current;
+    const index = q.findIndex(t => t.taskId === taskId);
+    if (index !== -1) {
+      videoTaskQueueRef.current = q.slice(0, index).concat([{ ...q[index], ...updates }], q.slice(index + 1));
+    }
+  }, []);
   const handleResizeMoveRef = useRef<(e: MouseEvent) => void>();
   const handleResizeEndRef = useRef<() => void>();
 
@@ -493,11 +469,50 @@ export function useTextToVideo() {
                 
                 restoredMessages.push(systemMessage);
               });
-              
-              // 按时间戳排序
+              const pendingGenerations = session.generations.filter(
+                (g): g is typeof g & { status: 'queued' | 'processing' } =>
+                  g.status === 'queued' || g.status === 'processing'
+              );
+              const pendingWithoutMessage = pendingGenerations.filter(
+                gen => !session.messages?.some(msg => String(msg.generationId) === String(gen.id))
+              );
+              pendingWithoutMessage.forEach(gen => {
+                restoredMessages.push({
+                  id: `gen-${gen.id}`,
+                  type: 'system',
+                  content: gen.status === 'processing' ? t('toast.generatingVideo') : t('toast.taskQueued'),
+                  timestamp: new Date(gen.createTime || Date.now()),
+                  status: gen.status === 'processing' ? 'processing' : 'queued',
+                });
+              });
               restoredMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-              
               setMessages(restoredMessages);
+              const existingQueue = getTaskQueue();
+              const toAdd = pendingGenerations.filter(
+                gen => !existingQueue.some(t => t.taskId === String(gen.id) && String(t.sessionId) === String(session.id))
+              );
+              if (toAdd.length > 0) {
+                toAdd.forEach(gen => {
+                  addTaskToQueue({
+                    taskId: String(gen.id),
+                    messageId: `gen-${gen.id}`,
+                    sessionId: session.id,
+                    prompt: gen.prompt,
+                    model: (gen.model as VideoModel) || (session.settings?.model as VideoModel) || DEFAULT_VIDEO_MODEL,
+                    seconds: (session.settings as { seconds?: string })?.seconds ?? getModelDefaultSeconds(DEFAULT_VIDEO_MODEL),
+                    size: gen.size || session.settings?.size || getModelDefaultSize(DEFAULT_VIDEO_MODEL),
+                    status: gen.status as 'queued' | 'processing',
+                    progress: gen.progress ?? 0,
+                    createdAt: gen.createTime ? new Date(gen.createTime).getTime() : Date.now(),
+                  });
+                });
+                setTimeout(() => {
+                  updatePlaceholdersFromQueueRef.current?.();
+                  processTaskQueueRef.current?.();
+                }, 0);
+              } else if (pendingGenerations.length > 0) {
+                setTimeout(() => updatePlaceholdersFromQueueRef.current?.(), 0);
+              }
             }
           }
         } catch (error) {
@@ -755,7 +770,10 @@ export function useTextToVideo() {
         (g): g is typeof g & { status: 'queued' | 'processing' } =>
           g.status === 'queued' || g.status === 'processing'
       );
-      pendingGenerations.forEach(gen => {
+      const pendingWithoutMessage = pendingGenerations.filter(
+        gen => !session.messages?.some(msg => String(msg.generationId) === String(gen.id))
+      );
+      pendingWithoutMessage.forEach(gen => {
         restoredMessages.push({
           id: `gen-${gen.id}`,
           type: 'system',
@@ -816,7 +834,10 @@ export function useTextToVideo() {
       (g): g is typeof g & { status: 'queued' | 'processing' } =>
         g.status === 'queued' || g.status === 'processing'
     );
-    pendingGenerations.forEach(gen => {
+    const pendingWithoutMessage = pendingGenerations.filter(
+      gen => !session.messages?.some(msg => String(msg.generationId) === String(gen.id))
+    );
+    pendingWithoutMessage.forEach(gen => {
       restoredMessages.push({
         id: `gen-${gen.id}`,
         type: 'system',
@@ -833,6 +854,7 @@ export function useTextToVideo() {
   const handleLoadSession = useCallback(async (sessionId: string) => {
     setIsLoadingSession(true);
     try {
+      setTaskPlaceholders([]);
       const response = await getSessionDetail(sessionId);
       if (response.success && response.data) {
         const session = response.data;
@@ -840,16 +862,19 @@ export function useTextToVideo() {
         applySessionDetailToState(session);
         setShowHistory(false);
         
-        // 会话详情中 generations[].status 为 processing（或 queued）时，用 generations[].id 作为任务 id 执行轮询
-        // 轮询接口：GET /api/tools/gen/sessions/{会话id}/tasks/{任务id}，任务 id 即 generations[].id
+        // 会话详情中 generations[].status 为 processing（或 queued）时加入任务队列并轮询（切换页面再切回时避免重复入队）
         if (session.generations && session.generations.length > 0) {
           const pending = session.generations.filter(
             (g): g is typeof g & { status: 'queued' | 'processing' } =>
               g.status === 'queued' || g.status === 'processing'
           );
-          pending.forEach(gen => {
+          const existingQueue = getTaskQueue();
+          const toAdd = pending.filter(
+            gen => !existingQueue.some(t => t.taskId === String(gen.id) && String(t.sessionId) === String(session.id))
+          );
+          toAdd.forEach(gen => {
             addTaskToQueue({
-              taskId: String(gen.id), // 任务 id = generations[].id，用于查任务状态接口
+              taskId: String(gen.id),
               messageId: `gen-${gen.id}`,
               sessionId: session.id,
               prompt: gen.prompt,
@@ -861,9 +886,13 @@ export function useTextToVideo() {
               createdAt: gen.createTime ? new Date(gen.createTime).getTime() : Date.now(),
             });
           });
-          if (pending.length > 0) {
-            updatePlaceholdersFromQueueRef.current?.();
-            processTaskQueueRef.current?.();
+          if (toAdd.length > 0) {
+            setTimeout(() => {
+              updatePlaceholdersFromQueueRef.current?.();
+              processTaskQueueRef.current?.();
+            }, 0);
+          } else if (pending.length > 0) {
+            setTimeout(() => updatePlaceholdersFromQueueRef.current?.(), 0);
           }
         }
         
@@ -1180,6 +1209,20 @@ export function useTextToVideo() {
         toast.error(t('toast.fileTooLarge'));
         return;
       }
+
+      // 按模型限制参考图数量
+      const modelMaxImages = getModelMaxImages(model);
+      const selectedIds = selectedVideoIds.length > 0 ? selectedVideoIds : (selectedVideoId ? [selectedVideoId] : []);
+      const isVideoItem = (v: CanvasVideo) => v.type === 'video' || v.type === 'placeholder' || /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i.test(v.url);
+      const currentImageCount = selectedIds.filter((id) => {
+        const v = canvasVideos.find((item) => item.id === id);
+        return v && !isVideoItem(v);
+      }).length;
+      if (modelMaxImages === 0 || currentImageCount >= modelMaxImages) {
+        const modelLabel = VIDEO_MODEL_CONFIGS[model]?.label ?? model;
+        toast.error(t('textToVideo.maxImagesExceeded', { modelName: modelLabel, count: modelMaxImages }));
+        return;
+      }
       
       // 生成临时ID
       const tempId = `img-${Date.now()}`;
@@ -1293,7 +1336,7 @@ export function useTextToVideo() {
       // 清除上传状态
       setUploadingFiles(prev => new Map());
     }
-  }, [t, getImageDimensions, currentSessionId, model, size, canvasVideos, saveGenerationResult, loadSessions, getSessionDetail, applySessionMessagesToState]);
+  }, [t, getImageDimensions, currentSessionId, model, size, canvasVideos, selectedVideoIds, selectedVideoId, saveGenerationResult, loadSessions, getSessionDetail, applySessionMessagesToState]);
 
   // 拖拽处理
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1345,9 +1388,34 @@ export function useTextToVideo() {
     }
   }, [handleAddSelectedVideo, handleUploadImage]);
 
+  // 参考图数量是否超过当前模型限制（超过则不允许提交）
+  const isOverImageLimit = (() => {
+    const maxImages = getModelMaxImages(model);
+    const ids = selectedVideoIds.length > 0 ? selectedVideoIds : (selectedVideoId ? [selectedVideoId] : []);
+    const isVideo = (v: CanvasVideo) => v.type === 'video' || v.type === 'placeholder' || /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i.test(v.url);
+    const count = ids.filter((id) => {
+      const v = canvasVideos.find((item) => item.id === id);
+      return v && !isVideo(v);
+    }).length;
+    return count > maxImages;
+  })();
+
   // 处理生成视频
   const handleGenerate = useCallback(async () => {
     if (!currentSessionId || !prompt.trim() || isGenerating) return;
+
+    const modelMaxImages = getModelMaxImages(model);
+    const selectedIds = selectedVideoIds.length > 0 ? selectedVideoIds : (selectedVideoId ? [selectedVideoId] : []);
+    const isVideoItem = (v: CanvasVideo) => v.type === 'video' || v.type === 'placeholder' || /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i.test(v.url);
+    const currentImageCount = selectedIds.filter((id) => {
+      const v = canvasVideos.find((item) => item.id === id);
+      return v && !isVideoItem(v);
+    }).length;
+    if (currentImageCount > modelMaxImages) {
+      const modelLabel = VIDEO_MODEL_CONFIGS[model]?.label ?? model;
+      toast.error(t('textToVideo.maxImagesExceeded', { modelName: modelLabel, count: modelMaxImages }));
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -1398,12 +1466,10 @@ export function useTextToVideo() {
       const placeholderSize = rW >= rH
         ? { width: maxSize, height: Math.round(maxSize * rH / rW) }
         : { width: Math.round(maxSize * rW / rH), height: maxSize };
-      const existingRects = canvasVideos.map(v => ({
-        x: v.x,
-        y: v.y,
-        width: v.width,
-        height: v.height,
-      }));
+      const existingRects = [
+        ...canvasVideos.map(v => ({ x: v.x, y: v.y, width: v.width, height: v.height })),
+        ...taskPlaceholders.map(p => ({ x: p.x, y: p.y, width: p.width, height: p.height })),
+      ];
       const position = findNonOverlappingPosition(
         { width: placeholderSize.width, height: placeholderSize.height },
         existingRects,
@@ -1494,7 +1560,7 @@ export function useTextToVideo() {
         )
       );
     }
-  }, [prompt, isGenerating, model, seconds, size, resolution, resolutionOptions, enhanceSwitch, modelSupportsEnhanceSwitch, selectedVideoIds, selectedVideoId, canvasVideos, t, getVideoDimensions, handleAddSelectedVideo, currentSessionId]);
+  }, [prompt, isGenerating, model, seconds, size, resolution, resolutionOptions, enhanceSwitch, modelSupportsEnhanceSwitch, selectedVideoIds, selectedVideoId, canvasVideos, taskPlaceholders, t, getVideoDimensions, handleAddSelectedVideo, currentSessionId, getModelMaxImages, VIDEO_MODEL_CONFIGS]);
 
   // 轮询会话任务状态（/api/tools/gen/sessions/{id}/tasks/{任务id}），会话 id、任务 id 均为字符串原样传递
   const pollSessionTaskWithCancel = useCallback(
@@ -1575,13 +1641,17 @@ export function useTextToVideo() {
     return { width: Math.round(width), height: Math.round(height) };
   }, []);
 
-  // 将任务队列转换为画布占位符
+  // 将任务队列转换为画布占位符（仅展示当前会话的进行中任务）
   const updatePlaceholdersFromQueue = useCallback(() => {
     const queue = getTaskQueue();
-    // 按照创建时间排序，确保先入先出（FIFO）
     const pendingTasks = queue
-      .filter(t => t.status === 'queued' || t.status === 'processing')
-      .sort((a, b) => a.createdAt - b.createdAt); // 按创建时间升序排序
+      .filter(
+        t =>
+          (t.status === 'queued' || t.status === 'processing') &&
+          t.sessionId != null &&
+          String(t.sessionId) === String(currentSessionId)
+      )
+      .sort((a, b) => a.createdAt - b.createdAt);
     
     // 使用函数式更新获取最新的状态
     setCanvasVideos(currentVideos => {
@@ -1672,7 +1742,7 @@ export function useTextToVideo() {
       });
       return currentVideos; // 返回当前值，避免覆盖
     });
-  }, [calculatePlaceholderDimensions]);
+  }, [calculatePlaceholderDimensions, currentSessionId]);
   
   // 将函数保存到 ref
   updatePlaceholdersFromQueueRef.current = updatePlaceholdersFromQueue;
@@ -1711,12 +1781,9 @@ export function useTextToVideo() {
             progress: status.progress ?? 0
           });
           
-          // 如果任务已完成（progress 100% 或 status completed），立即从队列中删除
-          if (status.status === 'completed' || (status.progress !== undefined && status.progress >= 100)) {
-            // 延迟删除，确保状态更新完成
-            setTimeout(() => {
-              removeTaskFromQueue(task.taskId);
-            }, 1000);
+          // 与文生图一致：已完成或失败时延迟从队列移除
+          if (status.status === 'completed' || status.status === 'failed') {
+            setTimeout(() => removeTaskFromQueue(task.taskId), 1000);
           }
           
           // 根据状态生成不同的消息内容
@@ -1867,12 +1934,12 @@ export function useTextToVideo() {
           const position = findNonOverlappingPosition(
             { width: dimensions.width, height: dimensions.height },
             existingRects,
-            300,
-            200,
-            10,
-            10,
-            100,
-            12
+          300,
+          200,
+          10,
+          10,
+          100,
+          12
           );
 
           const newVideo: CanvasVideo = {
@@ -1899,13 +1966,6 @@ export function useTextToVideo() {
           return [...prevVideos, newVideo];
         });
       }
-      
-      // 从队列中移除已完成的任务
-      removeTaskFromQueue(task.taskId);
-      activePollingTasksRef.current.delete(task.taskId);
-      
-      // 继续处理下一个任务
-      processTaskQueueRef.current?.();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
@@ -1962,101 +2022,46 @@ export function useTextToVideo() {
         )
       );
       
-      // 从队列中移除失败的任务
       removeTaskFromQueue(task.taskId);
-      activePollingTasksRef.current.delete(task.taskId);
-      
-      // 显示错误提示
       toast.error(`${t('toast.taskFailed')}: ${userFriendlyMessage}`);
-      
-      // 继续处理下一个任务
-      processTaskQueueRef.current?.();
+    } finally {
+      activePollingTasksRef.current.delete(task.taskId);
+      isProcessingQueueRef.current = false;
+      setTimeout(() => processTaskQueueRef.current?.(), 100);
     }
   }, [t, getVideoDimensions, handleAddSelectedVideo, pollSessionTaskWithCancel, loadSessions, getSessionDetail]);
 
-  // 处理任务队列（最多同时处理3个任务）
+  // 处理任务队列（与文生图一致：最多同时 3 个、FIFO、用 ref 续跑）
   const processTaskQueue = useCallback(() => {
     if (isProcessingQueueRef.current) return;
-    
     isProcessingQueueRef.current = true;
-    
-    const processNext = () => {
-      const queue = getTaskQueue();
-      const activeCount = activePollingTasksRef.current.size;
-      const maxConcurrent = 3;
-      
-      // 获取待处理的任务（状态为 queued 或 processing）
-      // 按照创建时间排序，确保先入先出（FIFO）
-      const pendingTasks = queue
-        .filter(
-          t => t.status === 'queued' || (t.status === 'processing' && !activePollingTasksRef.current.has(t.taskId))
-        )
-        .sort((a, b) => a.createdAt - b.createdAt); // 按创建时间升序排序
-      
-      // 如果还有空位且有待处理任务，开始处理最早的任务
-      if (activeCount < maxConcurrent && pendingTasks.length > 0) {
-        const nextTask = pendingTasks[0];
-        // 更新任务状态为 processing
-        updateTaskInQueue(nextTask.taskId, { status: 'processing' });
-        processSingleTask(nextTask).finally(() => {
-          isProcessingQueueRef.current = false;
-          // 延迟一点再检查，避免频繁调用
-          setTimeout(() => {
-            processTaskQueue();
-          }, 100);
-        });
-      } else {
+    const queue = getTaskQueue();
+    const activeCount = activePollingTasksRef.current.size;
+    const maxConcurrent = 3;
+    const pending = queue
+      .filter(
+        t => t.status === 'queued' || (t.status === 'processing' && !activePollingTasksRef.current.has(t.taskId))
+      )
+      .sort((a, b) => a.createdAt - b.createdAt);
+    if (activeCount < maxConcurrent && pending.length > 0) {
+      const next = pending[0];
+      updateTaskInQueue(next.taskId, { status: 'processing' });
+      processSingleTask(next).finally(() => {
         isProcessingQueueRef.current = false;
-      }
-    };
-    
-    processNext();
+        setTimeout(() => processTaskQueueRef.current?.(), 100);
+      });
+    } else {
+      isProcessingQueueRef.current = false;
+    }
   }, [processSingleTask]);
-  
-  // 将函数保存到 ref
   processTaskQueueRef.current = processTaskQueue;
 
-  // 页面初始化时恢复任务队列处理；文生视频页面离开（卸载）时关闭所有轮询定时器
+  // 页面初始化：仅清理已完成/失败任务；聊天与占位符由「加载会话」时按当前会话恢复（与文生图一致）
   useEffect(() => {
-    // 进入页面：检查缓存数组长度，如果大于0则开启队列轮询
     const queue = getTaskQueue();
-    
     if (queue.length > 0) {
-      // 分离已完成/失败的任务和待处理的任务
       const completedOrFailedTasks = queue.filter(t => t.status === 'completed' || t.status === 'failed');
-      const pendingTasks = queue.filter(t => t.status === 'queued' || t.status === 'processing');
-      
-      // 清理已完成和失败的任务（从缓存中删除）
-      completedOrFailedTasks.forEach(task => {
-        removeTaskFromQueue(task.taskId);
-      });
-      
-      // 恢复队列中的任务到消息列表（如果消息不存在）
-      queue.forEach(task => {
-        setMessages(prev => {
-          const exists = prev.find(msg => msg.id === task.messageId);
-          if (!exists) {
-            return [...prev, {
-              id: task.messageId,
-              type: 'system' as const,
-              content: task.status === 'completed' 
-                ? t('toast.videoGenerationComplete')
-                : task.status === 'failed'
-                ? t('toast.generationFailed')
-                : task.status === 'processing'
-                ? t('toast.generatingVideo')
-                : t('toast.taskQueued'),
-              timestamp: new Date(task.createdAt),
-              status: task.status,
-              progress: task.progress,
-            }];
-          }
-          return prev;
-        });
-      });
-      
-      // 更新占位符（只针对待处理的任务）
-      updatePlaceholdersFromQueueRef.current?.();
+      completedOrFailedTasks.forEach(task => removeTaskFromQueue(task.taskId));
     }
     
     // 清理函数：文生视频页面离开时关闭所有轮询定时器，取消正在进行的轮询
@@ -2074,38 +2079,28 @@ export function useTextToVideo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 仅挂载时执行，卸载时执行 cleanup 关闭轮询
 
-  // 在 processTaskQueue 准备好后，检查并启动轮询
+  // processTaskQueue 就绪后延迟启动队列消费（与文生图一致）
   useEffect(() => {
-    // 确保 processTaskQueue 已经定义
     if (!processTaskQueueRef.current) return;
-    
-    // 检查缓存数组长度，如果大于0则开启队列轮询
     const queue = getTaskQueue();
     if (queue.length > 0) {
-      // 延迟一下确保所有状态都已恢复
       const timer = setTimeout(() => {
-        if (processTaskQueueRef.current) {
-          processTaskQueueRef.current();
-        }
+        if (processTaskQueueRef.current) processTaskQueueRef.current();
       }, 200);
-      
       return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [processTaskQueue]); // 当 processTaskQueue 定义后执行
+  }, [processTaskQueue]);
 
-  // 监听任务队列变化，更新占位符
+  // 监听任务队列变化，定时更新占位符（与文生图一致：用 ref 保证取到最新 currentSessionId）
   useEffect(() => {
-    // 立即更新一次
-    updatePlaceholdersFromQueue();
-    
+    updatePlaceholdersFromQueueRef.current?.();
     const interval = setInterval(() => {
-      updatePlaceholdersFromQueue();
-    }, 1000); // 每秒更新一次占位符
-    
+      updatePlaceholdersFromQueueRef.current?.();
+    }, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 只在组件挂载时设置定时器
+  }, []);
 
   // 处理键盘事件
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -2448,6 +2443,7 @@ export function useTextToVideo() {
     currentSessionId,
     deletingVideoIds,
     addingVideoIds,
+    isOverImageLimit,
     
     // Config
     models,

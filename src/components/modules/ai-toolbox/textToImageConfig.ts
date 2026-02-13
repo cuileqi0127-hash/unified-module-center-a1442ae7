@@ -36,6 +36,8 @@ export interface ModelConfig {
   defaultQuality?: string;
   styles?: StyleOption[]; // 风格：gpt、gemini 为 vivid/natural；即梦、可灵无
   defaultStyle?: string;
+  /** 一起生图时最多支持的参考图数量，0 表示不支持上传参考图 */
+  maxImages?: number;
 }
 
 // 工作模式配置
@@ -48,6 +50,7 @@ export interface WorkModeConfig {
 export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
   'gemini-3-pro-image-preview-hd': {
     label: 'Nano Banana 2',
+    maxImages: 2,
     sizes: [
       { id: '1x1', label: '1x1' },
       { id: '2x3', label: '2x3' },
@@ -70,6 +73,7 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
   },
   'gpt-image-1.5': {
     label: 'GPT-Image',
+    maxImages: 0,
     sizes: [
       { id: '2:3', label: '2:3' },
       { id: '3:2', label: '3:2' },
@@ -89,6 +93,7 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
   },
   'doubao-seedream-4-5-251128': {
     label: '即梦',
+    maxImages: 1,
     sizes: [
       // { id: '1024x1024', label: '1K' },
       { id: '2048x2048', label: '2K' },
@@ -116,6 +121,7 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
 // 默认模型配置（用于其他未定义的模型）
 export const DEFAULT_MODEL_CONFIG: Omit<ModelConfig, 'id'> = {
   label: 'Unknown',
+  maxImages: 0,
   sizes: [
     { id: '1:1', label: '1:1' },
     { id: '16:9', label: '16:9' },
@@ -178,6 +184,12 @@ export function getModelStyleOptions(model: ImageModel): StyleOption[] {
 export function getModelDefaultStyle(model: ImageModel): string | null {
   const config = getModelConfig(model);
   return config.defaultStyle ?? null;
+}
+
+/** 获取模型一起生图时最多支持的参考图数量，未配置时返回 0 */
+export function getModelMaxImages(model: ImageModel): number {
+  const config = getModelConfig(model);
+  return config.maxImages ?? 0;
 }
 
 // 工作模式配置（支持国际化）
