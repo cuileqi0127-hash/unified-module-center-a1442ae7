@@ -5,11 +5,11 @@
 export const COMING_SOON_ITEMS: readonly string[] = [
   'campaign-planner',
   'digital-human',
-  'ecommerce-assets',
-  'reference-to-image',
-  'reference-to-video',
-  'brand-health',
-  'tiktok-insights',
+  // 'ecommerce-assets',
+  // 'reference-to-image',
+  // 'reference-to-video',
+  // 'brand-health',
+  // 'tiktok-insights',
 ];
 
 export function isComingSoon(id: string): boolean {
