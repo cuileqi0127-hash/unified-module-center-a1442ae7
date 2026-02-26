@@ -1196,7 +1196,7 @@ export function useTextToVideo() {
     try {
       // 文件验证
       const allowedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      const maxSize = 200 * 1024 * 1024; // 10MB
       
       // 验证文件格式
       if (!validateFileFormat(file, allowedFormats)) {

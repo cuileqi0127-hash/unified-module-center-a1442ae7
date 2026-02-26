@@ -369,8 +369,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 flex flex-col p-4 md:p-6 gap-4 overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+      <div className="flex-1 w-[1000px] mx-auto min-h-0 flex flex-col p-4 md:p-6 gap-4 overflow-hidden">
+        <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
             {renderUploadZone(
               'video',
               1,
@@ -408,7 +408,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
               () => { setReferenceImage(null); setImageFileId(''); }
             )}
 
-            <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0')}>
+            <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0 hidden')}>
               <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-4 shrink-0">{t('videoReplication.dynamicsLabel')}</p>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs text-muted-foreground">STILL</span>
@@ -465,8 +465,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
-            <div className="lg:col-span-2 h-full min-h-0 flex flex-col">
+        <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
+            <div className="col-span-2 h-full min-h-0 flex flex-col">
               <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0')}>
                 <div className="flex items-center gap-2 mb-3 shrink-0">
                   <ListOrdered className="w-4 h-4 text-primary" />
@@ -509,7 +509,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 </div>
               </div>
                 </div>
-            <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0')}>
+            <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0 hidden')}>
               <div className="flex items-center gap-2 mb-3 shrink-0">
                 <span className="text-xs font-semibold tracking-wider text-primary uppercase">{t('videoReplication.proTipLabel')}</span>
               </div>
