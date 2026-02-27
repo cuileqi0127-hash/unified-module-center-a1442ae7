@@ -9,7 +9,7 @@ interface ReportDisplayProps {
 }
 
 /**
- * 报告展示模块：拉取 reportUrl 的 HTML 内容并展示（srcdoc 或 iframe src）
+ * 报告展示模块：仅通过 fetch 拉取 HTML 后用 srcDoc 展示，避免 iframe src 直连导致触发浏览器下载（如服务端返回 Content-Disposition: attachment）
  */
 export function ReportDisplay({
   reportUrl,
@@ -19,11 +19,13 @@ export function ReportDisplay({
 }: ReportDisplayProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [reportHtml, setReportHtml] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     if (!reportUrl) return;
     let cancelled = false;
     setReportHtml(null);
+    setFetchError(false);
     fetch(reportUrl, { mode: 'cors' })
       .then((r) => {
         if (!r.ok) throw new Error(r.statusText);
@@ -33,7 +35,10 @@ export function ReportDisplay({
         if (!cancelled) setReportHtml(html);
       })
       .catch(() => {
-        if (!cancelled) setReportHtml(null);
+        if (!cancelled) {
+          setReportHtml(null);
+          setFetchError(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -52,12 +57,16 @@ export function ReportDisplay({
             sandbox="allow-same-origin allow-scripts"
           />
         ) : (
-          <iframe
-            ref={iframeRef}
-            src={reportUrl}
-            title={reportTitle}
-            className="w-full h-full border-0 min-h-0"
-          />
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/30">
+            {fetchError ? (
+              <p className="text-sm text-muted-foreground">报告加载失败</p>
+            ) : (
+              <>
+                <LoadingSpinner className="text-primary" />
+                <p className="mt-2 text-sm text-muted-foreground">{generatingHint}</p>
+              </>
+            )}
+          </div>
         )
       )}
     </div>
