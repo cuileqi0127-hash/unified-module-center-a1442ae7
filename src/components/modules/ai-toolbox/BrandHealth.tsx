@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, Users, Sparkles, Package, MapPin, ChevronLeft, X } from 'lucide-react';
+import { TrendingUp, Users, Sparkles, ChevronLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { submitBrandHealthTask } from '@/services/reportApi';
 import { useReportPolling } from '@/hooks/useReportPolling';
+import { categoryTreeZh, categoryTreeEn, type CategoryTree } from '@/data/tiktok-categories';
+import { CategoryCascader } from './CategoryCascader';
 import { ReportDisplay, ReportPollingOverlay } from './ReportDisplay';
 import { ReportHistorySheet } from './ReportHistorySheet';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -25,14 +27,15 @@ interface BrandHealthProps {
 }
 
 export function BrandHealth({ onNavigate }: BrandHealthProps) {
-  const { t } = useTranslation();
-  
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language === 'zh' || i18n.language.startsWith('zh-');
+  const categoryTree: CategoryTree = isZh ? categoryTreeZh : categoryTreeEn;
+
   const [view, setView] = useState<'input' | 'report'>('input');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     brandName: '',
-    category: '',
-    region: '',
+    categoryLevel3: '',
     competitors: [] as string[],
   });
   const [competitorInput, setCompetitorInput] = useState('');
@@ -72,14 +75,13 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
 
   const handleGenerate = async () => {
     const competitorsList = formData.competitors.filter((s) => s.trim()).map((s) => s.trim());
-    if (!formData.brandName.trim() || !formData.category.trim() || !formData.region.trim() || competitorsList.length === 0) return;
+    if (!formData.brandName.trim() || !formData.categoryLevel3.trim() || competitorsList.length === 0) return;
     setIsLoading(true);
     try {
       const res = await submitBrandHealthTask({
         brandName: formData.brandName.trim(),
-        category: formData.category.trim(),
+        category: formData.categoryLevel3.trim(),
         competitors: competitorsList,
-        region: formData.region.trim(),
       });
       if (res?.success && res?.data) {
         setReportTaskId(String(res.data.taskId ?? ''));
@@ -173,50 +175,14 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                   >
                     {t('brandHealth.category')} <span className="text-destructive/90">*</span>
                   </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
-                      <Package className="w-4 h-4" />
-                    </span>
-                    <Input
-                      id="category"
-                      placeholder={t('brandHealth.categoryPlaceholder')}
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className={cn(
-                        'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
-                        'placeholder:text-muted-foreground/60',
-                        'focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30',
-                        'transition-colors duration-200'
-                      )}
-                    />
-                  </div>
-              </div>
-
-              <div className="space-y-2">
-                  <Label
-                    htmlFor="region"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
-                  >
-                    {t('brandHealth.region')} <span className="text-destructive/90">*</span>
-                </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
-                      <MapPin className="w-4 h-4" />
-                    </span>
-                <Input
-                      id="region"
-                      placeholder={t('brandHealth.regionPlaceholder')}
-                      value={formData.region}
-                      onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                      className={cn(
-                        'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
-                        'placeholder:text-muted-foreground/60',
-                        'focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30',
-                        'transition-colors duration-200'
-                      )}
-                    />
-                  </div>
-              </div>
+                  <CategoryCascader
+                    tree={categoryTree}
+                    value={formData.categoryLevel3}
+                    onChange={(v) => setFormData({ ...formData, categoryLevel3: v })}
+                    placeholder={t('tiktokInsights.categoryPlaceholderSelect')}
+                    triggerClassName="border-border/80 bg-black/[0.02] dark:bg-white/[0.04] focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
+                  />
+                </div>
 
               <div className="space-y-2">
                   <Label
@@ -281,7 +247,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               <Button
                 className="mt-6 h-12 w-full rounded-xl gap-2 text-[15px] font-medium bg-primary hover:bg-primary/90"
                 onClick={handleGenerate}
-                disabled={!formData.brandName.trim() || !formData.category.trim() || !formData.region.trim() || formData.competitors.filter((s) => s.trim()).length === 0 || isLoading}
+                disabled={!formData.brandName.trim() || !formData.categoryLevel3.trim() || formData.competitors.filter((s) => s.trim()).length === 0 || isLoading}
               >
                 {isLoading ? (
                   <>

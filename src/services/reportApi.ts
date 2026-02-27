@@ -8,9 +8,8 @@ import { apiPost, apiGet, type ApiResponse } from './apiClient';
 // ---------- 品牌健康度 ----------
 export interface BrandHealthTaskRequest {
   brandName: string;
-  category?: string;
+  category: string;
   competitors?: string[];
-  region: string;
 }
 
 // ---------- TikTok 洞察 ----------
