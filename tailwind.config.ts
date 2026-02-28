@@ -136,6 +136,10 @@ export default {
           from: { opacity: "0", transform: "scale(0.85)" },
           to: { opacity: "1", transform: "scale(1)" },
         },
+        "trending-card-enter": {
+          from: { opacity: "0", transform: "translateY(12px) scale(0.98)" },
+          to: { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -152,6 +156,7 @@ export default {
         "media-viewer-scale-in": "media-viewer-scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
         "media-viewer-scale-out": "media-viewer-scale-out 0.3s cubic-bezier(0.4, 0, 1, 1)",
         "tag-in": "tag-in 0.2s ease-out",
+        "trending-card-enter": "trending-card-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
       },
     },
   },

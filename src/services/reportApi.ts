@@ -80,6 +80,13 @@ export async function submitTiktokInsightTask(
   return apiPost<ReportTaskResponse>('/tools/report/tiktok-insight', body);
 }
 
+/** 提交 TikTok 爆款视频报告任务 POST /tools/report/tiktok-trending-video（入参与 TikTok 洞察一致） */
+export async function submitTiktokTrendingVideoTask(
+  body: TiktokInsightTaskRequest
+): Promise<ApiResponse<ReportTaskResponse>> {
+  return apiPost<ReportTaskResponse>('/tools/report/tiktok-trending-video', body);
+}
+
 /** 查询任务状态与结果 GET /tools/report/{taskId} */
 export async function getReportTaskStatus(
   taskId: string

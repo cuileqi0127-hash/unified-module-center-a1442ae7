@@ -99,6 +99,7 @@
     "marketInsights": "Market Insights",
     "brandHealth": "Brand Health Diagnosis",
     "tiktokInsights": "TikTok Insights Report",
+    "tiktokTrendingVideo": "TikTok Trending Video Report",
     "marketingPlanning": "Marketing Planning",
     "campaignPlanner": "Campaign Planner",
     "materialGeneration": "Material Generation",
@@ -140,6 +141,14 @@
       "brandHealth": {
         "title": "Brand Health Diagnosis",
         "description": "Comprehensive brand health analysis, insight into market performance and consumer perception"
+      },
+      "tiktokInsights": {
+        "title": "TikTok Insights Report",
+        "description": "TikTok data and content insights analysis"
+      },
+      "tiktokTrendingVideo": {
+        "title": "TikTok Trending Video Report",
+        "description": "Discover trending videos by category, one-click replicate hot content"
       },
       "campaignPlanner": {
         "title": "Campaign Planner",
@@ -710,6 +719,39 @@
     "statusQueued": "Queued",
     "removeTag": "Remove"
   },
+  "tiktokTrendingVideo": {
+    "title": "TikTok Trending Video Report",
+    "titleTag": "Trending Video",
+    "subtitle": "TIKTOK TRENDING VIDEO REPORT",
+    "category": "Category",
+    "categoryPlaceholderSelect": "Please select",
+    "sellingPoints": "Selling Points",
+    "sellingPointsPlaceholder": "Type and press Enter to add",
+    "generateReport": "Generate Report",
+    "generating": "Generating...",
+    "submitFailed": "Failed to submit report task",
+    "taskFailed": "Task execution failed",
+    "noVideos": "No video results",
+    "historyRecords": "History",
+    "historyEmpty": "No history yet",
+    "historyLoadFailed": "Failed to load history",
+    "historyLoadResultFailed": "Failed to load task result",
+    "historyTotal": "{{total}} total",
+    "prevPage": "Prev",
+    "nextPage": "Next",
+    "statusCompleted": "Completed",
+    "statusProcessing": "Processing",
+    "statusFailed": "Failed",
+    "statusQueued": "Queued",
+    "pollingHint": "Generating report, please wait…",
+    "backToRegenerate": "Back to Regenerate",
+    "videoAnalysis": "Video Analysis",
+    "likes": "Likes",
+    "views": "Views",
+    "sellingPointHitRate": "Selling Point Hit Rate",
+    "oneClickReplicate": "One-click Replicate",
+    "removeTag": "Remove"
+  },
   "videoReplication": {
     "title": "Video Replication",
     "subtitle": "Upload a video, generate a description, add product image, replicate similar style video",
@@ -751,7 +793,8 @@
       "uploadImageFirst": "Please upload an image first",
       "videoSizeLimit": "File size must be less than 50MB",
       "imageSizeLimit": "File size must be less than 5MB",
-      "imageFormatLimit": "Only JPG, PNG, and WEBP images are allowed"
+      "imageFormatLimit": "Only JPG, PNG, and WEBP images are allowed",
+      "urlToFileFailed": "Video load failed, reverse prompt unavailable"
     },
     "formats": {
       "video": "Supported formats: MP4, MOV, AVI, WMV (max 50MB)",
