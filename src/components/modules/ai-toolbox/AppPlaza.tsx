@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Eye, Copy, TrendingUp, Megaphone, UserCircle, Video } from 'lucide-react';
+import { Eye, Copy, TrendingUp, Megaphone, UserCircle, Video, BarChart3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
@@ -139,6 +139,8 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
 
   const marketInsightTools = [
     { id: 'brand-health', titleKey: 'appPlaza.tools.brandHealth.title', descKey: 'appPlaza.tools.brandHealth.description', icon: <TrendingUp className="w-5 h-5 text-muted-foreground" />, views: 561, copies: 141 },
+    { id: 'tiktok-insights', titleKey: 'appPlaza.tools.tiktokInsights.title', descKey: 'appPlaza.tools.tiktokInsights.description', icon: <BarChart3 className="w-5 h-5 text-muted-foreground" />, views: 432, copies: 98 },
+    { id: 'tiktok-trending-video', titleKey: 'appPlaza.tools.tiktokTrendingVideo.title', descKey: 'appPlaza.tools.tiktokTrendingVideo.description', icon: <BarChart3 className="w-5 h-5 text-muted-foreground" />, views: 389, copies: 76 },
   ];
 
   const marketingPlanTools = [

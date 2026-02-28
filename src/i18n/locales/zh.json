@@ -99,6 +99,7 @@
     "marketInsights": "市场洞察",
     "brandHealth": "品牌健康度诊断",
     "tiktokInsights": "TikTok 洞察报告",
+    "tiktokTrendingVideo": "TikTok 爆款视频报告",
     "marketingPlanning": "营销策划",
     "campaignPlanner": "营销策划方案",
     "materialGeneration": "素材生成",
@@ -140,6 +141,14 @@
       "brandHealth": {
         "title": "品牌健康度诊断",
         "description": "全面分析品牌健康状况，洞察市场表现与消费者认知"
+      },
+      "tiktokInsights": {
+        "title": "TikTok 洞察报告",
+        "description": "TikTok 数据与内容洞察分析"
+      },
+      "tiktokTrendingVideo": {
+        "title": "TikTok 爆款视频报告",
+        "description": "发现品类爆款视频，一键复刻热门内容"
       },
       "campaignPlanner": {
         "title": "营销策划方案",
@@ -677,6 +686,39 @@
     "statusQueued": "排队中",
     "removeTag": "移除"
   },
+  "tiktokTrendingVideo": {
+    "title": "TikTok 爆款视频报告",
+    "titleTag": "爆款视频",
+    "subtitle": "TIKTOK TRENDING VIDEO REPORT",
+    "category": "品类",
+    "categoryPlaceholderSelect": "请选择",
+    "sellingPoints": "商品卖点",
+    "sellingPointsPlaceholder": "输入卖点后按回车添加",
+    "generateReport": "生成报告",
+    "generating": "生成中...",
+    "submitFailed": "提交报告任务失败",
+    "taskFailed": "任务执行失败",
+    "noVideos": "暂无视频结果",
+    "historyRecords": "历史记录",
+    "historyEmpty": "暂无历史记录",
+    "historyLoadFailed": "加载历史记录失败",
+    "historyLoadResultFailed": "加载任务结果失败",
+    "historyTotal": "共 {{total}} 条",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "statusCompleted": "已完成",
+    "statusProcessing": "处理中",
+    "statusFailed": "失败",
+    "statusQueued": "排队中",
+    "pollingHint": "正在生成报告，请稍候…",
+    "backToRegenerate": "返回重新生成",
+    "videoAnalysis": "视频解析",
+    "likes": "点赞",
+    "views": "播放",
+    "sellingPointHitRate": "卖点命中率",
+    "oneClickReplicate": "一键复刻",
+    "removeTag": "移除"
+  },
   "videoReplication": {
     "title": "复刻视频",
     "subtitle": "上传视频，生成描述，添加商品图片，复刻相似风格视频",
@@ -718,7 +760,8 @@
       "uploadImageFirst": "请先上传图片",
       "videoSizeLimit": "视频大小必须小于50MB",
       "imageSizeLimit": "图片大小必须小于5MB",
-      "imageFormatLimit": "只允许上传JPG、PNG和WEBP格式的图片"
+      "imageFormatLimit": "只允许上传JPG、PNG和WEBP格式的图片",
+      "urlToFileFailed": "视频加载失败，反推提示词不可用"
     },
     "formats": {
       "video": "支持格式: MP4, MOV, AVI, WMV (最大50MB)",

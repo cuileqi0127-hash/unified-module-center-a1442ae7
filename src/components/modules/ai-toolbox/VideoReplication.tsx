@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { 
   Video,
   Image as ImageIcon,
@@ -64,6 +64,40 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [dynamicsLevel, setDynamicsLevel] = useState(0.6);
   const [resolution, setResolution] = useState<'720p' | '1080p' | '2k'>('1080p');
   const [ratio, setRatio] = useState<'16:9' | '9:16'>('16:9');
+
+  useEffect(() => {
+    const url = sessionStorage.getItem('videoReplicationInitialVideoUrl');
+    if (!url) return;
+    sessionStorage.removeItem('videoReplicationInitialVideoUrl');
+    const id = crypto.randomUUID();
+
+    const applyInitialVideo = (payload: { url: string; file?: File }) => {
+      setOriginalVideo({
+        id,
+        type: 'video',
+        name: 'video.mp4',
+        url: payload.url,
+        file: payload.file,
+      });
+    };
+
+    setIsVideoUploading(true);
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return res.blob();
+      })
+      .then((blob) => {
+        const file = new File([blob], 'video.mp4', { type: blob.type || 'video/mp4' });
+        applyInitialVideo({ url, file });
+        toast.success(t('videoReplication.uploadSuccess'));
+      })
+      .catch(() => {
+        applyInitialVideo({ url });
+        toast.error(t('videoReplication.errors.urlToFileFailed', { defaultValue: '视频加载失败，反推提示词不可用' }));
+      })
+      .finally(() => setIsVideoUploading(false));
+  }, [t]);
 
   const processVideoFile = useCallback(
     async (file: File) => {
