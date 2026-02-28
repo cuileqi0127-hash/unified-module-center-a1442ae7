@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, Sparkles, Tag, ChevronLeft, X, Play, Volume2, VolumeX, Eye, Heart, ShoppingCart, TrendingUp, Copy } from 'lucide-react';
+import { Film, Sparkles, Tag, ChevronLeft, X, Play, Volume2, VolumeX, Eye, Heart, ShoppingCart, TrendingUp, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -217,7 +217,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
           <div>
             <div className="flex items-center gap-3">
-              <BarChart3 className="w-6 h-6 text-primary" />
+              <Film className="w-6 h-6 text-primary" />
               <h1 className="text-xl font-semibold text-foreground">{t('tiktokTrendingVideo.title')}</h1>
               <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
                 {t('tiktokTrendingVideo.titleTag')}
@@ -347,7 +347,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
       <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
         <div>
           <div className="flex items-center gap-3">
-            <BarChart3 className="w-6 h-6 text-primary" />
+            <Film className="w-6 h-6 text-primary" />
             <h1 className="text-xl font-semibold text-foreground">{t('tiktokTrendingVideo.title')}</h1>
             <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
               {t('tiktokTrendingVideo.titleTag')}

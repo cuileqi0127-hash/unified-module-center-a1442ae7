@@ -19,6 +19,7 @@ import {
   Megaphone,
   ImageIcon,
   Video,
+  Film,
   UserCircle,
   ShoppingBag,
   Layers,
@@ -129,7 +130,7 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
       items: [
         { id: 'brand-health', labelKey: 'sidebar.brandHealth', icon: <TrendingUp className="w-4 h-4" /> },
         { id: 'tiktok-insights', labelKey: 'sidebar.tiktokInsights', icon: <BarChart3 className="w-4 h-4" /> },
-        { id: 'tiktok-trending-video', labelKey: 'sidebar.tiktokTrendingVideo', icon: <BarChart3 className="w-4 h-4" /> },
+        { id: 'tiktok-trending-video', labelKey: 'sidebar.tiktokTrendingVideo', icon: <Film className="w-4 h-4" /> },
       ],
     },
     {
