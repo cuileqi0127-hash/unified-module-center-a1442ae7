@@ -310,6 +310,8 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <ReportDisplay
             reportUrl={reportUrl}
             reportTitle={t('brandHealth.reportTitleSuffix')}
+            generatingLabel={t('brandHealth.generating')}
+            generatingHint={t('brandHealth.pollingHint')}
           />
         )}
       </div>

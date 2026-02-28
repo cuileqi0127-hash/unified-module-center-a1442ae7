@@ -8,8 +8,13 @@ interface ReportDisplayProps {
   generatingHint?: string;
 }
 
+/** 注入到报告 HTML 的兜底脚本：当报告内引用 lucide/tailwind 等 CDN 加载失败时避免报错导致白屏 */
+const REPORT_FALLBACK_SCRIPT =
+  '<script>(function(){if(typeof window.lucide==="undefined"){window.lucide={createIcons:function(){}};}if(typeof window.tailwind==="undefined"){window.tailwind={config:function(){},plugin:function(){return this;}};}})();</script>';
+
 /**
  * 报告展示模块：仅通过 fetch 拉取 HTML 后用 srcDoc 展示，避免 iframe src 直连导致触发浏览器下载（如服务端返回 Content-Disposition: attachment）
+ * 会对拉取到的 HTML 注入兜底脚本，避免报告内依赖的 CDN（如 lucide、tailwind）加载失败时出现 ReferenceError 导致页面无法展示。
  */
 export function ReportDisplay({
   reportUrl,
@@ -32,7 +37,12 @@ export function ReportDisplay({
         return r.text();
       })
       .then((html) => {
-        if (!cancelled) setReportHtml(html);
+        if (cancelled) return;
+        const injected =
+          html.indexOf('</head>') !== -1
+            ? html.replace('</head>', REPORT_FALLBACK_SCRIPT + '</head>')
+            : html.replace(/<body(\s[^>]*)?>/i, (m) => m + REPORT_FALLBACK_SCRIPT);
+        setReportHtml(injected);
       })
       .catch(() => {
         if (!cancelled) {
@@ -54,7 +64,7 @@ export function ReportDisplay({
             srcDoc={reportHtml}
             title={reportTitle}
             className="w-full h-full border-0 min-h-0"
-            sandbox="allow-same-origin allow-scripts"
+            sandbox="allow-same-origin allow-scripts allow-popups"
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/30">

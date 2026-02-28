@@ -5,8 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 // const oran_target = 'http://94.74.101.163:28080'
-// const oran_target = 'http://119.13.125.102:29273'
-const oran_target = 'http://192.168.112.253:8000/'
+const oran_target = 'http://119.13.125.102:29273'
+// const oran_target = 'http://192.168.112.253:8000/'
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",

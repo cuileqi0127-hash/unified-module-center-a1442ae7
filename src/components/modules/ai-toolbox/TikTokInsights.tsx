@@ -281,6 +281,8 @@ export function TikTokInsights({ onNavigate }: TikTokInsightsProps) {
           <ReportDisplay
             reportUrl={reportUrl}
             reportTitle={t('tiktokInsights.reportTitleSuffix')}
+            generatingLabel={t('tiktokInsights.generating')}
+            generatingHint={t('tiktokInsights.pollingHint')}
           />
         )}
       </div>
