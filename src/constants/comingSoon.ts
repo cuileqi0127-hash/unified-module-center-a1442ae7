@@ -9,7 +9,8 @@ export const COMING_SOON_ITEMS: readonly string[] = [
   // 'reference-to-image',
   // 'reference-to-video',
   // 'brand-health',
-  // 'tiktok-insights',
+  'tiktok-insights',
+  // tiktok-trending-video
 ];
 
 export function isComingSoon(id: string): boolean {
