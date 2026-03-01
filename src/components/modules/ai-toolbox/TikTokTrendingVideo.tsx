@@ -389,7 +389,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                       'relative w-full aspect-[9/16] max-h-[320px] bg-muted/80 rounded-t-2xl overflow-hidden',
                       card.videoUrl && 'cursor-pointer'
                     )}
-                    onDoubleClick={() => {
+                    onClick={() => {
                       if (!card.videoUrl) return;
                       const idx = viewerItems.findIndex((i) => i.id === card.id);
                       if (idx >= 0) {
@@ -405,8 +405,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                         muted={cardMutedMap[card.id] ?? false}
                         loop
                         playsInline
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
-                        onClick={(e) => e.stopPropagation()}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 pointer-events-none"
                       />
                     ) : card.coverUrl ? (
                       <img src={card.coverUrl} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105" />
