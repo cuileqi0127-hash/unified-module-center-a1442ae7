@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { initOAuth, isTokenValid } from '@/services/oauthApi';
-import { setShowLoginDialog, setClearUserState } from '@/services/apiInterceptor';
-import { LoginDialog } from '@/components/LoginDialog';
+import { setClearUserState, clearTokenAndRedirectToLogin } from '@/services/apiInterceptor';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { getUserInfo, getUserInfoFromCache, clearUserInfoCache, type UserInfo } from '@/services/userApi';
 
 interface OAuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
+  /** 未登录时调用，直接跳转登录页（不再弹窗） */
   showLoginDialog: () => void;
   userInfo: UserInfo | null;
 }
@@ -29,7 +29,6 @@ interface OAuthProviderProps {
 export function OAuthProvider({ children }: OAuthProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   // 初始化时从缓存加载用户信息
@@ -48,10 +47,8 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
         if (success) {
           // 初始化成功，正常展示首页
           setIsAuthenticated(true);
-          // 确保登录弹窗关闭
-          setShowLoginDialog(false);
-          
-          // 获取用户信息（抑制 401 错误，避免触发全局登录弹窗）
+
+          // 获取用户信息（抑制 401 错误，避免触发全局登录跳转）
           // 如果 token 有效但用户信息接口返回 401，可能是接口权限问题，不应该显示登录弹窗
           try {
             const userInfoResponse = await getUserInfo(true); // suppress401Error = true
@@ -63,11 +60,11 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
               if (userInfoResponse.code === '401' || userInfoResponse.code === 401) {
                 // 用户信息接口返回 401，检查 token 是否真的存在
                 if (!isTokenValid()) {
-                  // token 确实不存在，需要登录
-                  setShowLoginDialog(true);
-                  setIsAuthenticated(false);
+                  // token 确实不存在，直接跳转登录
                   clearUserInfoCache();
                   setUserInfo(null);
+                  setIsAuthenticated(false);
+                  clearTokenAndRedirectToLogin();
                   return; // 提前返回，不继续执行
                 } else {
                   // token 存在但接口返回 401，可能是接口权限问题或接口暂时不可用
@@ -91,21 +88,19 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
             }
           }
         } else {
-          // 初始化失败（没有 token 且没有 oauth_code），弹出登录弹窗
-          setShowLoginDialog(true);
+          // 初始化失败（没有 token 且没有 oauth_code），直接跳转登录
           setIsAuthenticated(false);
-          // 清除用户信息缓存
           clearUserInfoCache();
           setUserInfo(null);
+          clearTokenAndRedirectToLogin();
         }
       } catch (error) {
         console.error('OAuth initialization error:', error);
-        // 发生错误，弹出登录弹窗
-        setShowLoginDialog(true);
+        // 发生错误，直接跳转登录
         setIsAuthenticated(false);
-        // 清除用户信息缓存
         clearUserInfoCache();
         setUserInfo(null);
+        clearTokenAndRedirectToLogin();
       } finally {
         setIsLoading(false);
       }
@@ -114,24 +109,22 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
     initializeOAuth();
   }, []);
 
-  // 显示登录弹窗（用于token失效时）
+  // 未登录时直接跳转登录（不再弹窗）
   const handleShowLoginDialog = () => {
-    console.log('4')
-    setShowLoginDialog(true);
+    clearTokenAndRedirectToLogin();
   };
 
-  // 清除用户状态（用于token失效时）
+  // 清除用户状态（用于 token 失效时，由 API 拦截器调用）
   const handleClearUserState = () => {
     setIsAuthenticated(false);
     clearUserInfoCache();
     setUserInfo(null);
   };
 
-  // 注册登录弹窗显示函数和清除用户状态函数到 API 拦截器
-  // useEffect(() => {
-  //   setShowLoginDialog(handleShowLoginDialog);
-  //   setClearUserState(handleClearUserState);
-  // }, []);
+  // 注册清除用户状态函数到 API 拦截器（401 时先清状态再跳转）
+  useEffect(() => {
+    setClearUserState(handleClearUserState);
+  }, []);
 
   // 检查token有效性
   useEffect(() => {
@@ -157,7 +150,7 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
     );
   }
 
-  // 如果未认证且不在加载中，显示登录弹窗，但仍然渲染内容（弹窗会覆盖）
+  // 未认证时不再弹窗，调用 showLoginDialog() 会直接 redirectToLogin()
   return (
     <OAuthContext.Provider
       value={{
@@ -168,7 +161,6 @@ export function OAuthProvider({ children }: OAuthProviderProps) {
       }}
     >
       {children}
-      <LoginDialog open={showLoginDialog} />
     </OAuthContext.Provider>
   );
 }

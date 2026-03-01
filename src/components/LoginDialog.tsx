@@ -5,20 +5,22 @@ import { useTranslation } from 'react-i18next';
 
 interface LoginDialogProps {
   open: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 /**
  * 登录弹窗组件
- * 不可关闭，必须点击按钮跳转到登录页面
+ * 点击「去登录」后先关闭弹窗，再跳转登录页
  */
-export function LoginDialog({ open }: LoginDialogProps) {
+export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const { t } = useTranslation();
   const handleLogin = () => {
+    onOpenChange?.(false);
     redirectToLogin();
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={onOpenChange ?? (() => {})}>
       <DialogContent 
         className="sm:max-w-sm [&>button]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
