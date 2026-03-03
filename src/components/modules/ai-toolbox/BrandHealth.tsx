@@ -180,6 +180,8 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                     value={formData.categoryLevel3}
                     onChange={(v) => setFormData({ ...formData, categoryLevel3: v })}
                     placeholder={t('tiktokInsights.categoryPlaceholderSelect')}
+                    searchPlaceholder={t('brandHealth.categorySearchPlaceholder')}
+                    searchEmptyText={t('brandHealth.categorySearchEmpty')}
                     triggerClassName="border-border/80 bg-black/[0.02] dark:bg-white/[0.04] focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
                   />
                 </div>

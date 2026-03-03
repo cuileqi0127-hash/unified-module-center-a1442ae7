@@ -232,7 +232,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
         )}
       >
         {item.icon}
-        {!sidebarCollapsed && <span>{t(item.labelKey)}</span>}
+        {!sidebarCollapsed && <span className="text-left">{t(item.labelKey)}</span>}
       </button>
     );
 
@@ -317,7 +317,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
                 // Regular section
                 <>
                   {!sidebarCollapsed && section.titleKey && (
-                    <div className="px-4 py-2 text-sm font-semibold text-foreground">
+                    <div className="px-4 py-2 text-sm font-semibold text-foreground text-left">
                       {t(section.titleKey)}
                     </div>
                   )}
