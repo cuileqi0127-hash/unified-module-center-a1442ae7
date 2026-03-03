@@ -255,6 +255,8 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                     value={formData.categoryLevel3}
                     onChange={(v) => setFormData({ ...formData, categoryLevel3: v })}
                     placeholder={t('tiktokTrendingVideo.categoryPlaceholderSelect')}
+                    searchPlaceholder={t('tiktokTrendingVideo.categorySearchPlaceholder')}
+                    searchEmptyText={t('tiktokTrendingVideo.categorySearchEmpty')}
                     triggerClassName="border-border/80 bg-black/[0.02] dark:bg-white/[0.04] focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
                   />
                 </div>

@@ -46,7 +46,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
   // Google veo 3.1：720P(默认)/1080P，16:9(默认)/9:16，4/8(默认)/12s，支持高清
   GV: {
     label: 'Google veo',
-    maxImages: 1,
+    maxImages: 3,
     seconds: ['4', '8', '12'],
     sizes: ['16:9', '9:16'],
     defaultSeconds: '8',
@@ -57,10 +57,10 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     supportsEnhanceSwitch: true,
     isSound: true,
   },
-  // 可灵 2.6：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9/2:3，5(默认)/10s，支持高清
+  // 可灵 2.6：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9/2:3，5(默认)/10s，支持高清，支持 4 张参考图
   Kling: {
     label: '可灵',
-    maxImages: 1,
+    maxImages: 4,
     seconds: ['5', '10'],
     sizes: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '2:3'],
     defaultSeconds: '5',
@@ -102,7 +102,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
   // Vidu q2-turubo：720P(默认)/1080P，16:9/9:16/4:3/3:4/1:1，1–10s(默认5)，无高清
   Vidu: {
     label: 'Vidu',
-    maxImages: 1,
+    maxImages: 4,
     seconds: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
     sizes: ['16:9', '9:16', '4:3', '3:4', '1:1'],
     defaultSeconds: '5',

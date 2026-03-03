@@ -1,9 +1,26 @@
 import { useState, useMemo } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import type { CategoryTree } from '@/data/tiktok-categories';
+
+/** 扁平化树为 [path, value] 列表，用于检索 */
+function flattenTree(tree: CategoryTree): { path: [string, string, string]; value: string }[] {
+  const out: { path: [string, string, string]; value: string }[] = [];
+  for (const l1 of Object.keys(tree)) {
+    const l2Map = tree[l1];
+    if (!l2Map) continue;
+    for (const l2 of Object.keys(l2Map)) {
+      const l3List = l2Map[l2] ?? [];
+      for (const l3 of l3List) {
+        out.push({ path: [l1, l2, l3], value: l3 });
+      }
+    }
+  }
+  return out;
+}
 
 /** 根据叶子节点值在树中查找路径 [一级, 二级, 三级] */
 export function findPathInTree(tree: CategoryTree, leafValue: string): [string, string, string] | null {
@@ -29,6 +46,10 @@ interface CategoryCascaderProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /** 检索输入框占位文案 */
+  searchPlaceholder?: string;
+  /** 检索无结果时的提示文案 */
+  searchEmptyText?: string;
   className?: string;
   triggerClassName?: string;
   disabled?: boolean;
@@ -39,16 +60,32 @@ export function CategoryCascader({
   value,
   onChange,
   placeholder = '请选择',
+  searchPlaceholder = '输入关键词检索',
+  searchEmptyText = '暂无匹配品类',
   className,
   triggerClassName,
   disabled,
 }: CategoryCascaderProps) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [hoverL1, setHoverL1] = useState<string | null>(null);
   const [hoverL2, setHoverL2] = useState<string | null>(null);
 
   const path = useMemo(() => (value ? findPathInTree(tree, value) : null), [tree, value]);
   const displayText = path ? path.join(' / ') : '';
+
+  const flatList = useMemo(() => flattenTree(tree), [tree]);
+  const searchTrimmed = searchQuery.trim();
+  const filteredBySearch = useMemo(() => {
+    if (!searchTrimmed) return [];
+    const q = searchTrimmed.toLowerCase();
+    return flatList.filter(
+      (item) =>
+        item.path[0].toLowerCase().includes(q) ||
+        item.path[1].toLowerCase().includes(q) ||
+        item.path[2].toLowerCase().includes(q)
+    );
+  }, [flatList, searchTrimmed]);
 
   const level1List = useMemo(() => Object.keys(tree), [tree]);
   const level2List = useMemo(() => {
@@ -65,12 +102,18 @@ export function CategoryCascader({
   const handleSelectLevel3 = (level3: string) => {
     onChange(level3);
     setOpen(false);
+    setSearchQuery('');
     setHoverL1(null);
     setHoverL2(null);
   };
 
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) setSearchQuery('');
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -98,7 +141,40 @@ export function CategoryCascader({
         className="w-auto p-0 overflow-hidden [animation-duration:0.2s]"
         sideOffset={4}
       >
-        <div className="flex h-[320px]">
+        <div className="border-b border-border/60 p-1">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none border-0" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-9 pl-8 text-sm border-0 rounded-none"
+            />
+          </div>
+        </div>
+        {searchTrimmed ? (
+          <ScrollArea className="h-[280px] w-[340px]">
+            <div className="py-1">
+              {filteredBySearch.length === 0 ? (
+                <p className="px-3 py-4 text-sm text-muted-foreground text-center">{searchEmptyText}</p>
+              ) : (
+                filteredBySearch.map((item) => (
+                  <div
+                    key={item.path.join('-')}
+                    className={cn(columnItemBase, value === item.value && 'bg-accent text-accent-foreground')}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelectLevel3(item.value);
+                    }}
+                  >
+                    <span className="truncate">{item.path.join(' / ')}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        ) : (
+        <div className="flex h-[280px]">
           <ScrollArea className="h-full w-[140px] shrink-0 border-r border-border/60">
             <div className="py-1">
               {level1List.map((l1) => (
@@ -150,6 +226,7 @@ export function CategoryCascader({
             </div>
           </ScrollArea>
         </div>
+        )}
       </PopoverContent>
     </Popover>
   );
