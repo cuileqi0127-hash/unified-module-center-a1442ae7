@@ -9,7 +9,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import type { ImageModel } from '@/services/imageGenerationApi';
 import {
   getSessions,
   createSession,
@@ -44,6 +43,7 @@ import {
 import { type SelectedImage } from './ImageCapsule';
 import { uploadFile, validateFileFormat, validateFileSize } from '@/services/fileUploadApi';
 import { toolsDownloadByUrls } from '@/services/toolsDownloadApi';
+import type { ImageModel } from '@/services/imageGenerationApi';
 
 // 类型定义
 export interface ChatMessage {
@@ -73,6 +73,8 @@ export interface CanvasImage {
   taskId?: string;
   progress?: number;
   status?: 'queued' | 'processing' | 'completed' | 'failed';
+  /** 生成该图的模型展示名，仅文生图生成项有值，上传的图片不展示 */
+  modelName?: string;
 }
 
 // 图片任务队列项（与文生视频一致：提交后轮询 /api/tools/gen/sessions/{id}/tasks/{任务id}）
@@ -366,12 +368,14 @@ export function useTextToImage() {
                   // 保存画布元素ID映射，用于后续更新
                   canvasItemIdMap.current.set(`item-${item.id}`, item.id);
                   
-                  // 通过 asset.generationId 获取 prompt
+                  // 通过 asset.generationId 获取 prompt 与模型展示名（仅生成项有）
                   let prompt: string | undefined;
+                  let modelName: string | undefined;
                   if (asset.generationId) {
                     const generation = generationsMap.get(asset.generationId.toString());
-                    if (generation && generation.prompt) {
-                      prompt = generation.prompt;
+                    if (generation) {
+                      if (generation.prompt) prompt = generation.prompt;
+                      modelName = getModelConfig(generation.model as ImageModel).label;
                     }
                   }
                   
@@ -384,6 +388,7 @@ export function useTextToImage() {
                     height: item.height,
                     type: 'image',
                     prompt,
+                    modelName,
                   };
                   
                   return imageItem;
@@ -655,9 +660,13 @@ export function useTextToImage() {
           if (!asset || asset.type !== 'image') return null;
           canvasItemIdMap.current.set(`item-${item.id}`, item.id);
           let prompt: string | undefined;
+          let modelName: string | undefined;
           if (asset.generationId) {
             const generation = generationsMap.get(asset.generationId.toString());
-            if (generation?.prompt) prompt = generation.prompt;
+            if (generation) {
+              if (generation.prompt) prompt = generation.prompt;
+              modelName = getModelConfig(generation.model as ImageModel).label;
+            }
           }
           return {
             id: `item-${item.id}`,
@@ -668,6 +677,7 @@ export function useTextToImage() {
             height: item.height,
             type: 'image' as const,
             prompt,
+            modelName,
           } as CanvasImage;
         })
         .filter((item): item is CanvasImage => item !== null);
@@ -1592,6 +1602,7 @@ export function useTextToImage() {
           height: placeholder?.height ?? task.height,
           prompt: task.prompt,
           type: 'image',
+          modelName: getModelConfig(task.model).label,
         };
         return [...prev, newImage];
       });
