@@ -75,6 +75,8 @@ export interface CanvasVideo {
   progress?: number; // 占位符进度 0-100
   status?: 'queued' | 'processing' | 'completed' | 'failed'; // 占位符状态
   ossKey?: string; // OSS存储密钥
+  /** 生成该视频的模型展示名，仅文生视频生成项有值，上传的图片不展示 */
+  modelName?: string;
 }
 
 // 任务队列项（会话 id 与接口一致，支持字符串）
@@ -372,12 +374,14 @@ export function useTextToVideo() {
                   // 保存画布元素ID映射，用于后续更新
                   canvasItemIdMap.current.set(`item-${item.id}`, item.id);
                   
-                  // 通过 asset.generationId 获取 prompt
+                  // 通过 asset.generationId 获取 prompt 与模型展示名（仅生成项有）
                   let prompt: string | undefined;
+                  let modelName: string | undefined;
                   if (asset.generationId) {
                     const generation = generationsMap.get(asset.generationId.toString());
-                    if (generation && generation.prompt) {
-                      prompt = generation.prompt;
+                    if (generation) {
+                      if (generation.prompt) prompt = generation.prompt;
+                      modelName = VIDEO_MODEL_CONFIGS[generation.model as VideoModel]?.label ?? generation.model;
                     }
                   }
                   
@@ -390,6 +394,7 @@ export function useTextToVideo() {
                     height: item.height,
                     type: asset.type === 'video' ? 'video' : 'image',
                     prompt,
+                    modelName,
                   };
                   
                   return videoItem;
@@ -706,9 +711,13 @@ export function useTextToVideo() {
           if (!asset) return null;
           canvasItemIdMap.current.set(`item-${item.id}`, item.id);
           let prompt: string | undefined;
+          let modelName: string | undefined;
           if (asset.generationId) {
             const generation = generationsMap.get(asset.generationId.toString());
-            if (generation?.prompt) prompt = generation.prompt;
+            if (generation) {
+              if (generation.prompt) prompt = generation.prompt;
+              modelName = VIDEO_MODEL_CONFIGS[generation.model as VideoModel]?.label ?? generation.model;
+            }
           }
           return {
             id: `item-${item.id}`,
@@ -719,6 +728,7 @@ export function useTextToVideo() {
             height: item.height,
             type: asset.type === 'video' ? 'video' : 'image',
             prompt,
+            modelName,
           } as CanvasVideo;
         })
         .filter((item): item is CanvasVideo => item !== null);
@@ -1890,6 +1900,7 @@ export function useTextToVideo() {
           prompt: task.prompt,
           taskId: finalStatus.task_id,
           type: 'video',
+          modelName: VIDEO_MODEL_CONFIGS[task.model]?.label ?? task.model,
         };
         
         // 添加到视频列表（使用函数式更新确保不覆盖其他更新）
@@ -1952,6 +1963,7 @@ export function useTextToVideo() {
             prompt: task.prompt,
             taskId: finalStatus.task_id,
             type: 'video',
+            modelName: VIDEO_MODEL_CONFIGS[task.model]?.label ?? task.model,
           };
           
           setSelectedVideoId(newVideo.id);

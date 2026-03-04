@@ -21,6 +21,8 @@ export interface CanvasMediaItem {
   type?: 'image' | 'video' | 'placeholder'; // 媒体类型，可选，如果不提供则根据URL自动判断
   progress?: number; // 占位符进度 0-100
   status?: 'queued' | 'processing' | 'completed' | 'failed'; // 占位符状态
+  /** 生成该图/视频的模型展示名，仅文生图/文生视频生成项有值，上传的图片不展示 */
+  modelName?: string;
 }
 
 interface UniversalCanvasProps {
@@ -217,6 +219,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
 
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+  /** 按住 Command/Ctrl 时为 true，用于禁用图层拖拽、仅做多选 */
+  const [ctrlOrMetaPressed, setCtrlOrMetaPressed] = useState(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
@@ -251,12 +255,15 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
   const pendingWheelPanRef = useRef({ dx: 0, dy: 0 });
   const wheelPanFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Handle keyboard events for Space+drag panning only
+  // Handle keyboard events: Space = 画布平移；Command/Ctrl = 多选模式（禁用拖拽）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault();
         setIsSpacePressed(true);
+      }
+      if (e.key === 'Meta' || e.key === 'Control') {
+        setCtrlOrMetaPressed(true);
       }
     };
 
@@ -264,6 +271,10 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
       if (e.code === 'Space') {
         setIsSpacePressed(false);
         setIsPanning(false);
+      }
+      // 仅当 Ctrl 与 Command 都未按下时才退出多选模式
+      if (!e.ctrlKey && !e.metaKey) {
+        setCtrlOrMetaPressed(false);
       }
     };
 
@@ -412,10 +423,13 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
 
   // Handle panning/box selection start
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // 鼠标中键、Space + 左键、或 Ctrl/Cmd + 左键 = 拖动画布
-    if (e.button === 1 || (isSpacePressed && e.button === 0) || ((e.ctrlKey || e.metaKey) && e.button === 0)) {
+    const target = e.target as HTMLElement;
+    const isClickOnLayer = target.closest('[data-item-id]') != null;
+    const isCtrlOrMetaClick = (e.ctrlKey || e.metaKey) && e.button === 0;
+    // 鼠标中键、Space+左键、或 Ctrl/Cmd+左键(仅空白处) = 拖动画布；Ctrl/Cmd+点击图层时不在此处理，交给图层做多选
+    if (e.button === 1 || (isSpacePressed && e.button === 0) || (isCtrlOrMetaClick && !isClickOnLayer)) {
       e.preventDefault();
-      e.stopPropagation(); // 阻止事件冒泡，防止图层响应
+      e.stopPropagation();
       lastAppliedMousePosRef.current = { x: e.clientX, y: e.clientY };
       lastPanUpdateTimeRef.current = 0;
       setIsPanning(true);
@@ -1078,8 +1092,8 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
               nodeRef={itemRef}
               position={{ x: screenX, y: screenY }}
               onDrag={handleDrag(item.id)}
-              onStart={() => !isPlaceholderDisabled && onItemSelect?.(item.id)}
-              disabled={isPanning || isSpacePressed || isPlaceholderDisabled}
+              onStart={() => !isPlaceholderDisabled && !ctrlOrMetaPressed && onItemSelect?.(item.id)}
+              disabled={isPanning || isSpacePressed || isPlaceholderDisabled || ctrlOrMetaPressed}
               bounds={false}
               cancel=".no-drag"
             >
@@ -1135,19 +1149,11 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                   backfaceVisibility: 'hidden',
                   transition: '0.1s all'
                 }}
-                onMouseDown={(e) => {
-                  // 如果按住 Ctrl/Cmd 键，这是画布平移操作，不处理图层点击
-                  if (e.ctrlKey || e.metaKey) {
+                onMouseDownCapture={(e) => {
+                  // 捕获阶段处理 Command/Ctrl+点击多选，优先于画布平移，并阻止冒泡
+                  if (!isPlaceholderDisabled && (e.ctrlKey || e.metaKey)) {
                     e.stopPropagation();
-                    return;
-                  }
-                  
-                  e.stopPropagation();
-                  // 占位符禁止点击选中
-                  if (isPlaceholderDisabled) {
-                    return;
-                  }
-                  if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
                     if (selectedItemIds.includes(item.id)) {
                       const newIds = selectedItemIds.filter(id => id !== item.id);
                       onItemMultiSelect?.(newIds);
@@ -1157,14 +1163,17 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                       onItemMultiSelect?.(newIds);
                       onItemSelect?.(item.id);
                     }
-                  } else {
-                    onItemSelect?.(item.id);
-                    onItemMultiSelect?.([item.id]);
-                    // 视频图层：点击切换播放（仅当前图层可播，其他自动暂停）
-                    if (isVideo) {
-                      playVideoOnly(item.id);
-                    }
                   }
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  if (isPlaceholderDisabled) return;
+                  // 按住 Command/Ctrl + 点击：已在 capture 阶段处理多选
+                  if (e.ctrlKey || e.metaKey) return;
+                  // 普通点击：单选当前图层
+                  onItemSelect?.(item.id);
+                  onItemMultiSelect?.([item.id]);
+                  if (isVideo) playVideoOnly(item.id);
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
@@ -1440,6 +1449,15 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                       style={{transition: '0.5s all'}}
                     />
                   </>
+                )}
+
+                {/* 选中且为生成内容时在图层上方显示模型信息（上传的图片无 modelName 不展示） */}
+                {(selectedItemId === item.id || selectedItemIds.includes(item.id)) && item.modelName && (
+                  <div className="absolute left-0 right-0 -top-6 flex justify-center pointer-events-none z-[55]">
+                    <span className="rounded bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground shadow-sm whitespace-nowrap">
+                      {item.modelName}
+                    </span>
+                  </div>
                 )}
 
                 {/* 选中时在图层下方显示宽高与坐标 */}
