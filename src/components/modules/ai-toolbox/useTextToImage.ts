@@ -176,6 +176,8 @@ export function useTextToImage() {
   const isProcessingQueueRef = useRef(false);
   const updatePlaceholdersFromQueueRef = useRef<() => void>();
   const processTaskQueueRef = useRef<() => void>();
+  /** 提交时保留的输入内容，提交后不清空输入框 */
+  const promptToKeepRef = useRef<string>('');
 
   // 配置数据
   const workModes = getWorkModes();
@@ -1752,7 +1754,7 @@ export function useTextToImage() {
 
     setMessages(prev => [...prev, userMessage]);
     const currentPrompt = prompt;
-    setPrompt('');
+    promptToKeepRef.current = prompt; // 提交后保留输入框内容
     setIsGenerating(true);
 
     const systemMessage: ChatMessage = {
@@ -1946,6 +1948,10 @@ export function useTextToImage() {
       }
 
       setIsGenerating(false);
+      const toRestore = promptToKeepRef.current;
+      if (toRestore !== undefined && toRestore !== null) {
+        setTimeout(() => setPrompt(toRestore), 0);
+      }
       if (queueItemsToAdd.length > 0) {
         updatePlaceholdersFromQueueRef.current?.();
         processTaskQueueRef.current?.();
@@ -1955,6 +1961,10 @@ export function useTextToImage() {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`${t('toast.generationFailed')}: ${errorMessage}`);
       setIsGenerating(false);
+      const toRestoreErr = promptToKeepRef.current;
+      if (toRestoreErr !== undefined && toRestoreErr !== null) {
+        setTimeout(() => setPrompt(toRestoreErr), 0);
+      }
       
       setMessages(prev => 
         prev.map(msg => 
