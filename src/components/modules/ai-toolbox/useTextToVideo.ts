@@ -178,6 +178,7 @@ export function useTextToVideo() {
   const isProcessingQueueRef = useRef(false);
   const updatePlaceholdersFromQueueRef = useRef<() => void>();
   const processTaskQueueRef = useRef<() => void>();
+  const promptToKeepRef = useRef<string>('');
 
   // 配置数据
   const models = getVideoModelList();
@@ -1436,7 +1437,7 @@ export function useTextToVideo() {
 
     setMessages(prev => [...prev, userMessage]);
     const currentPrompt = prompt;
-    setPrompt('');
+    promptToKeepRef.current = prompt;
     setIsGenerating(true);
 
     const systemMessage: ChatMessage = {
@@ -1546,6 +1547,7 @@ export function useTextToVideo() {
       );
       
       setIsGenerating(false);
+      setPrompt(promptToKeepRef.current);
       
       // 更新占位符
       updatePlaceholdersFromQueueRef.current?.();
@@ -1557,6 +1559,10 @@ export function useTextToVideo() {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`${t('toast.generationFailed')}: ${errorMessage}`);
       setIsGenerating(false);
+      const toRestoreErr = promptToKeepRef.current;
+      if (toRestoreErr !== undefined && toRestoreErr !== null) {
+        setTimeout(() => setPrompt(toRestoreErr), 0);
+      }
       
       setMessages(prev => 
         prev.map(msg => 
