@@ -178,6 +178,8 @@ export function useTextToImage() {
   const processTaskQueueRef = useRef<() => void>();
   /** 提交时保留的输入内容，提交后不清空输入框 */
   const promptToKeepRef = useRef<string>('');
+  /** 已放置但 state 尚未包含的上传图层矩形，用于连续上传时避免重叠 */
+  const pendingUploadRectsRef = useRef<Array<{ id: string; x: number; y: number; width: number; height: number }>>([]);
 
   // 配置数据
   const workModes = getWorkModes();
@@ -1261,6 +1263,7 @@ export function useTextToImage() {
 
   // 处理上传图片到画布
   const handleUploadImage = useCallback(async (file: File) => {
+    let tempId: string | null = null;
     try {
       // 文件验证
       const allowedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -1291,19 +1294,36 @@ export function useTextToImage() {
         return;
       }
       
-      // 生成临时ID
-      const tempId = `img-${Date.now()}`;
+      tempId = `img-${Date.now()}`;
       
       // 创建本地URL用于预览
       const previewUrl = URL.createObjectURL(file);
       const dimensions = await getImageDimensions(previewUrl);
-      
-      // 创建临时图片对象
+      const existingRects = [
+        ...canvasImages.map((img) => ({ x: img.x, y: img.y, width: img.width, height: img.height })),
+        ...taskPlaceholders.map((p) => ({ x: p.x, y: p.y, width: p.width, height: p.height })),
+        ...pendingUploadRectsRef.current.map((r) => ({ x: r.x, y: r.y, width: r.width, height: r.height })),
+      ];
+      const position = findNonOverlappingPosition(
+        { width: dimensions.width, height: dimensions.height },
+        existingRects,
+        300,
+        200,
+        10,
+        10,
+        100,
+        28,
+      );
+      pendingUploadRectsRef.current = [
+        ...pendingUploadRectsRef.current,
+        { id: tempId, x: position.x, y: position.y, width: dimensions.width, height: dimensions.height },
+      ];
+      // 创建临时图片对象（使用不重叠位置，避免与画布已有图层重叠）
       const tempImage: CanvasImage = {
         id: tempId,
         url: previewUrl,
-        x: 300 + Math.random() * 100,
-        y: 200 + Math.random() * 100,
+        x: position.x,
+        y: position.y,
         width: dimensions.width,
         height: dimensions.height,
         prompt: file.name,
@@ -1328,18 +1348,17 @@ export function useTextToImage() {
       setCanvasImages(prev =>
         prev.map(img => {
           if (img.id === tempId) {
-            // 释放本地URL
             URL.revokeObjectURL(img.url);
             return {
               ...img,
               url: uploadResult.url,
-              // 存储ossKey，便于后续使用
               ossKey: uploadResult.ossKey,
             };
           }
           return img;
         })
       );
+      pendingUploadRectsRef.current = pendingUploadRectsRef.current.filter((r) => r.id !== tempId);
       
       // 动画完成后清除新增状态
       setTimeout(() => {
@@ -1409,8 +1428,7 @@ export function useTextToImage() {
     } catch (error) {
       console.error('Upload error:', error);
       toast.error(error instanceof Error ? error.message : t('toast.imageUploadFailed'));
-      
-      // 清除上传状态
+      if (tempId) pendingUploadRectsRef.current = pendingUploadRectsRef.current.filter((r) => r.id !== tempId);
       setUploadingFiles(prev => new Map());
     }
   }, [t, getImageDimensions, currentSessionId, model, aspectRatio, canvasImages, selectedImageIds, selectedImageId, saveGenerationResult, loadSessions, getSessionDetail, applySessionMessagesToState]);

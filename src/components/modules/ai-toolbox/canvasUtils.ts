@@ -28,22 +28,22 @@ export function isOverlapping(rect1: Rect, rect2: Rect, padding: number = 12): b
   );
 }
 
-/** 在 base 上施加 [min, max) 的随机偏移 */
-function randomOffset(base: number, range: number): number {
-  return base + (Math.random() * 2 - 1) * range;
-}
+/** 基准点附近随机范围（像素），保证新图层不会离基准点太远 */
+const RANDOM_SPREAD = 60;
+/** 随机尝试次数，失败后再用网格 */
+const RANDOM_ATTEMPTS = 40;
 
 /**
- * 找到不重叠的位置（考虑间隔），并施加小范围随机偏移防止完全重叠，同时限制距离不过远。
- * 相邻元素间距由 padding 控制；返回位置在起始点附近有限范围内。
+ * 找到不重叠的位置（考虑间隔），保证每个图层坐标都不重叠且距离不过远。
+ * 优先在基准点附近随机尝试；失败则按网格步进搜索；返回位置均通过重叠校验。
  * @param newItem 新项目的尺寸
  * @param existingItems 现有项目列表
- * @param startX 起始X坐标
- * @param startY 起始Y坐标
+ * @param startX 起始X坐标（基准点）
+ * @param startY 起始Y坐标（基准点）
  * @param stepX 未用于步进（保留兼容）
  * @param stepY 未用于步进（保留兼容）
- * @param maxAttempts 最大尝试次数
- * @param padding 图层之间的间隔（像素），默认 12
+ * @param maxAttempts 网格搜索最大尝试次数
+ * @param padding 图层之间的最小间隔（像素），默认 12
  */
 export function findNonOverlappingPosition(
   newItem: { width: number; height: number },
@@ -57,59 +57,52 @@ export function findNonOverlappingPosition(
 ): { x: number; y: number } {
   const stepXActual = newItem.width + padding;
   const stepYActual = newItem.height + padding;
-  /** 限制网格范围，使图层不会离起始点太远（最多约 3 列 3 行） */
-  const maxCol = 3;
-  const maxRow = 3;
 
-  let x = startX;
-  let y = startY;
-  let attempts = 0;
+  const noOverlap = (x: number, y: number): boolean => {
+    const r: Rect = { x, y, width: newItem.width, height: newItem.height };
+    return !existingItems.some((item) => isOverlapping(r, item, padding));
+  };
 
-  while (attempts < maxAttempts) {
-    const row = Math.floor(attempts / (maxCol + 1));
-    const col = attempts % (maxCol + 1);
-    x = startX + col * stepXActual;
-    y = startY + row * stepYActual;
-    if (row > maxRow) break;
-
-    const newRect: Rect = {
-      x,
-      y,
-      width: newItem.width,
-      height: newItem.height,
-    };
-
-    const hasOverlap = existingItems.some(item => isOverlapping(newRect, item, padding));
-
-    if (!hasOverlap) {
-      /** 施加小范围随机偏移（±24px）防止多图完全叠在一起，且不超出合理距离 */
-      const nudgeRange = 24;
-      const maxNudgeAttempts = 8;
-      for (let n = 0; n < maxNudgeAttempts; n++) {
-        const nudgedX = Math.round(randomOffset(x, nudgeRange));
-        const nudgedY = Math.round(randomOffset(y, nudgeRange));
-        const nudgedRect: Rect = { x: nudgedX, y: nudgedY, width: newItem.width, height: newItem.height };
-        const nudgedOverlap = existingItems.some(item => isOverlapping(nudgedRect, item, padding));
-        if (!nudgedOverlap) {
-          return { x: nudgedX, y: nudgedY };
-        }
-      }
-      return { x, y };
-    }
-
-    attempts++;
+  // 1. 在基准点附近随机尝试，保证不重叠且距离不过远
+  for (let i = 0; i < RANDOM_ATTEMPTS; i++) {
+    const x = Math.round(startX + (Math.random() * 2 - 1) * RANDOM_SPREAD);
+    const y = Math.round(startY + (Math.random() * 2 - 1) * RANDOM_SPREAD);
+    if (noOverlap(x, y)) return { x, y };
   }
 
-  /** 兜底：在起始点附近随机一个不重叠位置，限制在 ±step 范围内 */
-  const fallbackRange = Math.min(stepXActual, stepYActual, 120);
-  for (let k = 0; k < 20; k++) {
-    const fx = Math.round(randomOffset(startX, fallbackRange));
-    const fy = Math.round(randomOffset(startY, fallbackRange));
-    const fr: Rect = { x: fx, y: fy, width: newItem.width, height: newItem.height };
-    if (!existingItems.some(item => isOverlapping(fr, item, padding))) {
-      return { x: fx, y: fy };
-    }
+  // 2. 网格搜索：步进保证与现有块间隔 padding，保证每个位置都不重叠
+  for (let a = 0; a < maxAttempts; a++) {
+    const col = a % 5;
+    const row = Math.floor(a / 5);
+    const x = startX + col * stepXActual;
+    const y = startY + row * stepYActual;
+    if (noOverlap(x, y)) return { x, y };
   }
 
-  return { x: startX + (attempts % (maxCol + 1)) * stepXActual, y: startY };
+  // 3. 兜底：继续扩展网格直到找到不重叠位置（保证绝不返回重叠坐标）
+  for (let a = maxAttempts; a < maxAttempts + 200; a++) {
+    const col = a % 10;
+    const row = Math.floor(a / 10);
+    const x = startX + col * stepXActual;
+    const y = startY + row * stepYActual;
+    if (noOverlap(x, y)) return { x, y };
+  }
+
+  // 4. 极端兜底：再随机尝试更多次（仍限制在合理距离内）
+  for (let k = 0; k < 50; k++) {
+    const x = Math.round(startX + (Math.random() * 2 - 1) * (RANDOM_SPREAD + 40));
+    const y = Math.round(startY + (Math.random() * 2 - 1) * (RANDOM_SPREAD + 40));
+    if (noOverlap(x, y)) return { x, y };
+  }
+
+  // 5. 最终兜底：继续扩展网格直至找到空位，保证绝不返回重叠坐标
+  for (let a = maxAttempts + 200; a < 500; a++) {
+    const col = a % 15;
+    const row = Math.floor(a / 15);
+    const x = startX + col * stepXActual;
+    const y = startY + row * stepYActual;
+    if (noOverlap(x, y)) return { x, y };
+  }
+
+  return { x: startX, y: startY };
 }
