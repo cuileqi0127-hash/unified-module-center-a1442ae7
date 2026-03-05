@@ -26,6 +26,7 @@ export function MediaViewer({ items, initialIndex, isOpen, onClose }: MediaViewe
   const [isLoading, setIsLoading] = useState(true);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [isHoveringMedia, setIsHoveringMedia] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -216,7 +217,7 @@ export function MediaViewer({ items, initialIndex, isOpen, onClose }: MediaViewe
         </Button>
       )}
 
-      {/* Media Content - Mac风格容器 */}
+      {/* Media Content - Mac风格容器；hover 时底部文案上滑展示，离开时下滑隐藏 */}
       <div
         className={cn(
           "relative max-w-[92vw] max-h-[92vh] flex items-center justify-center",
@@ -227,6 +228,8 @@ export function MediaViewer({ items, initialIndex, isOpen, onClose }: MediaViewe
             : ""
         )}
         onClick={(e) => e.stopPropagation()}
+        onMouseEnter={() => setIsHoveringMedia(true)}
+        onMouseLeave={() => setIsHoveringMedia(false)}
       >
         {isVideo ? (
           <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-black/40 bg-black/20 backdrop-blur-sm border border-white/10">
@@ -323,7 +326,7 @@ export function MediaViewer({ items, initialIndex, isOpen, onClose }: MediaViewe
           </div>
         )}
 
-        {/* Prompt Display - Mac风格 */}
+        {/* Prompt Display - Mac风格；hover 图片/视频时上滑展示，离开时下滑隐藏 */}
         {currentItem.prompt && isMediaReady && (
           <div
             className={cn(
@@ -334,11 +337,8 @@ export function MediaViewer({ items, initialIndex, isOpen, onClose }: MediaViewe
               "max-w-[85vw] text-center",
               "shadow-lg shadow-black/20",
               "transition-all duration-300 ease-out",
-              isClosing 
-                ? "opacity-0 translate-y-2" 
-                : isMediaReady 
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-2"
+              isClosing && "opacity-0 translate-y-4",
+              !isClosing && (isHoveringMedia ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none")
             )}
           >
             <p className="font-medium">{currentItem.prompt}</p>

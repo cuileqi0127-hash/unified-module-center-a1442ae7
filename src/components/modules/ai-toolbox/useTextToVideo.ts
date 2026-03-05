@@ -179,6 +179,8 @@ export function useTextToVideo() {
   const updatePlaceholdersFromQueueRef = useRef<() => void>();
   const processTaskQueueRef = useRef<() => void>();
   const promptToKeepRef = useRef<string>('');
+  /** 已放置但 state 尚未包含的上传图层矩形，用于连续上传时避免重叠 */
+  const pendingUploadRectsRef = useRef<Array<{ id: string; x: number; y: number; width: number; height: number }>>([]);
 
   // 配置数据
   const models = getVideoModelList();
@@ -1204,6 +1206,7 @@ export function useTextToVideo() {
 
   // 处理上传图片到画布
   const handleUploadImage = useCallback(async (file: File) => {
+    let tempId: string | null = null;
     try {
       // 文件验证
       const allowedFormats = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -1235,19 +1238,36 @@ export function useTextToVideo() {
         return;
       }
       
-      // 生成临时ID
-      const tempId = `img-${Date.now()}`;
+      tempId = `img-${Date.now()}`;
       
       // 创建本地URL用于预览
       const previewUrl = URL.createObjectURL(file);
       const dimensions = await getImageDimensions(previewUrl);
-      
-      // 将图片作为CanvasVideo添加到画布
+      const existingRects = [
+        ...canvasVideos.map((v) => ({ x: v.x, y: v.y, width: v.width, height: v.height })),
+        ...taskPlaceholders.map((p) => ({ x: p.x, y: p.y, width: p.width, height: p.height })),
+        ...pendingUploadRectsRef.current.map((r) => ({ x: r.x, y: r.y, width: r.width, height: r.height })),
+      ];
+      const position = findNonOverlappingPosition(
+        { width: dimensions.width, height: dimensions.height },
+        existingRects,
+        300,
+        200,
+        10,
+        10,
+        100,
+        28,
+      );
+      pendingUploadRectsRef.current = [
+        ...pendingUploadRectsRef.current,
+        { id: tempId, x: position.x, y: position.y, width: dimensions.width, height: dimensions.height },
+      ];
+      // 将图片作为CanvasVideo添加到画布（使用不重叠位置，避免与画布已有图层重叠）
       const tempVideo: CanvasVideo = {
         id: tempId,
         url: previewUrl,
-        x: 300 + Math.random() * 100,
-        y: 200 + Math.random() * 100,
+        x: position.x,
+        y: position.y,
         width: dimensions.width,
         height: dimensions.height,
         prompt: file.name,
@@ -1271,18 +1291,17 @@ export function useTextToVideo() {
       setCanvasVideos(prev =>
         prev.map(video => {
           if (video.id === tempId) {
-            // 释放本地URL
             URL.revokeObjectURL(video.url);
             return {
               ...video,
               url: uploadResult.url,
-              // 存储ossKey，便于后续使用
               ossKey: uploadResult.ossKey,
             };
           }
           return video;
         })
       );
+      pendingUploadRectsRef.current = pendingUploadRectsRef.current.filter((r) => r.id !== tempId);
       
       // 清除上传状态
       setUploadingFiles(prev => {
@@ -1343,8 +1362,7 @@ export function useTextToVideo() {
     } catch (error) {
       console.error('Upload error:', error);
       toast.error(error instanceof Error ? error.message : t('toast.imageUploadFailed'));
-      
-      // 清除上传状态
+      if (tempId) pendingUploadRectsRef.current = pendingUploadRectsRef.current.filter((r) => r.id !== tempId);
       setUploadingFiles(prev => new Map());
     }
   }, [t, getImageDimensions, currentSessionId, model, size, canvasVideos, selectedVideoIds, selectedVideoId, saveGenerationResult, loadSessions, getSessionDetail, applySessionMessagesToState]);

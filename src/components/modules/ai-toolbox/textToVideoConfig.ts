@@ -95,7 +95,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     defaultSize: '16:9',
     resolutions: ['720P', '1080P'],
     defaultResolution: '720P',
-    defaultModelVersion: '3.0',
+    defaultModelVersion: '3.0pro',
     supportsEnhanceSwitch: true,
     isSound: false,
   },
