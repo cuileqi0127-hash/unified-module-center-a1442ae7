@@ -181,6 +181,8 @@ export function useTextToVideo() {
   const promptToKeepRef = useRef<string>('');
   /** 已放置但 state 尚未包含的上传图层矩形，用于连续上传时避免重叠 */
   const pendingUploadRectsRef = useRef<Array<{ id: string; x: number; y: number; width: number; height: number }>>([]);
+  /** 上传批次内自增，保证同批多文件上传时每个图层 id 唯一，避免索引一致导致拖拽重叠 */
+  const uploadIdCounterRef = useRef(0);
 
   // 配置数据
   const models = getVideoModelList();
@@ -1238,8 +1240,9 @@ export function useTextToVideo() {
         return;
       }
       
-      tempId = `img-${Date.now()}`;
-      
+      uploadIdCounterRef.current += 1;
+      tempId = `img-${Date.now()}-${uploadIdCounterRef.current}-${Math.random().toString(36).slice(2, 10)}`;
+
       // 创建本地URL用于预览
       const previewUrl = URL.createObjectURL(file);
       const dimensions = await getImageDimensions(previewUrl);
