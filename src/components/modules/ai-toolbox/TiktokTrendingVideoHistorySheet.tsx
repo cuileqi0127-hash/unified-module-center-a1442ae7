@@ -38,7 +38,7 @@ interface TiktokTrendingVideoHistorySheetProps {
 const PAGE_SIZE = 10;
 
 /**
- * TikTok 爆款视频报告历史记录 Sheet：分页拉取 /tools/tiktok-insight/jobs，点击条目回调 onSelectJob
+ * TikTok 爆款视频历史记录 Sheet：分页拉取 /tools/tiktok-insight/jobs，点击条目回调 onSelectJob
  */
 export function TiktokTrendingVideoHistorySheet({
   open,

@@ -254,7 +254,7 @@ export function useTextToImage() {
     }
   }, [model, aspectRatio]);
 
-  // 当模型切换时，重置质量为对应模型的默认值（或无）
+  // 当模型切换时，重置分辨率为对应模型的默认值（或无）
   useEffect(() => {
     const defaultQuality = getModelDefaultQuality(model);
     setQuality(defaultQuality ?? '');

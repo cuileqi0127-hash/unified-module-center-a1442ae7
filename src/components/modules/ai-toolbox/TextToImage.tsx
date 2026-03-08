@@ -46,7 +46,7 @@ interface TextToImageProps {
   onNavigate?: (itemId: string) => void;
 }
 
-/** 根据尺寸 id 解析出用于小图标的宽高比（如 "1"、"2/3"、"16/9"） */
+/** 根据尺寸 id 解析出用于小图标尺寸（如 "1"、"2/3"、"16/9"） */
 function getRatioForIcon(sizeId: string): string {
   const normalized = sizeId.replace(':', 'x').toLowerCase();
   if (/^\d+x\d+$/.test(normalized)) {
@@ -492,7 +492,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             />
             )}
             
-            {/* Bottom toolbar：图2 风格 - 模型 + 设置 Popover（宽高比网格 + 输出数量）+ 添加 + 发送 */}
+            {/* Bottom toolbar：图2 风格 - 模型 + 设置 Popover（尺寸网格 + 输出数量）+ 添加 + 发送 */}
             <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">
               <div className="flex items-center gap-2">
                 {/* Model Dropdown */}
@@ -545,7 +545,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                     )}
                   >
                     <div className="p-4 space-y-5">
-                      {/* 宽高比 - 网格卡片，选中为浅蓝高亮（Mac 蓝） */}
+                      {/* 尺寸 - 网格卡片，选中为浅蓝高亮（Mac 蓝） */}
                       <div>
                         <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-3">
                           {t('textToImage.aspectRatio')}
@@ -588,7 +588,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                           })}
                         </div>
                       </div>
-                      {/* 质量 - 左右滑块选中动画 */}
+                      {/* 分辨率 - 左右滑块选中动画 */}
                       {qualityOptions.length > 0 && (() => {
                         const qualityIndex = qualityOptions.findIndex((q) => q.id === quality);
                         const n = qualityOptions.length;

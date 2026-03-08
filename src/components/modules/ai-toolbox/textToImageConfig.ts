@@ -14,7 +14,7 @@ export interface SizeOption {
   label: string;
 }
 
-// 质量选项接口（与 SizeOption 结构一致便于复用 UI）
+// 分辨率选项接口（与 SizeOption 结构一致便于复用 UI）
 export interface QualityOption {
   id: string;
   label: string;
@@ -50,7 +50,7 @@ export interface WorkModeConfig {
 export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
   'gemini-3-pro-image-preview-hd': {
     label: 'Nano Banana 2',
-    maxImages: 2,
+    maxImages: 9,
     sizes: [
       { id: '1x1', label: '1x1' },
       { id: '2x3', label: '2x3' },
@@ -162,13 +162,13 @@ export function isValidSizeForModel(model: ImageModel, size: string): boolean {
   return sizes.some(s => s.id === size);
 }
 
-// 获取模型的质量选项（无则返回空数组）
+// 获取模型的分辨率选项（无则返回空数组）
 export function getModelQualityOptions(model: ImageModel): QualityOption[] {
   const config = getModelConfig(model);
   return config.qualities ?? [];
 }
 
-// 获取模型默认质量（无则返回 null）
+// 获取模型默认分辨率（无则返回 null）
 export function getModelDefaultQuality(model: ImageModel): string | null {
   const config = getModelConfig(model);
   return config.defaultQuality ?? null;

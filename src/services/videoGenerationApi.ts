@@ -19,7 +19,7 @@ export type VideoModel = 'OS' | 'GV' | 'Hailuo' | 'Kling' | 'Jimeng' | 'Vidu';
 // 支持的视频时长（秒）
 export type VideoSeconds = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '12';
 
-// 支持的视频尺寸（宽高比）
+// 支持的视频尺寸（尺寸格式）
 export type VideoSize = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '21:9' | '2:3';
 
 // 支持的分辨率

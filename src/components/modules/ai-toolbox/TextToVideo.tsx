@@ -52,7 +52,7 @@ interface TextToVideoProps {
   onNavigate?: (itemId: string) => void;
 }
 
-/** 根据尺寸 id 解析出用于小图标的宽高比（如 "1"、"16/9"） */
+/** 根据尺寸 id 解析出用于小图标的尺寸（如 "1"、"16/9"） */
 function getRatioForIcon(sizeId: string): string {
   const normalized = sizeId.replace(':', 'x').toLowerCase();
   if (/^\d+x\d+$/.test(normalized)) {

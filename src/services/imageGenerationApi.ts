@@ -17,7 +17,7 @@ export type ImageModel = 'gpt-image-1.5' | 'gemini-3-pro-image-preview-hd' | 'do
 // 支持的图片尺寸（标准比例）
 export type ImageSize = '1:1' | '16:9' | '9:16' | '4:3' | '2:3' | '3:2';
 
-// 质量选项：gpt 为 standard/hd；gemini/即梦/可灵 为 1k/2k/4k
+// 分辨率选项：gpt 为 standard/hd；gemini/即梦/可灵 为 1k/2k/4k
 export type ImageQuality = 'standard' | 'hd' | '1k' | '2k' | '4k';
 
 // 风格选项：仅 gpt 为 vivid/natural；gemini/即梦/可灵无此参数
@@ -58,7 +58,7 @@ export interface ImageGenerationRequest {
   image?: string[]; // 参考图 URL 数组
   n?: number; // 生成图片数量，默认 1
   size?: AllImageSize; // 图片尺寸（根据模型不同，支持不同的尺寸格式）
-  quality?: ImageQuality; // 质量：gpt/gemini 传 quality；即梦/可灵 无此参数
+  quality?: ImageQuality; // 分辨率：gpt/gemini 传 quality；即梦/可灵 无此参数
   style?: ImageStyle; // 风格：仅 gpt 为 vivid/natural；gemini/即梦/可灵无
   response_format?: 'url' | 'b64_json'; // 响应格式，默认 url
   // 即梦/可灵专用（不显示在 UI，固定值）
