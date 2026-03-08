@@ -212,7 +212,7 @@ export function isValidResolutionForModel(model: VideoModel, resolution: string)
 }
 
 // 默认模型
-export const DEFAULT_VIDEO_MODEL: VideoModel = 'OS';
+export const DEFAULT_VIDEO_MODEL: VideoModel = 'Kling';
 
 /** 获取模型一起生视频时最多支持的参考图数量，未配置时返回 0 */
 export function getModelMaxImages(model: VideoModel): number {
