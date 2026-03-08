@@ -99,7 +99,7 @@
     "marketInsights": "市场洞察",
     "brandHealth": "品牌健康度诊断",
     "tiktokInsights": "TikTok 洞察报告",
-    "tiktokTrendingVideo": "TikTok 爆款视频报告",
+    "tiktokTrendingVideo": "TikTok 爆款视频",
     "marketingPlanning": "营销策划",
     "campaignPlanner": "营销策划方案",
     "materialGeneration": "素材生成",
@@ -147,7 +147,7 @@
         "description": "TikTok 数据与内容洞察分析"
       },
       "tiktokTrendingVideo": {
-        "title": "TikTok 爆款视频报告",
+        "title": "TikTok 爆款视频",
         "description": "发现品类爆款视频，一键复刻热门内容"
       },
       "campaignPlanner": {
@@ -230,9 +230,9 @@
     "images": "张图片",
     "messages": "条消息",
     "model": "模型",
-    "aspectRatio": "宽高比",
+    "aspectRatio": "尺寸",
     "outputNumber": "输出数量",
-    "quality": "质量",
+    "quality": "分辨率",
     "style": "风格",
     "settings": "设置",
     "workModes": {
@@ -598,6 +598,13 @@
     "backToRegenerate": "返回重新生成",
     "exportImage": "导出图片",
     "exportPdf": "导出 PDF",
+    "downloadPdfFilename": "品牌健康度分析报告.pdf",
+    "downloadPdfSuccess": "PDF 已下载",
+    "downloadPdfFailed": "PDF 下载失败",
+    "downloadReport": "下载报告",
+    "downloadHtmlFilename": "品牌健康度分析报告.html",
+    "downloadReportSuccess": "报告已下载",
+    "downloadReportFailed": "报告下载失败",
     "reportTitleSuffix": "品牌健康度报告",
     "generatedTime": "生成时间：2024年1月16日",
     "executiveSummary": "执行摘要",
@@ -691,7 +698,7 @@
     "removeTag": "移除"
   },
   "tiktokTrendingVideo": {
-    "title": "TikTok 爆款视频报告",
+    "title": "TikTok 爆款视频",
     "titleTag": "爆款视频",
     "subtitle": "TIKTOK TRENDING VIDEO REPORT",
     "category": "品类",

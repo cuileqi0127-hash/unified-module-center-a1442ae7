@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, Users, Sparkles, ChevronLeft, X } from 'lucide-react';
+import { TrendingUp, Users, Sparkles, ChevronLeft, X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +43,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
   const [reportTaskId, setReportTaskId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [removingCompetitorIndex, setRemovingCompetitorIndex] = useState<number | null>(null);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   const { reportUrl, isPolling, error } = useReportPolling(reportTaskId, view === 'report');
 
@@ -95,6 +96,33 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
       setIsLoading(false);
     }
   };
+
+  const handleDownloadReport = useCallback(async () => {
+    if (!reportUrl) {
+      toast.error(t('brandHealth.loadingReport'));
+      return;
+    }
+    setIsDownloadingReport(true);
+    try {
+      const res = await fetch(reportUrl, { mode: 'cors' });
+      if (!res.ok) throw new Error(res.statusText);
+      const html = await res.text();
+      const filename = t('brandHealth.downloadHtmlFilename');
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(t('brandHealth.downloadReportSuccess'));
+    } catch (e) {
+      console.error('Download report failed:', e);
+      toast.error(t('brandHealth.downloadReportFailed'));
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  }, [t, reportUrl]);
 
   const historyLabels = {
     title: t('brandHealth.historyRecords'),
@@ -296,6 +324,16 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
             labels={historyLabels}
             onLoadError={(msg) => toast.error(msg)}
           />
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl gap-2"
+            disabled={isDownloadingReport || isPolling}
+            onClick={handleDownloadReport}
+          >
+            <Download className="w-4 h-4" />
+            {t('brandHealth.downloadReport')}
+          </Button>
           <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setView('input')}>
             <ChevronLeft className="w-4 h-4" />
             {t('brandHealth.backToRegenerate')}

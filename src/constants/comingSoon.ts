@@ -8,7 +8,7 @@ export const COMING_SOON_ITEMS: readonly string[] = [
   // 'tiktok-trending-video',
 
   'campaign-planner',
-  // 'reference-to-video',
+  'reference-to-video',
 
   // 'text-to-image',
   'ecommerce-assets',

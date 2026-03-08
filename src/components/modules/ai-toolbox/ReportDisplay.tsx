@@ -6,6 +6,8 @@ interface ReportDisplayProps {
   reportTitle: string;
   generatingLabel?: string;
   generatingHint?: string;
+  /** 报告 iframe 挂载后回调，用于父组件获取 iframe 引用（如导出 PDF） */
+  onIframeRef?: (iframe: HTMLIFrameElement | null) => void;
 }
 
 /** 注入到报告 HTML 的兜底脚本：当报告内引用 lucide/tailwind 等 CDN 加载失败时避免报错导致白屏 */
@@ -21,10 +23,20 @@ export function ReportDisplay({
   reportTitle,
   generatingLabel = '生成中...',
   generatingHint = '正在生成报告，请稍候…',
+  onIframeRef,
 }: ReportDisplayProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [reportHtml, setReportHtml] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState(false);
+
+  useEffect(() => {
+    if (!reportHtml) {
+      onIframeRef?.(null);
+      return;
+    }
+    const timer = setTimeout(() => onIframeRef?.(iframeRef.current ?? null), 150);
+    return () => clearTimeout(timer);
+  }, [reportHtml, onIframeRef]);
 
   useEffect(() => {
     if (!reportUrl) return;

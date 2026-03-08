@@ -29,6 +29,20 @@ export interface VideoModelConfig {
 
 // 模型配置映射（与产品规格表一致：可灵 2.6 / Google veo 3.1 / SORA 2.0 / Vidu q2-turubo / 海螺 2.3 / 即梦 3.0pro）
 export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'>> = {
+  // 可灵 2.6：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9/2:3，5(默认)/10s，支持高清，支持 4 张参考图
+  Kling: {
+    label: '可灵',
+    maxImages: 4,
+    seconds: ['5', '10'],
+    sizes: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '2:3'],
+    defaultSeconds: '5',
+    defaultSize: '16:9',
+    resolutions: ['720P', '1080P'],
+    defaultResolution: '720P',
+    defaultModelVersion: '2.6',
+    supportsEnhanceSwitch: true,
+    isSound: true,
+  },
   // SORA 2.0：768P(默认)/1080P，16:9(默认)/9:16，4/8(默认)/12s，支持高清
   OS: {
     label: 'Sora',
@@ -54,20 +68,6 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     resolutions: ['720P', '1080P'],
     defaultResolution: '720P',
     defaultModelVersion: '3.1',
-    supportsEnhanceSwitch: true,
-    isSound: true,
-  },
-  // 可灵 2.6：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9/2:3，5(默认)/10s，支持高清，支持 4 张参考图
-  Kling: {
-    label: '可灵',
-    maxImages: 4,
-    seconds: ['5', '10'],
-    sizes: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '2:3'],
-    defaultSeconds: '5',
-    defaultSize: '16:9',
-    resolutions: ['720P', '1080P'],
-    defaultResolution: '720P',
-    defaultModelVersion: '2.6',
     supportsEnhanceSwitch: true,
     isSound: true,
   },
