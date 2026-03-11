@@ -1845,7 +1845,7 @@ export function useTextToImage() {
       );
         batchRects.push({ x: position.x, y: position.y, width: defaultWidth, height: defaultHeight });
         // let model_async: string | null = null
-        // if(model === 'gemini-3-pro-image-preview-hd') {
+        // if(model === 'gemini-3-pro-image-preview-4k-vip') {
         //   if(quality === '1k') {
         //     model_async = `gemini-3-pro-image-preview-async`
         //   } else {
