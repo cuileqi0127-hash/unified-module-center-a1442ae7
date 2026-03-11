@@ -3,20 +3,10 @@
  * 供 DynamicSidebar、AppPlaza 等使用，保证侧边栏与应用广场的 Coming Soon 状态一致
  */
 export const COMING_SOON_ITEMS: readonly string[] = [
-  // 'brand-health',
-  'tiktok-insights',
-  // 'tiktok-trending-video',
-
-  'campaign-planner',
-  'reference-to-video',
-
-  // 'text-to-image',
+  // 'reference-to-video',
   'ecommerce-assets',
   'reference-to-image',
-
-  // 'text-to-video',
-
-  'digital-human',
+  // 'tiktok-viral-video-matching',
 ];
 
 export function isComingSoon(id: string): boolean {

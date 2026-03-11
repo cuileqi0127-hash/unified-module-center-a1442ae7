@@ -1,21 +1,26 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { 
+import {
   Video,
   Image as ImageIcon,
   FileText,
   Sparkles,
-  Copy, 
+  Copy,
   Download,
   X,
-  Clock,
-  Upload,
-  ListOrdered,
-  Settings,
-  FolderOpen,
+  ArrowLeft,
+  ArrowUp,
+  Plus,
+  Play,
+  Database,
+  History,
+  Maximize2,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -35,14 +40,6 @@ interface UploadedFile {
 
 type ViewState = 'upload' | 'analyzing' | 'prompt' | 'image-upload' | 'generating' | 'result';
 
-const cardGlass = cn(
-  'rounded-2xl border-0 overflow-hidden',
-  'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl',
-  'shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.04),0_12px_24px_rgba(0,0,0,0.06)]',
-  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]',
-  'transition-all duration-200 ease-out hover:shadow-lg hover:-translate-y-0.5'
-);
-
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +58,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isImageDragOver, setIsImageDragOver] = useState(false);
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
   const [dynamicsLevel, setDynamicsLevel] = useState(0.6);
   const [resolution, setResolution] = useState<'720p' | '1080p' | '2k'>('1080p');
   const [ratio, setRatio] = useState<'16:9' | '9:16'>('16:9');
@@ -269,318 +267,286 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     setGenerationError(null);
   }, []);
 
-  const renderUploadZone = (
-    type: 'video' | 'image',
-    step: number,
-    stepLabel: string,
-    title: string,
-    hint: string,
-    formatHint: string,
-    hasFile: boolean,
-    filePreview: UploadedFile | null,
-    isUploading: boolean,
-    isDrag: boolean,
-    onDragOver: (e: React.DragEvent) => void,
-    onDragLeave: (e: React.DragEvent) => void,
-    onDrop: (e: React.DragEvent) => void,
-    onSelect: () => void,
-    onClear: () => void,
-    onReversePrompt?: () => void,
-    isReversePromptLoading?: boolean
-  ) => (
-    <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0')}>
-      <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-1 shrink-0">
-        STEP {step}: {stepLabel}
-      </p>
-      {!hasFile ? (
-        <div
-          className={cn(
-            'rounded-xl border-2 border-dashed flex-1 min-h-[140px] flex flex-col items-center justify-center gap-3 p-6 cursor-pointer transition-colors',
-            isDrag ? 'border-primary bg-primary/5' : 'border-border/80 hover:border-primary/40 hover:bg-muted/30'
-          )}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          onClick={() => !isUploading && (type === 'video' ? fileInputRef.current?.click() : imageInputRef.current?.click())}
+  const canSend =
+    (!!originalVideo && !!referenceImage && sellingPoints.trim().length > 0) ||
+    (!!originalVideo && !sellingPoints.trim()); // can analyze when video only
+  const isPrimaryAnalyze = !!originalVideo && !sellingPoints.trim();
+  const isPrimaryReplicate = !!sellingPoints.trim() && !!imageFileId;
+
+  const historySheet = (
+    <Sheet>
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted/40"
         >
-          {isUploading ? (
-            <LoadingSpinner size="lg" className="w-10 h-10 text-primary" />
-          ) : type === 'video' ? (
-            <Video className="w-12 h-12 text-muted-foreground/70 shrink-0" />
-          ) : (
-            <ImageIcon className="w-12 h-12 text-muted-foreground/70 shrink-0" />
-          )}
-          <span className="font-medium text-sm text-foreground">{title}</span>
-          <span className="text-xs text-muted-foreground text-center">{hint}</span>
-          <span className="text-[11px] text-muted-foreground/80">{formatHint}</span>
-          <Button variant="outline" size="sm" className="rounded-lg shrink-0" onClick={(e) => { e.stopPropagation(); onSelect(); }} disabled={isUploading}>
-            {type === 'video' ? t('videoReplication.selectVideo') : t('videoReplication.selectImage')}
-          </Button>
+          <History className="w-3.5 h-3.5" />
+          <span>历史记录</span>
+        </button>
+      </SheetTrigger>
+      <SheetContent className="w-80 sm:w-96">
+        <SheetHeader>
+          <SheetTitle className="text-base font-medium">历史记录</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4">
+          <p className="text-sm text-muted-foreground text-center py-8">暂无历史记录</p>
         </div>
-      ) : filePreview && (
-        <div className="relative rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04] overflow-hidden flex-1 flex flex-col min-h-0">
-          <div className="flex-1 min-h-0 flex items-center justify-center bg-black/5">
-            {type === 'video' ? (
-              <video src={filePreview.url} className="w-full h-full object-contain bg-black" controls />
-            ) : (
-              <img src={filePreview.url} alt="" className="max-w-full max-h-full object-contain" />
-            )}
-          </div>
-          <div className="absolute top-0 w-full flex items-center justify-between p-2">
-            {/* <span className="text-sm font-medium truncate">{filePreview.name}</span> */}
-            <div></div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full opacity-50 bg-[#fff] transition duration-300 ease-in-out hover:opacity-100" onClick={onClear}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-          {type === 'video' && onReversePrompt && (
-            <div className="absolute bottom-0 w-full p-[15px_20px] bg-white/10 backdrop-blur-[10px] rounded-xl">
-              <Button
-                className="w-full rounded-xl gap-2 bg-primary hover:bg-primary/90"
-                disabled={isReversePromptLoading}
-                onClick={(e) => { e.stopPropagation(); onReversePrompt(); }}
-              >
-                {isReversePromptLoading ? <LoadingSpinner size="sm" className="h-4 w-4" /> : <Sparkles className="w-4 h-4" />}
-                {t('videoReplication.reversePrompt')}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 
   if (viewState === 'result' && generatedVideo) {
     return (
-      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 opacity-0 animate-page-enter">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            <Video className="w-6 h-6 text-primary" />
-            <h1 className="text-xl font-semibold">{t('videoReplication.title')}</h1>
-            <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">SMART CLONE</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={handleBackToStart}>
-              {t('videoReplication.createAnother')}
-            </Button>
-            <Button size="sm" className="rounded-xl gap-2 bg-primary hover:bg-primary/90" onClick={handleDownload}>
-              <Upload className="w-4 h-4" />
-              {t('videoReplication.exportWork')}
-            </Button>
-          </div>
-        </header>
-        <div className="flex-1 p-6 overflow-auto">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t('videoReplication.generatedVideo')}</h2>
-            <div className={cn(cardGlass, 'overflow-hidden')}>
-              <video src={generatedVideo} className="w-full aspect-video bg-black" controls autoPlay muted />
-            </div>
-                </div>
+      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-background">
+        <div className="shrink-0 px-6 py-3 border-b border-border/20 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleBackToStart}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            返回
+          </button>
         </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-6 py-8 space-y-5">
+            <div className="rounded-xl border border-border/30 bg-card/60 p-4 space-y-3 animate-fade-in">
+                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-foreground/70">
+                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/80 flex items-center justify-center text-[10px] text-white">✓</span>
+                  <span>复刻视频已完成</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownload}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                  >
+                    <Download className="w-3 h-3" />
+                    下载
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVideoDialogOpen(true)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                    放大
+                  </button>
+                </div>
+              </div>
+              <div
+                className="relative rounded-lg overflow-hidden bg-muted/20 cursor-pointer"
+                onClick={() => setVideoDialogOpen(true)}
+              >
+                <video
+                  src={generatedVideo}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="w-full max-h-[400px] object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <Dialog open={videoDialogOpen} onOpenChange={setVideoDialogOpen}>
+          <DialogContent className="max-w-4xl p-2 bg-background/95 backdrop-blur-sm">
+            <DialogTitle className="sr-only">复刻视频预览</DialogTitle>
+            {generatedVideo && (
+              <video src={generatedVideo} autoPlay controls playsInline className="w-full rounded-lg" />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden opacity-0 animate-page-enter">
+    <div className="relative h-full">
       <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
 
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">{t('videoReplication.title')}</h1>
-            <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">SMART CLONE</span>
+      <div className="absolute top-4 right-4 z-20">{historySheet}</div>
+
+      <div className="flex flex-col items-center justify-center p-6 md:p-8 py-[80px]">
+        <div className="w-full max-w-2xl animate-fade-in mt-[80px]">
+          <div className="text-center mb-10">
+            <h1 className="text-2xl md:text-3xl font-normal tracking-tight text-[#3d3d3d]">复刻视频</h1>
+            <p className="mt-2 text-sm text-muted-foreground">上传对标视频，输入卖点，AI 生成复刻 Prompt</p>
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">VIDEO ANALYSIS & SYNTHESIS STUDIO</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="rounded-xl gap-2 text-muted-foreground" disabled>
-            <Clock className="w-4 h-4" />
-            {t('videoReplication.historyVersion')}
-                          </Button>
-        </div>
-      </header>
 
-      <div className="flex-1 w-[1000px] mx-auto min-h-0 flex flex-col p-4 md:p-6 gap-4 overflow-hidden">
-        <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
-            {renderUploadZone(
-              'video',
-              1,
-              t('videoReplication.step1Label'),
-              t('videoReplication.uploadVideoSection'),
-              t('videoReplication.uploadVideoHint'),
-              t('videoReplication.formats.video'),
-              !!originalVideo,
-              originalVideo,
-              isVideoUploading,
-              isDragOver,
-              (e) => { e.preventDefault(); setIsDragOver(true); },
-              (e) => { e.preventDefault(); setIsDragOver(false); },
-              handleVideoDrop,
-              () => fileInputRef.current?.click(),
-              () => setOriginalVideo(null),
-              handleAnalyzeVideo,
-              isGenerating
-            )}
-            {renderUploadZone(
-              'image',
-              2,
-              t('videoReplication.step2Label'),
-              t('videoReplication.referenceImageSection'),
-              t('videoReplication.referenceImageHint'),
-              t('videoReplication.formats.image'),
-              !!referenceImage,
-              referenceImage,
-              isImageUploading,
-              isImageDragOver,
-              (e) => { e.preventDefault(); setIsImageDragOver(true); },
-              (e) => { e.preventDefault(); setIsImageDragOver(false); },
-              handleImageDrop,
-              () => imageInputRef.current?.click(),
-              () => { setReferenceImage(null); setImageFileId(''); }
-            )}
-
-            <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0 hidden')}>
-              <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mb-4 shrink-0">{t('videoReplication.dynamicsLabel')}</p>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-muted-foreground">STILL</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={dynamicsLevel}
-                  onChange={(e) => setDynamicsLevel(Number(e.target.value))}
-                  className="flex-1 h-2 rounded-full appearance-none bg-muted accent-primary"
-                />
-                <span className="text-xs text-muted-foreground">HIGH MOTION</span>
-              </div>
-              <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mt-5 mb-3">{t('videoReplication.resolutionLabel')}</p>
-              <div className="flex gap-2">
-                {(['720p', '1080p', '2k'] as const).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setResolution(r)}
-                    className={cn(
-                      'flex-1 py-2 rounded-xl text-xs font-medium transition-colors',
-                      resolution === r ? 'bg-primary/10 text-primary ring-1 ring-primary/20' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                    )}
-                  >
-                    {r === '2k' ? '2K HDR' : r}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase mt-5 mb-3">{t('videoReplication.ratioLabel')}</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRatio('16:9')}
-                  className={cn(
-                    'flex-1 py-2.5 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5',
-                    ratio === '16:9' ? 'bg-primary/10 text-primary ring-1 ring-primary/20' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  )}
-                >
-                  <span className="inline-block w-6 h-3.5 border border-current rounded-sm" /> 16:9
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRatio('9:16')}
-                  className={cn(
-                    'flex-1 py-2.5 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5',
-                    ratio === '9:16' ? 'bg-primary/10 text-primary ring-1 ring-primary/20' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  )}
-                >
-                  <span className="inline-block w-3.5 h-6 border border-current rounded-sm" /> 9:16
-                </button>
-              </div>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
-            <div className="col-span-2 h-full min-h-0 flex flex-col">
-              <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0')}>
-                <div className="flex items-center gap-2 mb-3 shrink-0">
-                  <ListOrdered className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-semibold tracking-wider text-primary uppercase">{t('videoReplication.aiPromptLabel')}</span>
-              </div>
-              <Textarea
-                value={sellingPoints}
-                onChange={(e) => setSellingPoints(e.target.value)}
-                    placeholder={t('videoReplication.sellingPointsPlaceholder')}
-                  className="flex-1 min-h-[100px] rounded-xl border-border/80 bg-black/[0.02] dark:bg-white/[0.04] resize-none text-sm"
-              />
-                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground shrink-0">
-                  <FileText className="w-3.5 h-3.5 shrink-0" />
-                  {t('videoReplication.centerTip')}
-                </div>
-                <div className="flex items-center justify-between mt-4 shrink-0">
-                  <Button variant="ghost" size="sm" className="rounded-lg gap-1.5" onClick={handleCopyPrompt} disabled={!sellingPoints.trim()}>
-                    <Copy className="w-4 h-4" />
-                    {t('videoReplication.copy')}
-              </Button>
-                  {!sellingPoints.trim() && originalVideo ? (
-            <Button 
-                      className="rounded-xl gap-2 bg-primary hover:bg-primary/90"
-                      disabled={isGenerating}
-                      onClick={handleAnalyzeVideo}
-                    >
-                      {isGenerating ? <LoadingSpinner size="sm" className="h-4 w-4" /> : <Sparkles className="w-4 h-4" />}
-                      {t('videoReplication.generatePrompt')}
-                        </Button>
+          <div className="relative rounded-2xl border border-border/30 bg-card/80 backdrop-blur-sm shadow-sm transition-shadow hover:shadow-md">
+            <div className="p-5">
+              <div className="flex gap-4">
+                <div className="shrink-0">
+                  {originalVideo ? (
+                    <div className="relative w-[120px] h-[120px] rounded-xl overflow-hidden border border-border/40 bg-muted/30 group">
+                      <video src={originalVideo.url} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Play className="w-6 h-6 text-white" />
+                      </div>
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 p-0.5 rounded-full bg-background/80 hover:bg-background transition-colors"
+                        onClick={() => setOriginalVideo(null)}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1.5 py-0.5 text-[10px] text-white truncate">
+                        {originalVideo.name}
+                      </div>
+                    </div>
                   ) : (
-                      <Button 
-                      className="rounded-xl gap-2 bg-primary hover:bg-primary/90"
-                      disabled={!sellingPoints.trim() || !imageFileId || isReplicating}
-                      onClick={handleStartReplication}
+                    <div
+                      className={cn(
+                        'w-[120px] h-[100px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-1.5 transition-colors border-border/40 hover:border-foreground/20 hover:bg-muted/20 cursor-pointer',
+                        isDragOver && 'border-primary bg-primary/5'
+                      )}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
+                      onDrop={handleVideoDrop}
+                      onClick={() => !isVideoUploading && fileInputRef.current?.click()}
                     >
-                      {isReplicating ? <LoadingSpinner size="sm" className="h-4 w-4" /> : <Sparkles className="w-4 h-4" />}
-                      {t('videoReplication.startReplication')}
-            </Button>
-                )}
+                      {isVideoUploading ? (
+                        <LoadingSpinner className="w-5 h-5 text-primary" />
+                      ) : (
+                        <>
+                          <Plus className="w-5 h-5 text-muted-foreground/60" />
+                          <span className="text-[11px] text-muted-foreground/60 leading-tight text-center px-1">上传对标视频</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
+
+                <div className="shrink-0">
+                  {referenceImage ? (
+                    <div className="relative w-[120px] h-[120px] rounded-xl overflow-hidden border border-border/40 bg-white group">
+                      <img src={referenceImage.url} alt="" className="w-full h-full object-contain" />
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 p-0.5 rounded-full bg-background/80 hover:bg-background transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={() => { setReferenceImage(null); setImageFileId(''); }}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className={cn(
+                        'w-[120px] h-[100px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-1.5 transition-colors border-border/40 hover:border-foreground/20 hover:bg-muted/20 cursor-pointer',
+                        isImageDragOver && 'border-primary bg-primary/5'
+                      )}
+                      onDragOver={(e) => { e.preventDefault(); setIsImageDragOver(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setIsImageDragOver(false); }}
+                      onDrop={handleImageDrop}
+                      onClick={() => !isImageUploading && imageInputRef.current?.click()}
+                    >
+                      {isImageUploading ? (
+                        <LoadingSpinner className="w-5 h-5 text-primary" />
+                      ) : (
+                        <>
+                          <ImageIcon className="w-5 h-5 text-muted-foreground/60" />
+                          <span className="text-[11px] text-muted-foreground/60 leading-tight text-center px-1">上传商品白底图</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-            <div className={cn(cardGlass, 'p-5 h-full flex flex-col min-h-0 hidden')}>
-              <div className="flex items-center gap-2 mb-3 shrink-0">
-                <span className="text-xs font-semibold tracking-wider text-primary uppercase">{t('videoReplication.proTipLabel')}</span>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed flex-1 min-h-0 overflow-auto">{t('videoReplication.proTipContent')}</p>
-              <Button variant="outline" size="sm" className="mt-4 rounded-xl gap-2 w-full shrink-0" disabled>
-                <Settings className="w-4 h-4" />
-                {t('videoReplication.advancedCamera')}
-                </Button>
+
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5">产品卖点 / 描述</label>
+                  <Textarea
+                    value={sellingPoints}
+                    onChange={(e) => setSellingPoints(e.target.value)}
+                    placeholder={t('videoReplication.sellingPointsPlaceholder')}
+                    className="min-h-[80px] rounded-lg border border-border/30 bg-muted/10 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20 resize-y"
+                  />
+                  <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
+                    <FileText className="w-3 h-3 shrink-0" />
+                    {t('videoReplication.centerTip')}
                   </div>
                 </div>
+              </div>
+            </div>
 
-          {generationError && (
-          <div className={cn(cardGlass, 'p-4 border-destructive/20 bg-destructive/5 shrink-0')}>
-            <p className="text-sm font-medium text-destructive mb-2">{t('videoReplication.error')}</p>
-            <p className="text-xs text-muted-foreground mb-3">{generationError}</p>
-              <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setViewState('image-upload')}>{t('videoReplication.retry')}</Button>
-              <Button variant="ghost" size="sm" onClick={handleBackToStart}>{t('videoReplication.startOver')}</Button>
+            <div className="flex items-center justify-between px-5 py-3 border-t border-border/20">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => toast.info(t('videoReplication.memoryComingSoon', { defaultValue: '记忆库功能敬请期待' }))}
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  记忆库
+                </Button>
+                {sellingPoints.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleCopyPrompt}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" />
+                    复制
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isPrimaryAnalyze) handleAnalyzeVideo();
+                    else if (isPrimaryReplicate) handleStartReplication();
+                  }}
+                  disabled={
+                    (isPrimaryAnalyze && isGenerating) ||
+                    (isPrimaryReplicate && isReplicating) ||
+                    (!isPrimaryAnalyze && !isPrimaryReplicate)
+                  }
+                  className={cn(
+                    'w-9 h-9 rounded-full flex items-center justify-center transition-all',
+                    (isPrimaryAnalyze || isPrimaryReplicate) && !(isGenerating || isReplicating)
+                      ? 'bg-foreground text-background hover:bg-foreground/90'
+                      : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed'
+                  )}
+                >
+                  {(isGenerating || isReplicating) ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="flex items-center justify-between py-2 shrink-0">
-          <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{t('videoReplication.assetsVault')}</span>
-          <Button variant="ghost" size="sm" className="rounded-xl gap-2 text-muted-foreground" disabled>
-            <FolderOpen className="w-4 h-4" />
-            {t('videoReplication.assetsVaultHint')}
-          </Button>
-      </div>
+          {generationError && (
+            <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-2 animate-fade-in">
+              <p className="text-sm font-medium text-destructive">{generationError}</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setGenerationError(null); setViewState('image-upload'); }}>
+                  {t('videoReplication.retry')}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleBackToStart}>{t('videoReplication.startOver')}</Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {(viewState === 'analyzing' || viewState === 'generating') && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="text-center">
-            <LoadingSpinner size="lg" className="w-14 h-14 text-primary mx-auto mb-4" />
-            <p className="font-medium text-foreground">{viewState === 'analyzing' ? t('videoReplication.analyzingVideo') : t('videoReplication.generatingVideo')}</p>
-            <p className="text-sm text-muted-foreground mt-1">{viewState === 'analyzing' ? t('videoReplication.analyzingVideoHint') : t('videoReplication.generatingVideoHint')}</p>
+          <div className="flex flex-col items-center gap-4 max-w-md text-center">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <p className="font-medium text-foreground">
+              {viewState === 'analyzing' ? '正在分析视频并生成描述...' : '正在为您复刻视频...'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {viewState === 'analyzing' ? t('videoReplication.analyzingVideoHint') : t('videoReplication.generatingVideoHint')}
+            </p>
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { OAuthProvider } from "@/contexts/OAuthContext";
+import { ReplicatePrefillProvider } from "@/contexts/ReplicatePrefillContext";
 import { AppRoutes } from "@/routes";
 import NotFound from "./pages/NotFound";
 
@@ -13,6 +14,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <OAuthProvider>
+        <ReplicatePrefillProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
@@ -22,6 +24,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+        </ReplicatePrefillProvider>
       </OAuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

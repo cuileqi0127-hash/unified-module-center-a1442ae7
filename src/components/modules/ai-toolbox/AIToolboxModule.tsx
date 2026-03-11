@@ -6,6 +6,7 @@ import { BrandHealth } from './BrandHealth';
 import { TikTokInsights } from './TikTokInsights';
 import { TikTokTrendingVideo } from './TikTokTrendingVideo';
 import { VideoReplication } from './VideoReplication';
+import { CampaignPlanner } from './CampaignPlanner';
 
 interface AIToolboxModuleProps {
   activeItem: string;
@@ -25,22 +26,32 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
     // Home
     case 'app-plaza':
       return <AppPlaza onNavigate={onNavigate} />;
-    
-    // Market Insights
+
+    // 市场洞察（与 brand-health 一比一相同）
+    case 'market-insights':
+      return <BrandHealth onNavigate={onNavigate} />;
+
+    // 策划方案（单页入口）
+    case 'planning-solutions':
+      return <CampaignPlanner />;
+
+    // Market Insights (legacy / from App Plaza)
     case 'brand-health':
       return <BrandHealth onNavigate={onNavigate} />;
     case 'tiktok-insights':
       return <TikTokInsights onNavigate={onNavigate} />;
     case 'tiktok-trending-video':
       return <TikTokTrendingVideo onNavigate={onNavigate} />;
+    case 'tiktok-viral-video-matching':
+      return <TikTokTrendingVideo onNavigate={onNavigate} />;
     case 'trend-analysis':
       return <PlaceholderPage title={t('placeholder.trendAnalysis')} description={t('placeholder.trendAnalysisDesc')} />;
     case 'competitor-monitor':
       return <PlaceholderPage title={t('placeholder.competitorMonitor')} description={t('placeholder.competitorMonitorDesc')} />;
     
-    // Marketing Planning
+    // Marketing Planning - 策划方案
     case 'campaign-planner':
-      return <PlaceholderPage title={t('placeholder.campaignPlanner')} description={t('placeholder.campaignPlannerDesc')} />;
+      return <CampaignPlanner />;
     case 'copywriting-assistant':
       return <PlaceholderPage title={t('placeholder.copywritingAssistant')} description={t('placeholder.copywritingAssistantDesc')} />;
     
@@ -57,7 +68,9 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
       return <TextToVideo onNavigate={onNavigate} />;
     case 'reference-to-video':
       return <VideoReplication onNavigate={onNavigate} />;
-    
+    case 'replicate-video':
+      return <VideoReplication onNavigate={onNavigate} />;
+
     // Digital Human
     case 'digital-human':
       return <PlaceholderPage title={t('placeholder.digitalHuman')} description={t('placeholder.digitalHumanDesc')} />;

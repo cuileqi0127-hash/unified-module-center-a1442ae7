@@ -1,26 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, Users, Sparkles, ChevronLeft, X, Download } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Database, History, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { submitBrandHealthTask } from '@/services/reportApi';
 import { useReportPolling } from '@/hooks/useReportPolling';
 import { categoryTreeZh, categoryTreeEn, type CategoryTree } from '@/data/tiktok-categories';
-import { CategoryCascader } from './CategoryCascader';
+import { MarketInsightComposer } from './MarketInsightComposer';
 import { ReportDisplay, ReportPollingOverlay } from './ReportDisplay';
 import { ReportHistorySheet } from './ReportHistorySheet';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-
-const cardGlass = cn(
-  'rounded-2xl border-0 overflow-hidden',
-  'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl',
-  'shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.04),0_12px_24px_rgba(0,0,0,0.06)]',
-  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]',
-  'transition-all duration-200 ease-out hover:shadow-lg hover:-translate-y-0.5'
-);
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface BrandHealthProps {
   onNavigate?: (itemId: string) => void;
@@ -31,33 +20,19 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
   const isZh = i18n.language === 'zh' || i18n.language.startsWith('zh-');
   const categoryTree: CategoryTree = isZh ? categoryTreeZh : categoryTreeEn;
 
-  const [view, setView] = useState<'input' | 'report'>('input');
+  const [view, setView] = useState<'input' | 'loading' | 'report'>('input');
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     brandName: '',
-    categoryLevel3: '',
+    category: '',
     competitors: [] as string[],
   });
-  const [competitorInput, setCompetitorInput] = useState('');
-  const competitorInputRef = useRef<HTMLInputElement>(null);
   const [reportTaskId, setReportTaskId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [removingCompetitorIndex, setRemovingCompetitorIndex] = useState<number | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   const { reportUrl, isPolling, error } = useReportPolling(reportTaskId, view === 'report');
-
-  useEffect(() => {
-    if (removingCompetitorIndex === null) return;
-    const timer = setTimeout(() => {
-      setFormData((prev) => ({
-        ...prev,
-        competitors: prev.competitors.filter((_, j) => j !== removingCompetitorIndex),
-      }));
-      setRemovingCompetitorIndex(null);
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [removingCompetitorIndex]);
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -74,28 +49,40 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
     }
   }, [error]);
 
-  const handleGenerate = async () => {
-    const competitorsList = formData.competitors.filter((s) => s.trim()).map((s) => s.trim());
-    if (!formData.brandName.trim() || !formData.categoryLevel3.trim() || competitorsList.length === 0) return;
-    setIsLoading(true);
-    try {
-      const res = await submitBrandHealthTask({
-        brandName: formData.brandName.trim(),
-        category: formData.categoryLevel3.trim(),
-        competitors: competitorsList,
-      });
-      if (res?.success && res?.data) {
-        setReportTaskId(String(res.data.taskId ?? ''));
-        setView('report');
-      } else {
-        toast.error(res?.msg ?? t('brandHealth.submitFailed'));
+  const handleGenerate = useCallback(
+    async (payload: { brandName: string; category: string; competitors: string[] }) => {
+      setFormData(payload);
+      setView('loading');
+      setIsLoading(true);
+      try {
+        const res = await submitBrandHealthTask({
+          brandName: payload.brandName.trim(),
+          category: payload.category.trim(),
+          competitors: payload.competitors,
+        });
+        if (res?.success && res?.data) {
+          setReportTaskId(String(res.data.taskId ?? ''));
+          setView('report');
+        } else {
+          toast.error(res?.msg ?? t('brandHealth.submitFailed'));
+          setView('input');
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : t('brandHealth.submitFailed'));
+        setView('input');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('brandHealth.submitFailed'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [t]
+  );
+
+  const handleBack = useCallback(() => {
+    setFormData({ brandName: '', category: '', competitors: [] });
+    setReportTaskId(null);
+    setHistoryKey((k) => k + 1);
+    setView('input');
+  }, []);
 
   const handleDownloadReport = useCallback(async () => {
     if (!reportUrl) {
@@ -124,6 +111,10 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
     }
   }, [t, reportUrl]);
 
+  const handleCopyToMemory = useCallback(() => {
+    toast.info(isZh ? '复制到记忆库功能敬请期待' : 'Copy to Memory coming soon');
+  }, [isZh]);
+
   const historyLabels = {
     title: t('brandHealth.historyRecords'),
     triggerButton: t('brandHealth.historyRecords'),
@@ -138,180 +129,28 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
     statusQueued: t('brandHealth.statusQueued'),
   };
 
-  if (view === 'input') {
+  // Loading View - 与 toolbox 一致
+  if (view === 'loading') {
     return (
-      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden opacity-0 animate-page-enter">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
-          <div>
-            <div className="flex items-center gap-3">
-              <TrendingUp className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-semibold text-foreground">{t('brandHealth.title')}</h1>
-              <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
-                {t('brandHealth.titleTag')}
-              </span>
-            </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
-          </div>
-          <ReportHistorySheet
-            open={historyOpen}
-            onOpenChange={setHistoryOpen}
-            reportType="brand_health"
-            onSelectTask={(taskId) => {
-              setReportTaskId(taskId);
-              setView('report');
-              setHistoryOpen(false);
-            }}
-            labels={historyLabels}
-            onLoadError={(msg) => toast.error(msg)}
-          />
-        </header>
-
-        <div className="flex-1 overflow-auto flex flex-col items-center justify-center p-6 md:p-10">
-          <div className="w-full max-w-[500px]">
-            <div className={cn(cardGlass, 'p-6 md:p-8')}>
-              <div className="space-y-5">
-              <div className="space-y-2">
-                  <Label
-                    htmlFor="brandName"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
-                  >
-                    {t('brandHealth.brandName')} <span className="text-destructive/90">*</span>
-                </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none">
-                      <TrendingUp className="w-4 h-4" />
-                    </span>
-                <Input
-                  id="brandName"
-                  placeholder={t('brandHealth.brandNamePlaceholder')}
-                  value={formData.brandName}
-                  onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
-                      className={cn(
-                        'h-11 pl-10 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04]',
-                        'placeholder:text-muted-foreground/60',
-                        'focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary/30',
-                        'transition-colors duration-200'
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="category"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
-                  >
-                    {t('brandHealth.category')} <span className="text-destructive/90">*</span>
-                  </Label>
-                  <CategoryCascader
-                    tree={categoryTree}
-                    value={formData.categoryLevel3}
-                    onChange={(v) => setFormData({ ...formData, categoryLevel3: v })}
-                    placeholder={t('tiktokInsights.categoryPlaceholderSelect')}
-                    searchPlaceholder={t('brandHealth.categorySearchPlaceholder')}
-                    searchEmptyText={t('brandHealth.categorySearchEmpty')}
-                    triggerClassName="border-border/80 bg-black/[0.02] dark:bg-white/[0.04] focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
-                  />
-                </div>
-
-              <div className="space-y-2">
-                  <Label
-                    htmlFor="competitors"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
-                  >
-                  {t('brandHealth.competitors')} <span className="text-destructive/90">*</span>
-                </Label>
-                  <div
-                    className={cn(
-                      'min-h-11 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 flex flex-wrap items-center gap-2',
-                      'focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-colors duration-200',
-                    )}
-                  >
-                    <span className="text-muted-foreground/60 shrink-0">
-                      <Users className="w-4 h-4" />
-                    </span>
-                    {formData.competitors.map((tag, i) => (
-                      <span
-                        key={`${tag}-${i}`}
-                        className={cn(
-                          'inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-md bg-[#333] text-sm text-[#fff]',
-                          'animate-tag-in transition-all duration-200 ease-out',
-                          removingCompetitorIndex === i && 'opacity-0 scale-90 pointer-events-none'
-                        )}
-                      >
-                        <span>{tag}</span>
-                        <button
-                          type="button"
-                          aria-label={t('brandHealth.removeTag')}
-                          className="p-0.5 rounded text-[#eee] hover:text-[#fff]"
-                          onClick={() => setRemovingCompetitorIndex(i)}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      ref={competitorInputRef}
-                  id="competitors"
-                      type="text"
-                      placeholder={formData.competitors.length === 0 ? t('brandHealth.competitorsPlaceholder') : ''}
-                      value={competitorInput}
-                      onChange={(e) => setCompetitorInput(e.target.value)}
-                      onBlur={() => setCompetitorInput('')}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault();
-                          const v = competitorInput.trim();
-                          if (v) {
-                            setFormData({ ...formData, competitors: [...formData.competitors, v] });
-                            setCompetitorInput('');
-                          }
-                        }
-                      }}
-                      className="flex-1 min-w-[120px] h-7 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/60"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                className="mt-6 h-12 w-full rounded-xl gap-2 text-[15px] font-medium bg-primary hover:bg-primary/90"
-                onClick={handleGenerate}
-                disabled={!formData.brandName.trim() || !formData.categoryLevel3.trim() || formData.competitors.filter((s) => s.trim()).length === 0 || isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <LoadingSpinner size="sm" className="h-4 w-4 text-white" />
-                    {t('brandHealth.generating')}
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    {t('brandHealth.generateReport')}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+      <div className="min-h-full flex items-center justify-center p-8">
+        <div className="text-center space-y-4 animate-fade-in">
+          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
+          <h2 className="text-lg font-medium text-foreground">{t('brandHealth.generating')}</h2>
+          <p className="text-sm text-muted-foreground max-w-md">
+            {isZh ? '正在为' : 'Generating insight report for'}{' '}
+            <span className="text-foreground font-medium">{formData.brandName}</span>{' '}
+            {isZh ? '生成洞察报告...' : '...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <TrendingUp className="w-6 h-6 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">{t('brandHealth.title')}</h1>
-            <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
-              {t('brandHealth.titleTag')}
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t('brandHealth.subtitle')}</p>
-          </div>
-        <div className="flex items-center gap-2">
+  // Input Form View - Chat Composer（与 toolbox 一致）
+  if (view === 'input') {
+    return (
+      <div className="relative h-full">
+        <div className="absolute top-4 right-4 z-20">
           <ReportHistorySheet
             open={historyOpen}
             onOpenChange={setHistoryOpen}
@@ -324,37 +163,96 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
             labels={historyLabels}
             onLoadError={(msg) => toast.error(msg)}
           />
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-xl gap-2"
-            disabled={isDownloadingReport || isPolling}
-            onClick={handleDownloadReport}
-          >
-            <Download className="w-4 h-4" />
-            {t('brandHealth.downloadReport')}
-          </Button>
-          <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setView('input')}>
-            <ChevronLeft className="w-4 h-4" />
-            {t('brandHealth.backToRegenerate')}
-          </Button>
         </div>
-      </header>
-      <div className="flex-1 min-h-0 relative flex flex-col">
-        <ReportPollingOverlay
-          show={isPolling}
-          generatingLabel={t('brandHealth.generating')}
-          generatingHint={t('brandHealth.pollingHint')}
+        <MarketInsightComposer
+          key={historyKey}
+          categoryTree={categoryTree}
+          onSubmit={handleGenerate}
+          disabled={isLoading}
+          initialData={
+            formData.brandName
+              ? { brandName: formData.brandName, category: formData.category, competitors: formData.competitors }
+              : undefined
+          }
+          title={t('brandHealth.composerTitle')}
+          subtitle={t('brandHealth.composerSubtitle')}
+          brandPlaceholder={t('brandHealth.brandNamePlaceholder')}
+          categoryPlaceholder={t('brandHealth.composerCategoryPlaceholder')}
+          competitorPlaceholder={t('brandHealth.competitorsPlaceholder')}
+          competitorAddPlaceholder={t('brandHealth.competitorAddPlaceholder')}
+          searchPlaceholder={t('brandHealth.cascaderSearchPlaceholder')}
+          searchEmptyText={t('brandHealth.categorySearchEmpty')}
         />
-        {reportUrl && (
-          <ReportDisplay
-            reportUrl={reportUrl}
-            reportTitle={t('brandHealth.reportTitleSuffix')}
-            generatingLabel={t('brandHealth.generating')}
-            generatingHint={t('brandHealth.pollingHint')}
-          />
-        )}
       </div>
-    </div>
+    );
+  }
+
+  // Report Dashboard View - 与 toolbox 报告结果样式一比一：顶栏、标题、Card 风格内容区，内容仍为 iframe（接口逻辑不变）
+  return (
+    <ScrollArea className="h-[calc(100vh-4rem)]">
+      <div className="min-h-full bg-muted/30 p-4 md:p-6">
+        <div className="mx-auto max-w-7xl animate-fade-in">
+          {/* Top Bar - 与 toolbox 一比一 */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <Button
+              variant="ghost"
+              onClick={handleBack}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {isZh ? '返回重新生成' : 'Back to Regenerate'}
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="gap-2" onClick={handleCopyToMemory}>
+                <Database className="h-4 w-4" />
+                {isZh ? '复制到记忆库' : 'Copy to Memory'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={isDownloadingReport || isPolling}
+                onClick={handleDownloadReport}
+              >
+                <FileText className="h-4 w-4" />
+                {isZh ? '导出 PDF' : 'Export PDF'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Report Title - 与 toolbox 一比一（含 id 便于后续打印等） */}
+          <div className="mb-6" id="brand-health-report">
+            <h1 className="text-2xl font-bold text-foreground">
+              {formData.brandName} {isZh ? '品牌健康度报告' : 'Brand Health Report'}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isZh ? '生成时间：' : 'Generated: '}
+              {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+          </div>
+
+          {/* 报告内容区 - 与 toolbox 报告卡片样式一致：rounded-lg border bg-card，轮询 Overlay + iframe（接口逻辑不变） */}
+          <div className="relative flex flex-col min-h-[480px] rounded-lg border bg-card overflow-hidden mb-6">
+            <ReportPollingOverlay
+              show={isPolling}
+              generatingLabel={t('brandHealth.generating')}
+              generatingHint={t('brandHealth.pollingHint')}
+            />
+            {reportUrl && (
+              <ReportDisplay
+                reportUrl={reportUrl}
+                reportTitle={t('brandHealth.reportTitleSuffix')}
+                generatingLabel={t('brandHealth.generating')}
+                generatingHint={t('brandHealth.pollingHint')}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </ScrollArea>
   );
 }

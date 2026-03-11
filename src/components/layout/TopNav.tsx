@@ -1,6 +1,5 @@
-import { Bell, Settings, ChevronDown, BarChart3, MessageSquare, Wand2, Globe } from 'lucide-react';
-import { useModule } from '@/contexts/ModuleContext';
-import { MODULES, ModuleType } from '@/types/modules';
+import { ChevronDown, Globe, Database } from 'lucide-react';
+import logoDark from '@/assets/logo_dark.svg';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -11,29 +10,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { useOAuth } from '@/contexts/OAuthContext';
 import { clearOAuthCache, redirectToLogin } from '@/services/oauthApi';
 import { clearUserInfoCache } from '@/services/userApi';
-
-const moduleIcons: Record<ModuleType, React.ReactNode> = {
-  'geo-insights': <BarChart3 className="w-4 h-4" />,
-  'llm-console': <MessageSquare className="w-4 h-4" />,
-  'ai-toolbox': <Wand2 className="w-4 h-4" />,
-};
-
-const moduleKeys: Record<ModuleType, string> = {
-  'geo-insights': 'geoInsights',
-  'llm-console': 'llmConsole',
-  'ai-toolbox': 'aiToolbox',
-};
-
-// 模块默认页面映射
-const moduleDefaultPages: Record<ModuleType, string> = {
-  'ai-toolbox': 'app-plaza',
-  'llm-console': 'playground',
-  'geo-insights': 'dashboard',
-};
+import { useState } from 'react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 /**
  * 获取用户昵称的首字母
@@ -57,38 +38,22 @@ function getInitialFromNickname(nickname?: string): string {
 }
 
 export function TopNav() {
-  const { activeModule, setActiveModule } = useModule();
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const { userInfo } = useOAuth();
-  
-  // 获取用户头像首字母
+  const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
+
   const userInitial = getInitialFromNickname(userInfo?.nickname);
-  
-  // 处理头像 URL：如果是相对路径，拼接 API 基础 URL
+
   const getAvatarUrl = (avatar?: string): string | undefined => {
     if (!avatar) return undefined;
-    // 如果已经是完整 URL，直接返回
-    if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
-      return avatar;
-    }
-    // 如果是相对路径，拼接 API 基础 URL
+    if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
     return `/api/${avatar}`;
   };
-  
   const avatarUrl = getAvatarUrl(userInfo?.avatar);
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'zh' ? 'en' : 'zh';
     i18n.changeLanguage(newLang);
-  };
-
-  const handleModuleSwitch = (moduleId: ModuleType) => {
-    // 导航到对应模块的默认页面
-    const defaultPage = moduleDefaultPages[moduleId];
-    navigate(`/${moduleId}/${defaultPage}`);
-    // 更新模块状态（导航后会自动更新，但这里确保同步）
-    setActiveModule(moduleId);
   };
 
   const handleLogout = () => {
@@ -98,58 +63,43 @@ export function TopNav() {
   };
 
   return (
-    <header className="h-14 border-b border-border bg-background flex items-center justify-between px-4 top-0 z-[100] fixed left-0 w-screen">
-      {/* Left: Logo */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-foreground flex items-center justify-center">
-          <span className="text-background font-bold text-sm">S</span>
+    <>
+      <header className="h-14 border-b border-border/10 bg-background/20 backdrop-blur-xl flex items-center justify-between px-4 top-0 z-50 fixed left-0 w-screen">
+        {/* Left: Logo */}
+        <div className="flex items-center gap-3">
+          <img src={logoDark} alt="Logo" className="w-6 h-6 object-fill" />
+          <span className="text-lg font-normal">{t('topNav.appName')}</span>
         </div>
-        <span className="font-semibold text-lg">{t('topNav.appName')}</span>
-      </div>
 
-      {/* Center: Module Switcher */}
-      {/* <nav className="flex items-center gap-1 bg-muted p-1 rounded-lg">
-        {MODULES.map((module) => (
-          <button
-            key={module.id}
-            onClick={() => handleModuleSwitch(module.id)}
-            className={`module-nav-item flex items-center gap-2 ${
-              activeModule === module.id ? 'active' : ''
-            }`}
+        {/* Right: User Actions */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground hover:bg-foreground/10 flex items-center gap-1.5"
+            onClick={() => setMemoryDrawerOpen(true)}
           >
-            {moduleIcons[module.id]}
-            <span className="hidden sm:inline">{t(`modules.${moduleKeys[module.id]}`)}</span>
-          </button>
-        ))}
-      </nav> */}
+            <Database className="w-4 h-4" />
+            <span className="text-xs font-medium">{t('common.memoryLibrary')}</span>
+          </Button>
 
-      {/* Right: User Actions */}
-      <div className="flex items-center gap-2">
-        {/* Language Switcher */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1"
-          onClick={toggleLanguage}
-        >
-          <Globe className="w-4 h-4" />
-          <span className="text-xs font-medium">{i18n.language === 'zh' ? t('topNav.langZh') : t('topNav.langEn')}</span>
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground hover:bg-foreground/10 flex items-center gap-1"
+            onClick={toggleLanguage}
+          >
+            <Globe className="w-4 h-4" />
+            <span className="text-xs font-medium">{i18n.language === 'zh' ? t('topNav.langZh') : t('topNav.langEn')}</span>
+          </Button>
 
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-          <Bell className="w-5 h-5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-          <Settings className="w-5 h-5" />
-        </Button>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-1">
-              <Avatar className="w-7 h-7">
-                {avatarUrl && (
-                  <AvatarImage src={avatarUrl} alt={userInfo?.nickname || 'User'} />
-                )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-1 hover:bg-foreground/10">
+                <Avatar className="w-7 h-7">
+                  {avatarUrl && (
+                    <AvatarImage src={avatarUrl} alt={userInfo?.nickname || 'User'} />
+                  )}
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                   {userInitial}
                 </AvatarFallback>
@@ -165,7 +115,19 @@ export function TopNav() {
             <DropdownMenuItem onClick={handleLogout}>{t('common.logout')}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-    </header>
+        </div>
+      </header>
+
+      <Sheet open={memoryDrawerOpen} onOpenChange={setMemoryDrawerOpen}>
+        <SheetContent className="w-80 sm:w-96">
+          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border space-y-0">
+            <SheetTitle className="text-base font-medium">{t('common.memoryLibrary')}</SheetTitle>
+          </SheetHeader>
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            {t('common.noMemoryYet')}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

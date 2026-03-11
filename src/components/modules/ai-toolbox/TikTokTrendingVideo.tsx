@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Film, Sparkles, Tag, ChevronLeft, X, Play, Volume2, VolumeX, Eye, Heart, ShoppingCart, TrendingUp, Copy } from 'lucide-react';
+import { ArrowLeft, ArrowUp, X, Play, Volume2, VolumeX, Eye, Heart, ShoppingCart, TrendingUp, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { categoryTreeZh, categoryTreeEn, type CategoryTree } from '@/data/tiktok-categories';
-import { CategoryCascader } from './CategoryCascader';
+import { CategoryCascader, findPathInTree } from './CategoryCascader';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 import {
   submitTiktokInsightJob,
   pollTiktokInsightJobStatus,
@@ -16,14 +16,6 @@ import {
 } from '@/services/tiktokInsightApi';
 import { TiktokTrendingVideoHistorySheet } from './TiktokTrendingVideoHistorySheet';
 import { MediaViewer } from './MediaViewer';
-
-const cardGlass = cn(
-  'rounded-2xl border-0 overflow-hidden',
-  'bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl',
-  'shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.04),0_12px_24px_rgba(0,0,0,0.06)]',
-  'dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.3)]',
-  'transition-all duration-200 ease-out hover:shadow-lg hover:-translate-y-0.5'
-);
 
 export interface TrendingVideoCard {
   id: string;
@@ -82,7 +74,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
   const isZh = i18n.language === 'zh' || i18n.language.startsWith('zh-');
   const categoryTree: CategoryTree = isZh ? categoryTreeZh : categoryTreeEn;
 
-  const [view, setView] = useState<'input' | 'result'>('input');
+  const [view, setView] = useState<'input' | 'loading' | 'result'>('input');
   const [isLoading, setIsLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [isLoadingHistoryResult, setIsLoadingHistoryResult] = useState(false);
@@ -132,6 +124,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
     const sellingPointsList = formData.sellingPoints.filter((s) => s.trim()).map((s) => s.trim());
     if (!formData.categoryLevel3.trim() || sellingPointsList.length === 0) return;
     setIsLoading(true);
+    setView('loading');
     try {
       const submitRes = await submitTiktokInsightJob({
         keyword: formData.categoryLevel3.trim(),
@@ -140,12 +133,14 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
       const jobId = submitRes?.data?.jobId;
       if (jobId == null) {
         toast.error(submitRes?.msg ?? t('tiktokTrendingVideo.submitFailed', { defaultValue: '提交任务失败' }));
+        setView('input');
         return;
       }
       const statusData = await pollTiktokInsightJobStatus(jobId);
       if (statusData.status === 'failed') {
         const msg = statusData.errorMessage || statusData.errorCode || t('tiktokTrendingVideo.taskFailed', { defaultValue: '任务执行失败' });
         toast.error(msg);
+        setView('input');
         return;
       }
       const resultRes = await getTiktokInsightJobResult(jobId);
@@ -160,6 +155,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('tiktokTrendingVideo.submitFailed', { defaultValue: '提交任务失败' });
       toast.error(msg);
+      setView('input');
     } finally {
       setIsLoading(false);
     }
@@ -211,20 +207,79 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
     statusQueued: t('tiktokTrendingVideo.statusQueued'),
   };
 
-  if (view === 'input') {
+  const loadingTips = isZh
+    ? ['正在扫描 TikTok 热门视频...', '分析视频内容与卖点匹配度...', '筛选播放量最高的爆款视频...', '整理数据生成报告...']
+    : ['Scanning TikTok trending videos...', 'Analyzing content and selling point match...', 'Filtering top viral videos...', 'Generating report...'];
+  const [loadingTipIndex, setLoadingTipIndex] = useState(0);
+  useEffect(() => {
+    if (view !== 'loading') return;
+    const interval = setInterval(() => {
+      setLoadingTipIndex((prev) => (prev + 1) % 4);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [view]);
+
+  if (view === 'loading') {
     return (
-      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden opacity-0 animate-page-enter">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
-          <div>
-            <div className="flex items-center gap-3">
-              <Film className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-semibold text-foreground">{t('tiktokTrendingVideo.title')}</h1>
-              <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
-                {t('tiktokTrendingVideo.titleTag')}
-              </span>
+      <div className="min-h-full flex flex-col items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center gap-6 max-w-md text-center"
+        >
+          <div className="relative w-16 h-16">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+              className="w-16 h-16 rounded-full border-[3px] border-muted/30 border-t-foreground/70"
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-lg">🔍</span>
             </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t('tiktokTrendingVideo.subtitle')}</p>
           </div>
+          <div>
+            <h2 className="text-lg font-medium text-foreground/90 mb-2">
+              {isZh ? '正在为你收集匹配度最高的爆款TikTok视频...' : 'Collecting top matching TikTok viral videos...'}
+            </h2>
+            <motion.p
+              key={loadingTipIndex}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.4 }}
+              className="text-sm text-muted-foreground"
+            >
+              {loadingTips[loadingTipIndex]}
+            </motion.p>
+          </div>
+          <div className="flex items-center gap-1.5 mt-2">
+            {[0, 1, 2, 3].map((i) => (
+              <motion.div
+                key={i}
+                animate={{ scale: [1, 1.3, 1], opacity: [0.3, 1, 0.3] }}
+                transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                className="w-1.5 h-1.5 rounded-full bg-foreground/50"
+              />
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (view === 'input') {
+    const canSend = formData.categoryLevel3.trim() !== '' && formData.sellingPoints.filter((s) => s.trim()).length > 0;
+    const addSellingPoint = (value: string) => {
+      const trimmed = value.trim();
+      if (trimmed && !formData.sellingPoints.includes(trimmed)) {
+        setFormData({ ...formData, sellingPoints: [...formData.sellingPoints, trimmed] });
+      }
+      setSellingPointInput('');
+    };
+    return (
+      <div className="relative min-h-full flex flex-col">
+        <div className="absolute top-4 right-4 z-20">
           <TiktokTrendingVideoHistorySheet
             open={historyOpen}
             onOpenChange={setHistoryOpen}
@@ -232,111 +287,94 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
             labels={historyLabels}
             onLoadError={(msg) => toast.error(msg)}
           />
-        </header>
-
-        <div className="flex-1 overflow-auto flex flex-col items-center justify-center p-6 md:p-10 relative">
-          {isLoadingHistoryResult && (
-            <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
-              <LoadingSpinner className="h-8 w-8 text-primary" />
+        </div>
+        {isLoadingHistoryResult && (
+          <div className="fixed inset-0 bg-background/60 flex items-center justify-center z-30">
+            <LoadingSpinner className="h-8 w-8 text-primary" />
+          </div>
+        )}
+        <div className="flex flex-col items-center justify-center p-6 md:p-8 py-[80px] my-[100px]">
+          <div className="w-full max-w-2xl animate-fade-in mt-[80px]">
+            <div className="text-center mb-10">
+              <h1 className="text-2xl md:text-3xl font-normal tracking-tight text-[#3d3d3d]">
+                TikTok 爆款视频匹配
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {isZh ? '选择品类并添加卖点，一键替你收集TikTok爆款视频' : 'Select category and add selling points to collect TikTok viral videos'}
+              </p>
             </div>
-          )}
-          <div className="w-full max-w-[500px]">
-            <div className={cn(cardGlass, 'p-6 md:p-8')}>
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="category"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
-                  >
-                    {t('tiktokTrendingVideo.category')} <span className="text-destructive/90">*</span>
-                  </Label>
+            <div className="relative rounded-2xl border border-border/30 bg-card/80 backdrop-blur-sm shadow-sm transition-shadow hover:shadow-md">
+              <div className="p-5">
+                <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
+                  <span className="whitespace-nowrap">{isZh ? '帮我搜索关于' : 'Search for'}</span>
                   <CategoryCascader
                     tree={categoryTree}
                     value={formData.categoryLevel3}
                     onChange={(v) => setFormData({ ...formData, categoryLevel3: v })}
-                    placeholder={t('tiktokTrendingVideo.categoryPlaceholderSelect')}
+                    placeholder={isZh ? '选择品类' : 'Select category'}
                     searchPlaceholder={t('tiktokTrendingVideo.categorySearchPlaceholder')}
                     searchEmptyText={t('tiktokTrendingVideo.categorySearchEmpty')}
-                    triggerClassName="border-border/80 bg-black/[0.02] dark:bg-white/[0.04] focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
+                    className="h-7 rounded-lg px-2.5 text-sm mx-1 inline-flex"
+                    triggerClassName="h-7 rounded-lg px-2.5 text-sm border-border/30 bg-muted/20 hover:bg-muted/40"
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="sellingPoints"
-                    className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
-                  >
-                    {t('tiktokTrendingVideo.sellingPoints')} <span className="text-destructive/90">*</span>
-                  </Label>
-                  <div
-                    className={cn(
-                      'min-h-11 rounded-xl border border-border/80 bg-black/[0.02] dark:bg-white/[0.04] px-3 py-2 flex flex-wrap items-center gap-2',
-                      'focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-colors duration-200',
-                    )}
-                  >
-                    <span className="text-muted-foreground/60 shrink-0">
-                      <Tag className="w-4 h-4" />
-                    </span>
+                  <span className="whitespace-nowrap">，</span>
+                  <div className="inline-flex items-center gap-1 flex-wrap mx-1.5">
                     {formData.sellingPoints.map((tag, i) => (
                       <span
                         key={`${tag}-${i}`}
-                        className={cn(
-                          'inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-md bg-[#333] text-sm text-[#fff]',
-                          'animate-tag-in transition-all duration-200 ease-out',
-                          removingSellingPointIndex === i && 'opacity-0 scale-90 pointer-events-none'
-                        )}
+                        className="inline-flex items-center gap-1 h-6 rounded-full bg-muted/40 border border-border/20 px-2 text-xs text-foreground/80"
                       >
-                        <span>{tag}</span>
+                        {tag}
                         <button
                           type="button"
-                          aria-label={t('tiktokTrendingVideo.removeTag')}
-                          className="p-0.5 rounded text-[#eee] hover:text-[#fff]"
                           onClick={() => setRemovingSellingPointIndex(i)}
+                          className="hover:text-foreground transition-colors"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-3 h-3" />
                         </button>
                       </span>
                     ))}
                     <input
-                      id="sellingPoints"
                       type="text"
-                      placeholder={formData.sellingPoints.length === 0 ? t('tiktokTrendingVideo.sellingPointsPlaceholder') : ''}
+                      placeholder={
+                        formData.sellingPoints.length === 0
+                          ? (isZh ? '输入卖点，回车添加' : 'Enter selling point, press Enter')
+                          : isZh ? '添加卖点...' : 'Add more...'
+                      }
                       value={sellingPointInput}
                       onChange={(e) => setSellingPointInput(e.target.value)}
-                      onBlur={() => setSellingPointInput('')}
+                      onBlur={() => {
+                        if (sellingPointInput.trim()) addSellingPoint(sellingPointInput);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ',') {
                           e.preventDefault();
-                          const v = sellingPointInput.trim();
-                          if (v) {
-                            setFormData({ ...formData, sellingPoints: [...formData.sellingPoints, v] });
-                            setSellingPointInput('');
-                          }
+                          if (sellingPointInput.trim()) addSellingPoint(sellingPointInput);
+                          else if (canSend) handleGenerate();
                         }
                       }}
-                      className="flex-1 min-w-[120px] h-7 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground/60"
+                      className="h-6 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none w-[120px]"
                     />
                   </div>
+                  <span className="whitespace-nowrap">{isZh ? '的 TikTok 爆款视频' : ' TikTok viral videos'}</span>
                 </div>
               </div>
-
-              <Button
-                className="mt-6 h-12 w-full rounded-xl gap-2 text-[15px] font-medium bg-primary hover:bg-primary/90"
-                onClick={handleGenerate}
-                disabled={!formData.categoryLevel3.trim() || formData.sellingPoints.filter((s) => s.trim()).length === 0 || isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <LoadingSpinner size="sm" className="h-4 w-4 text-white" />
-                    {t('tiktokTrendingVideo.generating')}
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    {t('tiktokTrendingVideo.generateReport')}
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center justify-between px-5 py-3 border-t border-border/20">
+                <div />
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={!canSend || isLoading}
+                  className={cn(
+                    'w-9 h-9 rounded-full flex items-center justify-center transition-all',
+                    canSend && !isLoading
+                      ? 'bg-foreground text-background hover:bg-foreground/90'
+                      : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed'
+                  )}
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -345,26 +383,37 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-muted/20 overflow-hidden">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-background/80 backdrop-blur-sm shrink-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <Film className="w-6 h-6 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">{t('tiktokTrendingVideo.title')}</h1>
-            <span className="text-[10px] font-medium tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary">
-              {t('tiktokTrendingVideo.titleTag')}
+    <div className="min-h-full bg-background">
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border/20">
+        <div className="px-6 py-4 max-w-7xl mx-auto flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => setView('input')} className="shrink-0">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-medium text-foreground truncate">TikTok 爆款视频匹配</h2>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-xs text-muted-foreground bg-muted/40 px-2 py-0.5 rounded-full">
+                {formData.categoryLevel3
+                  ? (findPathInTree(categoryTree, formData.categoryLevel3)?.join(' > ') ?? formData.categoryLevel3)
+                  : isZh ? '品类' : 'Category'}
+              </span>
+              {formData.sellingPoints.map((p) => (
+                <span key={p} className="text-xs text-muted-foreground bg-muted/40 px-2 py-0.5 rounded-full">
+                  {p}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-sm text-muted-foreground">
+              {isZh ? '共' : ''} {videoCards.length} {isZh ? '个结果' : 'results'}
             </span>
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t('tiktokTrendingVideo.subtitle')}</p>
         </div>
-        <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setView('input')}>
-          <ChevronLeft className="w-4 h-4" />
-          {t('tiktokTrendingVideo.backToRegenerate')}
-        </Button>
-      </header>
+      </div>
       <div className="flex-1 min-h-0 relative flex flex-col overflow-auto">
         {videoCards.length > 0 && (
-          <div className="p-6">
+          <div className="px-6 py-6 max-w-7xl mx-auto">
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
               {videoCards.map((card, index) => (
                 <div

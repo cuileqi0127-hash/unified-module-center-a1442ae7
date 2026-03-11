@@ -83,10 +83,13 @@ export function TiktokTrendingVideoHistorySheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="rounded-xl gap-2">
-          <History className="w-4 h-4" />
-          {labels.triggerButton}
-        </Button>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted/40"
+        >
+          <History className="w-3.5 h-3.5" />
+          <span>{labels.triggerButton}</span>
+        </button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md flex flex-col">
         <SheetHeader>

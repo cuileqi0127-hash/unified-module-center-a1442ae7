@@ -20,7 +20,6 @@ import {
   ImageIcon,
   Video,
   Film,
-  UserCircle,
   ShoppingBag,
   Layers,
   ChevronDown,
@@ -125,20 +124,15 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
       ],
     },
     {
-      titleKey: 'sidebar.marketInsights',
-      isGroupHeader: true,
+      titleKey: '',
       items: [
-        { id: 'brand-health', labelKey: 'sidebar.brandHealth', icon: <TrendingUp className="w-4 h-4" /> },
-        { id: 'tiktok-insights', labelKey: 'sidebar.tiktokInsights', icon: <BarChart3 className="w-4 h-4" /> },
-        { id: 'tiktok-trending-video', labelKey: 'sidebar.tiktokTrendingVideo', icon: <Film className="w-4 h-4" /> },
+        { id: 'market-insights', labelKey: 'sidebar.marketInsights', icon: <TrendingUp className="w-4 h-4" /> },
       ],
     },
     {
-      titleKey: 'sidebar.marketingPlanning',
-      isGroupHeader: true,
+      titleKey: '',
       items: [
-        { id: 'campaign-planner', labelKey: 'sidebar.campaignPlanner', icon: <Megaphone className="w-4 h-4" /> },
-        { id: 'reference-to-video', labelKey: 'sidebar.videoReplication', icon: <Copy className="w-4 h-4" /> },
+        { id: 'planning-solutions', labelKey: 'sidebar.planningSolutions', icon: <Megaphone className="w-4 h-4" /> },
       ],
     },
     {
@@ -159,9 +153,22 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
           ],
         },
         {
-          titleKey: 'sidebar.digitalHuman',
+          titleKey: 'sidebar.videoReplication',
           items: [
-            { id: 'digital-human', labelKey: 'sidebar.digitalHumanGen', icon: <UserCircle className="w-4 h-4" /> },
+            { id: 'reference-to-video', labelKey: 'sidebar.videoReplication', icon: <Copy className="w-4 h-4" /> },
+          ],
+        },
+      ],
+    },
+    {
+      titleKey: 'sidebar.toolbox',
+      isGroupHeader: true,
+      defaultOpen: true,
+      subgroups: [
+        {
+          titleKey: '',
+          items: [
+            { id: 'tiktok-viral-video-matching', labelKey: 'sidebar.tiktokViralVideoMatching', icon: <Film className="w-4 h-4" /> },
           ],
         },
       ],
@@ -270,8 +277,8 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     <TooltipProvider>
       <aside
         className={cn(
-          'z-[99] bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out fixed h-screen top-0 pt-14 box-border',
-          sidebarCollapsed ? 'w-[68px]' : 'w-64'
+          'bg-sidebar/20 backdrop-blur-xl border-r border-sidebar-border/15 flex flex-col transition-all duration-300 ease-in-out fixed h-screen top-0 pt-14 box-border z-40',
+          sidebarCollapsed ? 'w-[68px]' : 'w-64 shadow-soft-xl'
         )}
       >
         <div className="flex-1 py-4 overflow-y-auto">
@@ -285,7 +292,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
                 >
                   <CollapsibleTrigger className="w-full">
                     {!sidebarCollapsed && (
-                      <div className="flex items-center justify-between px-4 py-2 text-sm font-semibold text-foreground hover:text-foreground transition-colors">
+                      <div className="flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:text-foreground/80 transition-colors cursor-pointer">
                         <span>{t(section.titleKey)}</span>
                         <ChevronDown
                           className={cn(
@@ -296,8 +303,8 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
                       </div>
                     )}
                   </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className={cn('space-y-2', sidebarCollapsed ? 'px-3' : 'px-2')}>
+                  <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
+                    <div className={cn('space-y-2', sidebarCollapsed ? 'px-1.5' : 'px-2')}>
                       {section.subgroups.map((subgroup) => (
                         <div key={subgroup.titleKey}>
                           {!sidebarCollapsed && (
@@ -321,7 +328,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
                       {t(section.titleKey)}
                     </div>
                   )}
-                  <nav className={cn('space-y-0.5', sidebarCollapsed ? 'px-3' : 'px-2')}>
+                  <nav className={cn('space-y-0.5', sidebarCollapsed ? 'px-1.5' : 'px-2')}>
                     {section.items?.map(renderItem)}
                   </nav>
                 </>
@@ -331,14 +338,14 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
         </div>
 
         {/* Collapse Toggle */}
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="p-3 border-t border-sidebar-border/30">
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  'w-full flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors',
+                  'w-full flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all rounded-xl',
                   sidebarCollapsed ? 'justify-center' : 'justify-start'
                 )}
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
