@@ -48,7 +48,7 @@ export interface WorkModeConfig {
 
 // 模型配置映射
 export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
-  'gemini-3-pro-image-preview-hd': {
+  'gemini-3-pro-image-preview-4k-vip': {
     label: 'Nano Banana 2',
     maxImages: 9,
     sizes: [
@@ -198,7 +198,7 @@ export function getWorkModes(): WorkModeConfig[] {
 }
 
 // 默认模型
-export const DEFAULT_MODEL: ImageModel = 'gemini-3-pro-image-preview-hd';
+export const DEFAULT_MODEL: ImageModel = 'gemini-3-pro-image-preview-4k-vip';
 
 // 默认尺寸（会根据模型自动调整）
 export const DEFAULT_SIZE = '1:1';

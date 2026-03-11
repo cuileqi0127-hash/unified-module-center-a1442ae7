@@ -12,7 +12,7 @@ const API_BASE_URL = '/api/tu-zi/v1';
 const API_KEY = 'sk-5ZmMmOyDZ8uyPjCHe8yFlrhwQwYUpGb8M0wrTOdonYe8GpMr';
 
 // 支持的模型类型
-export type ImageModel = 'gpt-image-1.5' | 'gemini-3-pro-image-preview-hd' | 'doubao-seedream-4-5-251128' | 'kling-v1-5';
+export type ImageModel = 'gpt-image-1.5' | 'gemini-3-pro-image-preview-4k-vip' | 'doubao-seedream-4-5-251128' | 'kling-v1-5';
 
 // 支持的图片尺寸（标准比例）
 export type ImageSize = '1:1' | '16:9' | '9:16' | '4:3' | '2:3' | '3:2';
@@ -113,7 +113,7 @@ export function mapSizeToApiFormat(model: ImageModel, size: AllImageSize): strin
   if (model === 'kling-v1-5') {
     return ASPECT_RATIO_TO_API[size as string] ?? (size as string);
   }
-  if (model === 'gemini-3-pro-image-preview-hd') {
+  if (model === 'gemini-3-pro-image-preview-4k-vip') {
     return size as string;
   }
   if (model === 'gpt-image-1.5') {
@@ -178,7 +178,7 @@ export async function generateImage(
     requestBody.quality = quality || 'standard';
     requestBody.style = style || 'vivid';
   }
-  if (model === 'gemini-3-pro-image-preview-hd') {
+  if (model === 'gemini-3-pro-image-preview-4k-vip') {
     requestBody.quality = quality || '2k';
   }
 
