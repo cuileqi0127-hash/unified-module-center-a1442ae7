@@ -1844,18 +1844,19 @@ export function useTextToImage() {
         12
       );
         batchRects.push({ x: position.x, y: position.y, width: defaultWidth, height: defaultHeight });
-        // let model_async: string | null = null
-        // if(model === 'gemini-3-pro-image-preview-4k-vip') {
-        //   if(quality === '1k') {
-        //     model_async = `gemini-3-pro-image-preview-async`
-        //   } else {
-        //     model_async = `gemini-3-pro-image-preview-${quality}-async`
-        //   }
-        // } else {
-        //   model_async = model
-        // }
+        let model_async: string | null = null
+        if(model === 'gemini-3-pro-image-preview-4k-vip') {
+          if(quality === '1k') {
+            model_async = `gemini-3-pro-image-preview-vip`
+          } else {
+            model_async = `gemini-3-pro-image-preview-${quality}-vip`
+          }
+        } else {
+          model_async = model
+        }
+        console.log(model_async,model,'model_async')
         const response = await submitImageTask(currentSessionId, {
-          model,
+          model: model_async,
           prompt: currentPrompt,
           sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
           size: aspectRatio,
