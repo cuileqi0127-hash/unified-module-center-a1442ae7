@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Eye, Heart, MessageSquare, Share2, Download, Sparkles, Play, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ interface ShowcaseDetailDialogProps {
 }
 
 export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: ShowcaseDetailDialogProps) {
+  const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -42,7 +44,7 @@ export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: 
   if (isImage) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden rounded-2xl">
+        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
           <DialogTitle className="sr-only">{card.title}</DialogTitle>
           <div className="relative aspect-[4/3] bg-muted/30">
             <img src={card.image} alt={card.title} className="w-full h-full object-cover" />
@@ -52,7 +54,7 @@ export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: 
             <p className="text-sm text-muted-foreground">{card.desc}</p>
             <Button variant="outline" className="w-full rounded-full h-10 gap-2">
               <Download className="w-4 h-4" />
-              下载图片
+              {t('showcaseDetail.downloadImage')}
             </Button>
           </div>
         </DialogContent>
@@ -63,7 +65,7 @@ export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: 
   // Video dialog: full detail layout with playable video
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setIsPlaying(false); } onOpenChange(v); }}>
-      <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl">
+      <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
         <DialogTitle className="sr-only">{card.title}</DialogTitle>
         <div className="flex flex-col sm:flex-row sm:min-h-[420px]">
           {/* Video preview */}
@@ -88,7 +90,7 @@ export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: 
             {/* Fullscreen button */}
             <button
               onClick={(e) => { e.stopPropagation(); goFullscreen(); }}
-              className="absolute top-3 right-3 p-1.5 rounded-lg bg-foreground/30 backdrop-blur-sm text-background hover:bg-foreground/50 transition-colors"
+              className="absolute top-3 right-3 p-1.5 rounded-full bg-foreground/30 backdrop-blur-sm text-background hover:bg-foreground/50 transition-colors"
             >
               <Maximize2 className="w-4 h-4" />
             </button>
@@ -102,31 +104,31 @@ export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: 
               <div className="space-y-2 text-sm">
                 {detail.author && (
                   <div className="flex gap-2">
-                    <span className="text-muted-foreground shrink-0">发布方:</span>
+                    <span className="text-muted-foreground shrink-0">{t('showcaseDetail.publisher')}:</span>
                     <span className="text-foreground">{detail.author}</span>
                   </div>
                 )}
                 {detail.businessType && (
                   <div className="flex gap-2">
-                    <span className="text-muted-foreground shrink-0">业务类型:</span>
+                    <span className="text-muted-foreground shrink-0">{t('showcaseDetail.businessType')}:</span>
                     <span className="text-foreground">{detail.businessType}</span>
                   </div>
                 )}
                 {detail.purpose && (
                   <div className="flex gap-2">
-                    <span className="text-muted-foreground shrink-0">发布目的:</span>
+                    <span className="text-muted-foreground shrink-0">{t('showcaseDetail.purpose')}:</span>
                     <span className="text-foreground">{detail.purpose}</span>
                   </div>
                 )}
                 {detail.audience && (
                   <div className="flex gap-2">
-                    <span className="text-muted-foreground shrink-0">目标受众:</span>
+                    <span className="text-muted-foreground shrink-0">{t('showcaseDetail.audience')}:</span>
                     <span className="text-foreground">{detail.audience}</span>
                   </div>
                 )}
                 {detail.techHighlight && (
                   <div className="flex gap-2">
-                    <span className="text-muted-foreground shrink-0">AI 技术点:</span>
+                    <span className="text-muted-foreground shrink-0">{t('showcaseDetail.techHighlight')}:</span>
                     <span className="text-foreground">{detail.techHighlight}</span>
                   </div>
                 )}

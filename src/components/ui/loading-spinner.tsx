@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 /**
@@ -11,6 +12,7 @@ export function LoadingSpinner({
   className?: string;
   size?: 'sm' | 'default' | 'lg';
 }) {
+  const { t } = useTranslation();
   const sizeClass =
     size === 'sm'
       ? 'h-4 w-4'
@@ -20,7 +22,7 @@ export function LoadingSpinner({
   return (
     <div
       role="status"
-      aria-label="加载中"
+      aria-label={t('common.loading').replace('...', '')}
       className={cn(
         'rounded-full border-2 border-transparent border-b-current animate-spin text-gray-900 dark:text-gray-100',
         sizeClass,

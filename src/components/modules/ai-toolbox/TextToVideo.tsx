@@ -300,7 +300,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                   {historySessions.map((session) => (
                     <button
                       key={session.id}
-                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted transition-colors group"
+                      className="w-full text-left px-3 py-2.5 rounded-full hover:bg-muted transition-colors group"
                       onClick={() => handleLoadSession(session.id)}
                     >
                       <p className="text-sm font-medium truncate group-hover:text-foreground">
@@ -492,23 +492,28 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
             {/* Bottom toolbar：与文生图一致 - 模型 + 设置 Popover（时长 + 尺寸网格） */}
             <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">
               <div className="flex items-center gap-2">
-                {/* Model Dropdown - 二级联动：模型 + 是否增强（标准版/高清版） */}
+                {/* Model Dropdown - 与策划方案「制定」「预算量级」「营销周期」下拉样式完全一致，保留二级联动 */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
-                    >
-                      <VideoIcon className="h-3.5 w-3.5" />
-                      {t(`textToVideo.modelNames.${model}`, { defaultValue: models.find(m => m.id === model)?.label })} {getModelVersion(model as VideoModel)}
-                      {enhanceSwitchSupported && enhanceSwitch === 'Enabled' && (
-                        <span className="opacity-80">| {t('textToVideo.hdVersion')}</span>
+                    <button
+                      type="button"
+                      className={cn(
+                        'inline-flex items-center gap-1 min-h-7 h-7 px-2.5 rounded-full border text-sm transition-colors max-w-full min-w-0 overflow-hidden',
+                        'bg-accent/10 border-accent/20 text-accent font-medium',
+                        'hover:border-accent/30 focus:outline-none focus:ring-2 focus:ring-accent/20'
                       )}
-                      <ChevronDown className="h-3 w-3 opacity-50" />
-                    </Button>
+                    >
+                      <VideoIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate text-left text-xs">
+                        {t(`textToVideo.modelNames.${model}`, { defaultValue: models.find(m => m.id === model)?.label })} {getModelVersion(model as VideoModel)}
+                        {enhanceSwitchSupported && enhanceSwitch === 'Enabled' && (
+                          <span className="opacity-80"> | {t('textToVideo.hdVersion')}</span>
+                        )}
+                      </span>
+                      <ChevronDown className="h-3 w-3 shrink-0" />
+                    </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="min-w-[160px]">
+                  <DropdownMenuContent align="start" className="min-w-[160px] max-w-[min(100vw-2rem,320px)]">
                     {models.map((m) => {
                       const supportsEnhance = modelSupportsEnhanceSwitch(m.id as VideoModel);
                       const isSelected = model === m.id;
@@ -521,34 +526,30 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                         const modelLabel = `${t(`textToVideo.modelNames.${m.id}`, { defaultValue: m.label })} ${getModelVersion(m.id as VideoModel)}`;
                         return (
                           <DropdownMenuSub key={m.id}>
-                            <DropdownMenuSubTrigger className={cn(isSelected && 'bg-accent')}>
-                              <span className="flex items-center gap-1.5">
+                            <DropdownMenuSubTrigger className={cn('min-w-0 overflow-hidden', isSelected && 'bg-accent/10 text-accent font-medium')}>
+                              <span className="flex min-w-0 items-center gap-1.5 truncate">
                                 {soundIcon}
                                 {modelParentLabel}
                               </span>
                             </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent>
+                            <DropdownMenuSubContent className="max-w-[min(100vw-2rem,320px)]">
                               <DropdownMenuItem
                                 onClick={() => {
                                   setModel(m.id as VideoModel);
                                   setEnhanceSwitch('Disabled');
                                 }}
-                                className={cn(isSelectedStandard && 'bg-accent')}
+                                className={cn(isSelectedStandard && 'bg-accent/10 text-accent font-medium')}
                               >
-                                <span className="flex items-center gap-1.5">
-                                  {modelLabel}
-                                </span>
+                                <span className="min-w-0 truncate">{modelLabel}</span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => {
                                   setModel(m.id as VideoModel);
                                   setEnhanceSwitch('Enabled');
                                 }}
-                                className={cn(isSelectedHd && 'bg-accent')}
+                                className={cn(isSelectedHd && 'bg-accent/10 text-accent font-medium')}
                               >
-                                <span className="flex items-center gap-1.5">
-                                  {modelLabel} | {t('textToVideo.hdVersion')}
-                                </span>
+                                <span className="min-w-0 truncate">{modelLabel} | {t('textToVideo.hdVersion')}</span>
                               </DropdownMenuItem>
                             </DropdownMenuSubContent>
                           </DropdownMenuSub>
@@ -562,9 +563,9 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                             setModel(m.id as VideoModel);
                             setEnhanceSwitch('Disabled');
                           }}
-                          className={cn(isSelected && 'bg-accent')}
+                          className={cn(isSelected && 'bg-accent/10 text-accent font-medium')}
                         >
-                          <span className="flex items-center gap-1.5">
+                          <span className="flex min-w-0 items-center gap-1.5 truncate">
                             {soundIcon}
                             {modelLabel}
                           </span>
@@ -580,7 +581,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
                     >
                       <Clock className="h-3.5 w-3.5" />
                       <span>{seconds}s</span>

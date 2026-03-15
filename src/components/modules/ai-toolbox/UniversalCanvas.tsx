@@ -1235,7 +1235,7 @@ export const UniversalCanvas = forwardRef<UniversalCanvasRef, UniversalCanvasPro
                     {/* 中心加载指示器 - 随画布缩放比例调整大小 */}
                     <div
                       role="status"
-                      aria-label="加载中"
+                      aria-label={t('common.loading').replace('...', '')}
                       className="absolute inset-0 flex items-center justify-center pointer-events-none"
                       style={{
                         fontSize: Math.max(16, Math.round(48 * displayZoom)),

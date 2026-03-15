@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -33,6 +34,7 @@ export function MemorySelectionDialog({
   maxChars = CHAR_LIMIT,
   className,
 }: MemorySelectionDialogProps) {
+  const { t } = useTranslation();
   const totalChars = useMemo(
     () => items.filter((i) => selectedIds.includes(i.id)).reduce((sum, i) => sum + i.charCount, 0),
     [items, selectedIds]
@@ -43,9 +45,9 @@ export function MemorySelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn('sm:max-w-md rounded-2xl', className)}>
+      <DialogContent className={cn('sm:max-w-md rounded-2xl', className)} aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="text-base font-medium">选择记忆库</DialogTitle>
+          <DialogTitle className="text-base font-medium">{t('memory.dialogTitle')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-1.5">
@@ -53,12 +55,12 @@ export function MemorySelectionDialog({
             <span
               className={cn('text-muted-foreground', isOverLimit && 'text-destructive font-medium')}
             >
-              已选 {totalChars.toLocaleString()} / {maxChars.toLocaleString()} 字符
+              {t('memory.charsSelected', { current: totalChars.toLocaleString(), max: maxChars.toLocaleString() })}
             </span>
             {isOverLimit && (
               <span className="flex items-center gap-1 text-destructive font-medium">
                 <AlertTriangle className="w-3 h-3" />
-                超出上限
+                {t('memory.overLimit')}
               </span>
             )}
           </div>
@@ -75,7 +77,7 @@ export function MemorySelectionDialog({
 
         <div className="space-y-1.5 mt-2 max-h-[50vh] overflow-y-auto scrollbar-thin">
           {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">暂无记忆</p>
+            <p className="text-sm text-muted-foreground text-center py-6">{t('memory.noMemory')}</p>
           ) : (
             items.map((item) => {
               const selected = selectedIds.includes(item.id);
@@ -103,7 +105,7 @@ export function MemorySelectionDialog({
                       </div>
                       <span className="font-medium text-foreground">{item.name}</span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground/50">{item.charCount}字</span>
+                    <span className="text-[10px] text-muted-foreground/50">{item.charCount}{t('memory.charsSuffix')}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 ml-[30px]">{item.desc}</p>
                 </button>
@@ -115,7 +117,7 @@ export function MemorySelectionDialog({
         <div className="flex items-center justify-between mt-3">
           {isOverLimit && (
             <p className="text-[11px] text-destructive">
-              请减少选择，当前超出 {(totalChars - maxChars).toLocaleString()} 字符
+              {t('memory.reduceSelection', { count: (totalChars - maxChars).toLocaleString() })}
             </p>
           )}
           <div className="ml-auto">
@@ -123,7 +125,7 @@ export function MemorySelectionDialog({
               onClick={() => onOpenChange(false)}
               size="sm"
               disabled={isOverLimit}
-              className="rounded-lg h-8 px-5 bg-foreground text-background hover:bg-foreground/90 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-full h-8 px-5 bg-foreground text-background hover:bg-foreground/90 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               确认 ({selectedIds.length})
             </Button>

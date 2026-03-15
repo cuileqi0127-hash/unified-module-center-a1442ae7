@@ -1,6 +1,6 @@
 import { useModule } from '@/contexts/ModuleContext';
 import { ModuleType } from '@/types/modules';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   PenTool,
@@ -20,13 +20,12 @@ import {
   ImageIcon,
   Video,
   Film,
-  ShoppingBag,
-  Layers,
   ChevronDown,
   LayoutGrid,
   PanelLeftClose,
   PanelLeft,
   Copy,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -41,7 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { COMING_SOON_ITEMS } from '@/constants/comingSoon';
 
@@ -57,7 +56,9 @@ interface SidebarSubgroup {
 }
 
 interface SidebarSection {
+  id?: string;
   titleKey: string;
+  icon?: React.ReactNode;
   items?: SidebarItem[];
   subgroups?: SidebarSubgroup[];
   defaultOpen?: boolean;
@@ -118,22 +119,22 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
   ],
   'ai-toolbox': [
     {
-      titleKey: '',
-      items: [
-        { id: 'app-plaza', labelKey: 'sidebar.appPlaza', icon: <LayoutGrid className="w-4 h-4" /> },
-      ],
+      id: 'app-plaza',
+      titleKey: 'sidebar.appPlaza',
+      icon: <LayoutGrid className="w-4 h-4" />,
+      isGroupHeader: true,
     },
     {
-      titleKey: '',
-      items: [
-        { id: 'market-insights', labelKey: 'sidebar.marketInsights', icon: <TrendingUp className="w-4 h-4" /> },
-      ],
+      id: 'market-insights',
+      titleKey: 'sidebar.marketInsights',
+      icon: <TrendingUp className="w-4 h-4" />,
+      isGroupHeader: true,
     },
     {
-      titleKey: '',
-      items: [
-        { id: 'planning-solutions', labelKey: 'sidebar.planningSolutions', icon: <Megaphone className="w-4 h-4" /> },
-      ],
+      id: 'planning-solutions',
+      titleKey: 'sidebar.planningSolutions',
+      icon: <Megaphone className="w-4 h-4" />,
+      isGroupHeader: true,
     },
     {
       titleKey: 'sidebar.materialGeneration',
@@ -141,19 +142,19 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
       defaultOpen: true,
       subgroups: [
         {
-          titleKey: 'sidebar.imageGeneration',
+          titleKey: '',
           items: [
             { id: 'text-to-image', labelKey: 'sidebar.imageGeneration', icon: <ImageIcon className="w-4 h-4" /> },
           ],
         },
         {
-          titleKey: 'sidebar.videoGeneration',
+          titleKey: '',
           items: [
             { id: 'text-to-video', labelKey: 'sidebar.videoGeneration', icon: <Video className="w-4 h-4" /> },
           ],
         },
         {
-          titleKey: 'sidebar.videoReplication',
+          titleKey: '',
           items: [
             { id: 'reference-to-video', labelKey: 'sidebar.videoReplication', icon: <Copy className="w-4 h-4" /> },
           ],
@@ -173,6 +174,19 @@ const sidebarConfig: Record<ModuleType, SidebarSection[]> = {
         },
       ],
     },
+    {
+      titleKey: 'sidebar.aiMarketingSkills',
+      isGroupHeader: true,
+      defaultOpen: true,
+      subgroups: [
+        {
+          titleKey: '',
+          items: [
+            { id: 'tiktok-solution', labelKey: 'sidebar.tiktokSolution', icon: <Zap className="w-4 h-4" /> },
+          ],
+        },
+      ],
+    },
   ],
 };
 
@@ -184,7 +198,6 @@ interface DynamicSidebarProps {
 export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps) {
   const { activeModule, sidebarCollapsed, setSidebarCollapsed } = useModule();
   const navigate = useNavigate();
-  const location = useLocation();
   const { t } = useTranslation();
   const sections = sidebarConfig[activeModule];
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
@@ -219,9 +232,41 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
     onItemClick(itemId);
   };
 
+  const hoverTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   const toggleSection = (titleKey: string) => {
     setOpenSections((prev) => ({ ...prev, [titleKey]: !prev[titleKey] }));
   };
+
+  const handleMouseEnter = useCallback((titleKey: string) => {
+    if (sidebarCollapsed) return;
+    hoverTimers.current[titleKey] = setTimeout(() => {
+      setOpenSections((prev) => {
+        if (prev[titleKey]) return prev;
+        return { ...prev, [titleKey]: true };
+      });
+    }, 300);
+  }, [sidebarCollapsed]);
+
+  const handleMouseLeave = useCallback((titleKey: string) => {
+    if (hoverTimers.current[titleKey]) {
+      clearTimeout(hoverTimers.current[titleKey]);
+      delete hoverTimers.current[titleKey];
+    }
+  }, []);
+
+  const asideRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (sidebarCollapsed) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (asideRef.current && !asideRef.current.contains(e.target as Node)) {
+        setSidebarCollapsed(true);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [sidebarCollapsed, setSidebarCollapsed]);
 
   const renderItem = (item: SidebarItem) => {
     const isComingSoon = COMING_SOON_ITEMS.includes(item.id);
@@ -239,7 +284,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
         )}
       >
         {item.icon}
-        {!sidebarCollapsed && <span className="text-left">{t(item.labelKey)}</span>}
+        {!sidebarCollapsed && <span>{t(item.labelKey)}</span>}
       </button>
     );
 
@@ -250,13 +295,13 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
             {button}
           </TooltipTrigger>
           <TooltipContent side="right" className="font-medium">
-            {isComingSoon ? 'Coming Soon' : t(item.labelKey)}
+            {isComingSoon ? t('common.comingSoon') : t(item.labelKey)}
           </TooltipContent>
         </Tooltip>
       );
     }
 
-    // 非折叠状态下，为 Coming Soon 项添加 Tooltip
+    // 非折叠状态下，为 {t('common.comingSoon')} 项添加 Tooltip
     if (isComingSoon) {
       return (
         <Tooltip key={item.id} delayDuration={0}>
@@ -264,7 +309,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
             {button}
           </TooltipTrigger>
           <TooltipContent side="right" className="font-medium">
-            Coming Soon
+            {t('common.comingSoon')}
           </TooltipContent>
         </Tooltip>
       );
@@ -276,6 +321,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
   return (
     <TooltipProvider>
       <aside
+        ref={asideRef}
         className={cn(
           'bg-sidebar/20 backdrop-blur-xl border-r border-sidebar-border/15 flex flex-col transition-all duration-300 ease-in-out fixed h-screen top-0 pt-14 box-border z-40',
           sidebarCollapsed ? 'w-[68px]' : 'w-64 shadow-soft-xl'
@@ -283,48 +329,82 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
       >
         <div className="flex-1 py-4 overflow-y-auto">
           {sections.map((section, idx) => (
-            <div key={section.titleKey || idx} className={cn(idx > 0 && section.isGroupHeader ? 'mt-2' : idx > 0 && 'mt-3')}>
-              {section.subgroups ? (
-                // Collapsible section with subgroups
-                <Collapsible
-                  open={sidebarCollapsed ? true : openSections[section.titleKey]}
-                  onOpenChange={() => !sidebarCollapsed && toggleSection(section.titleKey)}
-                >
-                  <CollapsibleTrigger className="w-full">
-                    {!sidebarCollapsed && (
-                      <div className="flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:text-foreground/80 transition-colors cursor-pointer">
-                        <span>{t(section.titleKey)}</span>
-                        <ChevronDown
-                          className={cn(
-                            'w-4 h-4 transition-transform',
-                            openSections[section.titleKey] && 'rotate-180'
-                          )}
-                        />
-                      </div>
-                    )}
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
-                    <div className={cn('space-y-2', sidebarCollapsed ? 'px-1.5' : 'px-2')}>
-                      {section.subgroups.map((subgroup) => (
-                        <div key={subgroup.titleKey}>
-                          {!sidebarCollapsed && (
-                            <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                              {t(subgroup.titleKey)}
-                            </div>
-                          )}
-                          <nav className="space-y-0.5">
-                            {subgroup.items.map(renderItem)}
-                          </nav>
-                        </div>
-                      ))}
+            <div key={`sidebar-section-${idx}`} className={cn(idx > 0 && section.isGroupHeader ? 'mt-2' : idx > 0 && 'mt-3')}>
+              {section.id && !section.subgroups && !section.items ? (
+                (() => {
+                  const headerButton = (
+                    <div className={cn(sidebarCollapsed ? 'px-1.5' : 'px-2')}>
+                      <button
+                        onClick={() => handleItemClick(section.id!)}
+                        className={cn(
+                          'sidebar-menu-item w-full',
+                          activeItem === section.id && 'active',
+                          sidebarCollapsed && 'justify-center px-2'
+                        )}
+                      >
+                        {section.icon}
+                        {!sidebarCollapsed && <span>{t(section.titleKey)}</span>}
+                      </button>
                     </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                  );
+                  if (sidebarCollapsed) {
+                    return (
+                      <Tooltip key={section.id} delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          {headerButton}
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="font-medium">
+                          {t(section.titleKey)}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+                  return headerButton;
+                })()
+              ) : section.subgroups ? (
+                <div
+                  onMouseEnter={() => handleMouseEnter(section.titleKey)}
+                  onMouseLeave={() => handleMouseLeave(section.titleKey)}
+                >
+                  <Collapsible
+                    open={sidebarCollapsed ? true : openSections[section.titleKey]}
+                    onOpenChange={() => !sidebarCollapsed && toggleSection(section.titleKey)}
+                  >
+                    <CollapsibleTrigger className="w-full">
+                      {!sidebarCollapsed && (
+                        <div className="flex items-center justify-between px-4 py-2 text-sm font-medium text-foreground hover:text-foreground/80 transition-colors cursor-pointer">
+                          <span>{t(section.titleKey)}</span>
+                          <ChevronDown
+                            className={cn(
+                              'w-4 h-4 transition-transform',
+                              openSections[section.titleKey] && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
+                      <div className={cn('space-y-2', sidebarCollapsed ? 'px-1.5' : 'px-2')}>
+                        {section.subgroups.map((subgroup, subIdx) => (
+                          <div key={subgroup.titleKey ? `subgroup-${subgroup.titleKey}` : `subgroup-${idx}-${subIdx}`}>
+                            {!sidebarCollapsed && subgroup.titleKey && (
+                              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                                {t(subgroup.titleKey)}
+                              </div>
+                            )}
+                            <nav className="space-y-0.5">
+                              {subgroup.items.map(renderItem)}
+                            </nav>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
               ) : (
-                // Regular section
                 <>
                   {!sidebarCollapsed && section.titleKey && (
-                    <div className="px-4 py-2 text-sm font-semibold text-foreground text-left">
+                    <div className="px-4 py-2 text-sm font-semibold text-foreground">
                       {t(section.titleKey)}
                     </div>
                   )}

@@ -80,7 +80,7 @@ export function ImageCapsule({ image, onRemove }: ImageCapsuleProps) {
         side="top" 
         align="start"
         sideOffset={8}
-        className="w-auto p-1.5 bg-background/95 backdrop-blur-sm shadow-lg rounded-lg"
+        className="w-auto p-1.5 bg-background/95 backdrop-blur-sm shadow-lg rounded-full"
       >
         <div className="space-y-1.5">
           <div className="overflow-hidden rounded-md border border-border/60 shadow-sm">

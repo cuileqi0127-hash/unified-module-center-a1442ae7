@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowUp, X, Play, Volume2, VolumeX, Eye, Heart, ShoppingCart, TrendingUp, Copy } from 'lucide-react';
+import { ArrowLeft, ArrowUp, X, Play, Volume2, VolumeX, Eye, Heart, ShoppingCart, TrendingUp, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { categoryTreeZh, categoryTreeEn, type CategoryTree } from '@/data/tiktok-categories';
-import { CategoryCascader, findPathInTree } from './CategoryCascader';
+import { CategoryCascader, findPathInTree } from '@/components/ui/category-cascader';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -22,6 +22,8 @@ export interface TrendingVideoCard {
   coverUrl?: string;
   /** 视频地址，有值时卡片内展示视频、支持 hover 播放/暂停，一键复刻可带入复刻视频页 */
   videoUrl?: string;
+  /** 原链接，点击「原链接」按钮时新开窗口跳转 */
+  originalLink?: string;
   duration: string;
   title: string;
   likesShort: string;
@@ -57,6 +59,7 @@ function mapVideoItemToCard(item: TiktokInsightVideoItem, index: number): Trendi
   return {
     id,
     videoUrl: videoUrl || undefined,
+    originalLink: item.url || undefined,
     duration: item.duration ?? '0:00',
     title: item.title ?? '',
     likesShort: formatShortNum(item.likes),
@@ -314,21 +317,19 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                     placeholder={isZh ? '选择品类' : 'Select category'}
                     searchPlaceholder={t('tiktokTrendingVideo.categorySearchPlaceholder')}
                     searchEmptyText={t('tiktokTrendingVideo.categorySearchEmpty')}
-                    className="h-7 rounded-lg px-2.5 text-sm mx-1 inline-flex"
-                    triggerClassName="h-7 rounded-lg px-2.5 text-sm border-border/30 bg-muted/20 hover:bg-muted/40"
                   />
                   <span className="whitespace-nowrap">，</span>
                   <div className="inline-flex items-center gap-1 flex-wrap mx-1.5">
                     {formData.sellingPoints.map((tag, i) => (
                       <span
                         key={`${tag}-${i}`}
-                        className="inline-flex items-center gap-1 h-6 rounded-full bg-muted/40 border border-border/20 px-2 text-xs text-foreground/80"
+                        className="inline-flex items-center gap-1 h-6 rounded-full bg-accent/10 border border-accent/20 px-2 text-xs text-accent font-medium"
                       >
                         {tag}
                         <button
                           type="button"
                           onClick={() => setRemovingSellingPointIndex(i)}
-                          className="hover:text-foreground transition-colors"
+                          className="hover:text-accent/70 transition-colors"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -470,7 +471,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                     </span>
                     <button
                       type="button"
-                      className="absolute right-2.5 bottom-2.5 p-1.5 rounded-lg bg-black/30 backdrop-blur-sm text-white/90 transition-opacity duration-200 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/30"
+                      className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-black/30 backdrop-blur-sm text-white/90 transition-opacity duration-200 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/30"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (card.videoUrl) {
@@ -523,15 +524,29 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                       </div>
                       <span className="text-xs font-medium text-foreground mt-0.5 inline-block">{card.sellingPointHitRate}%</span>
                     </div>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="w-full rounded-xl gap-2 mt-1 h-10 font-medium transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-                      onClick={() => handleReplicate(card)}
-                    >
-                      <Copy className="w-4 h-4" />
-                      {t('tiktokTrendingVideo.oneClickReplicate')}
-                    </Button>
+                    <div className="flex gap-2 mt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 rounded-full gap-1.5 h-10 font-medium transition-all duration-200"
+                        onClick={() => {
+                          if (card.originalLink) window.open(card.originalLink, '_blank', 'noopener,noreferrer');
+                        }}
+                        disabled={!card.originalLink}
+                      >
+                        <ExternalLink className="w-4 h-4 shrink-0" />
+                        {t('tiktokTrendingVideo.originalLink')}
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex-1 rounded-full gap-1.5 h-10 font-medium transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+                        onClick={() => handleReplicate(card)}
+                      >
+                        <Copy className="w-4 h-4 shrink-0" />
+                        {t('tiktokTrendingVideo.replicate')}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}

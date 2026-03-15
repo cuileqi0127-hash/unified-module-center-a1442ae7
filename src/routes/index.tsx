@@ -10,6 +10,12 @@ import { GEOInsightsModule } from '@/components/modules/geo-insights/GEOInsights
 /**
  * AI Toolbox 路由包装组件
  */
+/** 策划方案、洞察报告已整合为单一路由，旧 path 重定向到统一入口 */
+const PAGE_ID_REDIRECTS: Record<string, string> = {
+  'campaign-planner': 'planning-solutions',
+  'brand-health': 'market-insights',
+};
+
 function AIToolboxRoute() {
   const { pageId = 'app-plaza' } = useParams<{ pageId?: string }>();
   const navigate = useNavigate();
@@ -18,6 +24,11 @@ function AIToolboxRoute() {
   useEffect(() => {
     setActiveModule('ai-toolbox');
   }, [setActiveModule]);
+
+  const redirectTo = pageId ? PAGE_ID_REDIRECTS[pageId] : null;
+  if (redirectTo) {
+    return <Navigate to={`/ai-toolbox/${redirectTo}`} replace />;
+  }
 
   return (
     <AppShell>

@@ -11,7 +11,6 @@ import {
   ArrowUp,
   Plus,
   Play,
-  Database,
   History,
   Maximize2,
   Loader2,
@@ -25,6 +24,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { uploadVideoFile, uploadMediaFile, createVideoTask, pollTaskUntilComplete } from '@/services/videoReplicationApi';
+import { MemoryButtonWithDialog } from '@/components/modules/memory/MemoryButtonWithDialog';
 
 interface VideoReplicationProps {
   onNavigate?: (itemId: string) => void;
@@ -59,6 +59,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isImageDragOver, setIsImageDragOver] = useState(false);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
   const [dynamicsLevel, setDynamicsLevel] = useState(0.6);
   const [resolution, setResolution] = useState<'720p' | '1080p' | '2k'>('1080p');
   const [ratio, setRatio] = useState<'16:9' | '9:16'>('16:9');
@@ -92,7 +93,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       })
       .catch(() => {
         applyInitialVideo({ url });
-        toast.error(t('videoReplication.errors.urlToFileFailed', { defaultValue: '视频加载失败，反推提示词不可用' }));
+        toast.error(t('videoReplication.errors.urlToFileFailed'));
       })
       .finally(() => setIsVideoUploading(false));
   }, [t]);
@@ -278,18 +279,18 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       <SheetTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted/40"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-full hover:bg-muted/40"
         >
           <History className="w-3.5 h-3.5" />
-          <span>历史记录</span>
+          <span>{t('videoReplication.history')}</span>
         </button>
       </SheetTrigger>
       <SheetContent className="w-80 sm:w-96">
         <SheetHeader>
-          <SheetTitle className="text-base font-medium">历史记录</SheetTitle>
+          <SheetTitle className="text-base font-medium">{t('videoReplication.history')}</SheetTitle>
         </SheetHeader>
         <div className="mt-4">
-          <p className="text-sm text-muted-foreground text-center py-8">暂无历史记录</p>
+          <p className="text-sm text-muted-foreground text-center py-8">{t('videoReplication.noHistory')}</p>
         </div>
       </SheetContent>
     </Sheet>
@@ -305,7 +306,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            返回
+            {t('videoReplication.back')}
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -314,24 +315,24 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs text-foreground/70">
                   <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/80 flex items-center justify-center text-[10px] text-white">✓</span>
-                  <span>复刻视频已完成</span>
+                  <span>{t('videoReplication.replicationComplete')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleDownload}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
                   >
                     <Download className="w-3 h-3" />
-                    下载
+                    {t('videoReplication.download')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setVideoDialogOpen(true)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
                   >
                     <Maximize2 className="w-3 h-3" />
-                    放大
+                    {t('videoReplication.enlarge')}
                   </button>
                 </div>
               </div>
@@ -352,8 +353,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           </div>
         </div>
         <Dialog open={videoDialogOpen} onOpenChange={setVideoDialogOpen}>
-          <DialogContent className="max-w-4xl p-2 bg-background/95 backdrop-blur-sm">
-            <DialogTitle className="sr-only">复刻视频预览</DialogTitle>
+          <DialogContent className="max-w-4xl p-2 bg-background/95 backdrop-blur-sm" aria-describedby={undefined}>
+            <DialogTitle className="sr-only">{t('videoReplication.previewTitle')}</DialogTitle>
             {generatedVideo && (
               <video src={generatedVideo} autoPlay controls playsInline className="w-full rounded-lg" />
             )}
@@ -373,8 +374,8 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       <div className="flex flex-col items-center justify-center p-6 md:p-8 py-[80px]">
         <div className="w-full max-w-2xl animate-fade-in mt-[80px]">
           <div className="text-center mb-10">
-            <h1 className="text-2xl md:text-3xl font-normal tracking-tight text-[#3d3d3d]">复刻视频</h1>
-            <p className="mt-2 text-sm text-muted-foreground">上传对标视频，输入卖点，AI 生成复刻 Prompt</p>
+            <h1 className="text-2xl md:text-3xl font-normal tracking-tight text-[#3d3d3d]">{t('videoReplication.title')}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{t('videoReplication.pageSubtitle')}</p>
           </div>
 
           <div className="relative rounded-2xl border border-border/30 bg-card/80 backdrop-blur-sm shadow-sm transition-shadow hover:shadow-md">
@@ -414,7 +415,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                       ) : (
                         <>
                           <Plus className="w-5 h-5 text-muted-foreground/60" />
-                          <span className="text-[11px] text-muted-foreground/60 leading-tight text-center px-1">上传对标视频</span>
+                          <span className="text-[11px] text-muted-foreground/60 leading-tight text-center px-1">{t('videoReplication.uploadVideoLabel')}</span>
                         </>
                       )}
                     </div>
@@ -449,7 +450,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                       ) : (
                         <>
                           <ImageIcon className="w-5 h-5 text-muted-foreground/60" />
-                          <span className="text-[11px] text-muted-foreground/60 leading-tight text-center px-1">上传商品白底图</span>
+                          <span className="text-[11px] text-muted-foreground/60 leading-tight text-center px-1">{t('videoReplication.uploadImageLabel')}</span>
                         </>
                       )}
                     </div>
@@ -457,7 +458,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 </div>
 
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5">产品卖点 / 描述</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5">{t('videoReplication.productSellingPointsLabel')}</label>
                   <Textarea
                     value={sellingPoints}
                     onChange={(e) => setSellingPoints(e.target.value)}
@@ -473,24 +474,23 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
             </div>
 
             <div className="flex items-center justify-between px-5 py-3 border-t border-border/20">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => toast.info(t('videoReplication.memoryComingSoon', { defaultValue: '记忆库功能敬请期待' }))}
-                >
-                  <Database className="w-3.5 h-3.5" />
-                  记忆库
-                </Button>
+              <div className="flex items-center gap-2 text-[11px]">
+                <MemoryButtonWithDialog
+                  selectedIds={selectedMemoryIds}
+                  onToggle={(id) =>
+                    setSelectedMemoryIds((prev) =>
+                      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                    )
+                  }
+                />
                 {sellingPoints.trim() && (
                   <button
                     type="button"
                     onClick={handleCopyPrompt}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
                   >
                     <Copy className="w-3 h-3" />
-                    复制
+                    {t('common.copy')}
                   </button>
                 )}
               </div>
@@ -542,7 +542,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           <div className="flex flex-col items-center gap-4 max-w-md text-center">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
             <p className="font-medium text-foreground">
-              {viewState === 'analyzing' ? '正在分析视频并生成描述...' : '正在为您复刻视频...'}
+              {viewState === 'analyzing' ? t('videoReplication.analyzingLabel') : t('videoReplication.generatingLabel')}
             </p>
             <p className="text-sm text-muted-foreground">
               {viewState === 'analyzing' ? t('videoReplication.analyzingVideoHint') : t('videoReplication.generatingVideoHint')}

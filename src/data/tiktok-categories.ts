@@ -1,11 +1,8 @@
 // Complete TikTok category tree structure
 // Format: { [level1]: { [level2]: string[] } }
-
-export interface CategoryTree {
-  [level1: string]: {
-    [level2: string]: string[];
-  };
-}
+// 类型使用统一的 CategoryTree，数据由使用方传入级联控件
+import type { CategoryTree } from '@/types/category';
+export type { CategoryTree };
 
 export const categoryTreeZh: CategoryTree = {
   '玩具和爱好': {

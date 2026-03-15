@@ -16,14 +16,14 @@ const fadeUp = (i: number) => ({
 const BRAND_FLOW = [
   {
     label: '市场洞察',
-    targetId: 'brand-health',
+    targetId: 'market-insights',
     desc: '整合宏观趋势、竞品动态与人群画像，快速生成深度洞察报告',
     icon: <BarChart3 className="size-5" />,
     preview: <PreviewInsight />
   },
   {
     label: '策划方案',
-    targetId: 'campaign-planner',
+    targetId: 'planning-solutions',
     desc: '基于洞察数据自动生成营销策划方案，涵盖策略、排期与预算',
     icon: <Lightbulb className="size-5" />,
     preview: <PreviewPlanner />
@@ -135,7 +135,7 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
                 title="TikTok解决方案"
                 description="从选题到脚本到素材清单，生成完整可执行的 TikTok 增长方案"
                 preview={<PreviewTikTok />}
-                onClick={() => {}}
+                onClick={() => onNavigate('tiktok-solution')}
               />
             </div>
           </motion.div>

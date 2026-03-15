@@ -112,8 +112,8 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
   }, [t, reportUrl]);
 
   const handleCopyToMemory = useCallback(() => {
-    toast.info(isZh ? '复制到记忆库功能敬请期待' : 'Copy to Memory coming soon');
-  }, [isZh]);
+    toast.info(t('brandHealth.copyToMemoryComingSoon'));
+  }, [t]);
 
   const historyLabels = {
     title: t('brandHealth.historyRecords'),
@@ -137,9 +137,9 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
           <h2 className="text-lg font-medium text-foreground">{t('brandHealth.generating')}</h2>
           <p className="text-sm text-muted-foreground max-w-md">
-            {isZh ? '正在为' : 'Generating insight report for'}{' '}
+            {t('brandHealth.generatingFor')}{' '}
             <span className="text-foreground font-medium">{formData.brandName}</span>{' '}
-            {isZh ? '生成洞察报告...' : '...'}
+            {t('brandHealth.generatingReportSuffix')}
           </p>
         </div>
       </div>
@@ -200,12 +200,12 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               className="gap-2 text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
-              {isZh ? '返回重新生成' : 'Back to Regenerate'}
+              {t('brandHealth.backToRegenerate')}
             </Button>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={handleCopyToMemory}>
                 <Database className="h-4 w-4" />
-                {isZh ? '复制到记忆库' : 'Copy to Memory'}
+                {t('brandHealth.copyToMemory')}
               </Button>
               <Button
                 variant="outline"
@@ -215,7 +215,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
                 onClick={handleDownloadReport}
               >
                 <FileText className="h-4 w-4" />
-                {isZh ? '导出 PDF' : 'Export PDF'}
+                {t('brandHealth.exportPdf')}
               </Button>
             </div>
           </div>
@@ -223,10 +223,10 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
           {/* Report Title - 与 toolbox 一比一（含 id 便于后续打印等） */}
           <div className="mb-6" id="brand-health-report">
             <h1 className="text-2xl font-bold text-foreground">
-              {formData.brandName} {isZh ? '品牌健康度报告' : 'Brand Health Report'}
+              {formData.brandName} {t('brandHealth.reportTitle')}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isZh ? '生成时间：' : 'Generated: '}
+              {t('brandHealth.generatedTimeLabel')}
               {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -235,8 +235,8 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
             </p>
           </div>
 
-          {/* 报告内容区 - 与 toolbox 报告卡片样式一致：rounded-lg border bg-card，轮询 Overlay + iframe（接口逻辑不变） */}
-          <div className="relative flex flex-col min-h-[480px] rounded-lg border bg-card overflow-hidden mb-6">
+          {/* 报告内容区：固定高度占满视口剩余空间，iframe 内可滚动查看全部 HTML 内容 */}
+          <div className="relative flex flex-col h-[calc(100vh-14rem)] min-h-[420px] rounded-lg border bg-card overflow-hidden mb-6">
             <ReportPollingOverlay
               show={isPolling}
               generatingLabel={t('brandHealth.generating')}

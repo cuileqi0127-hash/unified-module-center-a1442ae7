@@ -121,7 +121,7 @@ export function ReportHistorySheet({
       <SheetTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted/40"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-full hover:bg-muted/40"
         >
           <History className="w-3.5 h-3.5" />
           <span>{labels.triggerButton}</span>
@@ -188,7 +188,7 @@ export function ReportHistorySheet({
                         e.preventDefault();
                         setPage((p) => Math.max(1, p - 1));
                       }}
-                      className="rounded-lg h-8 text-xs"
+                      className="rounded-full h-8 text-xs"
                     >
                       {labels.prevPage}
                     </Button>
@@ -200,7 +200,7 @@ export function ReportHistorySheet({
                         e.preventDefault();
                         setPage((p) => p + 1);
                       }}
-                      className="rounded-lg h-8 text-xs"
+                      className="rounded-full h-8 text-xs"
                     >
                       {labels.nextPage}
                     </Button>

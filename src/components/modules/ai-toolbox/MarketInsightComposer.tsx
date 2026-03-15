@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { ArrowUp, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CategoryCascader } from './CategoryCascader';
+import { CategoryCascader } from '@/components/ui/category-cascader';
 import { ShowcaseCard, SHOWCASE_CARDS } from './app-plaza/ShowcaseCard';
-import type { CategoryTree } from '@/data/tiktok-categories';
+import type { CategoryTree } from '@/types/category';
 
 export interface HistoryEntry {
   id: string;
@@ -107,7 +107,7 @@ export function MarketInsightComposer({
                 onChange={(e) => setBrandName(e.target.value)}
                 placeholder={brandPlaceholder}
                 className={cn(
-                  'mx-1.5 px-2.5 h-7 bg-muted/20 border border-border/30 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20 transition-colors',
+                  'mx-1.5 px-2.5 h-7 bg-muted/20 border border-border/30 rounded-full text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20 transition-colors',
                   'w-[100px]'
                 )}
                 onKeyDown={(e) => {
@@ -129,7 +129,6 @@ export function MarketInsightComposer({
                   placeholder={categoryPlaceholder}
                   searchPlaceholder={searchPlaceholder}
                   searchEmptyText={searchEmptyText}
-                  triggerClassName="h-7 min-h-7 rounded-lg px-2.5 text-sm border border-border/30 bg-muted/20 w-[120px]"
                 />
               </div>
 
@@ -140,13 +139,13 @@ export function MarketInsightComposer({
                 {competitors.map((c) => (
                   <span
                     key={c}
-                    className="inline-flex items-center gap-1 h-6 rounded-full bg-muted/40 border border-border/20 px-2 text-xs text-foreground/80"
+                    className="inline-flex items-center gap-1 h-6 rounded-full bg-accent/10 border border-accent/20 px-2 text-xs text-accent font-medium"
                   >
                     {c}
                     <button
                       type="button"
                       onClick={() => removeCompetitor(c)}
-                      className="hover:text-foreground transition-colors"
+                      className="hover:text-accent/70 transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>

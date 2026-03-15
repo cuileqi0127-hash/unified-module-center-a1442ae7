@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Loader2, History, X } from 'lucide-react';
-import { MemoryProvider } from '@/contexts/MemoryContext';
 import { CampaignPlannerComposer, type CampaignPayload } from './CampaignPlannerComposer';
 import { CampaignPlannerReport } from './CampaignPlannerReport';
 import {
@@ -86,7 +85,7 @@ export function CampaignPlanner() {
       <SheetTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted/40"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-full hover:bg-muted/40"
         >
           <History className="w-3.5 h-3.5" />
           <span>历史记录</span>
@@ -168,43 +167,37 @@ export function CampaignPlanner() {
 
   if (view === 'loading' && payload) {
     return (
-      <MemoryProvider>
-        <div className="min-h-full flex items-center justify-center p-8">
-          <div className="text-center space-y-4 animate-fade-in">
-            <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
-            <h2 className="text-lg font-medium text-foreground">方案生成中</h2>
-            <p className="text-sm text-muted-foreground max-w-md">
-              正在为 <span className="text-foreground font-medium">{payload.brandName}</span> 生成
-              {payload.goal}策划方案...
-            </p>
-          </div>
+      <div className="min-h-full flex items-center justify-center p-8">
+        <div className="text-center space-y-4 animate-fade-in">
+          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
+          <h2 className="text-lg font-medium text-foreground">方案生成中</h2>
+          <p className="text-sm text-muted-foreground max-w-md">
+            正在为 <span className="text-foreground font-medium">{payload.brandName}</span> 生成
+            {payload.goal}策划方案...
+          </p>
         </div>
-      </MemoryProvider>
+      </div>
     );
   }
 
   if (view === 'report' && payload) {
     return (
-      <MemoryProvider>
-        <CampaignPlannerReport
-          payload={payload}
-          onBack={() => {
-            setPayload(null);
-            setInitialData(undefined);
-            setComposerKey((k) => k + 1);
-            setView('input');
-          }}
-        />
-      </MemoryProvider>
+      <CampaignPlannerReport
+        payload={payload}
+        onBack={() => {
+          setPayload(null);
+          setInitialData(undefined);
+          setComposerKey((k) => k + 1);
+          setView('input');
+        }}
+      />
     );
   }
 
   return (
-    <MemoryProvider>
-      <div className="relative h-full">
-        <div className="absolute top-4 right-4 z-20">{historySheet}</div>
-        <CampaignPlannerComposer key={composerKey} onSubmit={handleSubmit} initialData={initialData} />
-      </div>
-    </MemoryProvider>
+    <div className="relative h-full">
+      <div className="absolute top-4 right-4 z-20">{historySheet}</div>
+      <CampaignPlannerComposer key={composerKey} onSubmit={handleSubmit} initialData={initialData} />
+    </div>
   );
 }

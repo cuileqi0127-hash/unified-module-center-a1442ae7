@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback } from 'react';
-import { ArrowUp, X, ChevronDown, ChevronLeft, ChevronRight, Check, Database } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ArrowUp, X, ChevronDown, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { useMemory } from '@/contexts/MemoryContext';
-import { MemorySelectionDialog } from '@/components/modules/memory/MemorySelectionDialog';
+import { InlinePicker } from '@/components/ui/inline-picker';
+import { MemoryButtonWithDialog } from '@/components/modules/memory/MemoryButtonWithDialog';
 import { ShowcaseCard, SHOWCASE_CARDS } from './app-plaza/ShowcaseCard';
 
 /* ─── Types ─── */
@@ -24,65 +24,6 @@ const GOALS = ['品牌升级', '销量增长', '新品发布', '节点营销', '
 const BUDGETS = ['S级全域战役', 'A级核心爆破', 'B级日常种草'];
 const CHANNELS = ['抖音', '小红书'];
 const CYCLES = ['Q1', 'Q2', 'Q3', 'Q4', '全年', '双11节点', '618节点'];
-
-/* ─── Inline picker ─── */
-function InlinePicker({
-  options,
-  value,
-  onChange,
-  placeholder,
-  show,
-  setShow,
-}: {
-  options: string[];
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  show: boolean;
-  setShow: (v: boolean) => void;
-}) {
-  return (
-    <div className="relative inline-block mx-1">
-      <button
-        type="button"
-        onClick={() => setShow(!show)}
-        className={cn(
-          'inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border text-sm transition-colors',
-          value
-            ? 'bg-accent/10 border-accent/20 text-accent font-medium'
-            : 'bg-muted/20 border-border/30 text-muted-foreground/60 hover:border-border/60'
-        )}
-      >
-        {value || placeholder}
-        <ChevronDown className="w-3 h-3" />
-      </button>
-      {show && (
-        <>
-          <div className="fixed inset-0 z-[100]" onClick={() => setShow(false)} aria-hidden />
-          <div className="absolute left-0 top-full mt-1 z-[101] bg-popover border border-border/30 rounded-xl shadow-lg p-1 min-w-[140px]">
-            {options.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => {
-                  onChange(opt);
-                  setShow(false);
-                }}
-                className={cn(
-                  'w-full text-left px-3 py-1.5 text-xs rounded-lg transition-colors flex items-center gap-2',
-                  opt === value ? 'bg-accent/10 text-accent font-medium' : 'hover:bg-muted/40 text-foreground/70'
-                )}
-              >
-                {opt === value && <Check className="w-3 h-3" />}
-                {opt}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 /* ─── Tag input component ─── */
 function TagInput({
@@ -112,7 +53,10 @@ function TagInput({
           className="inline-flex items-center gap-1 h-6 rounded-full bg-accent/10 border border-accent/20 px-2 text-xs text-accent font-medium"
         >
           {t}
-          <button type="button" onClick={() => onRemove(t)} className="hover:text-accent/70 transition-colors">
+          <button
+            type="button"
+            onClick={() => onRemove(t)}
+            className="hover:text-accent/70 transition-colors">
             <X className="w-3 h-3" />
           </button>
         </span>
@@ -131,7 +75,7 @@ function TagInput({
         onBlur={() => {
           if (input.trim()) onAdd(input);
         }}
-        placeholder={tags.length === 0 ? placeholder : '添加更多...'}
+        placeholder={placeholder}
         className="h-6 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none min-w-[120px] flex-1"
       />
     </div>
@@ -199,16 +143,8 @@ export function CampaignPlannerComposer({
   disabled,
   initialData,
 }: CampaignPlannerComposerProps) {
-  const { entries } = useMemory();
-  const memoryItems = entries.map((e) => ({
-    id: e.id,
-    name: e.title,
-    desc: e.content.slice(0, 60),
-    tag: e.category,
-    charCount: e.content.length,
-  }));
+  const { t } = useTranslation();
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
-  const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [brandName, setBrandName] = useState(initialData?.brandName || '');
   const [goal, setGoal] = useState(initialData?.goal || '');
   const [audience, setAudience] = useState<string[]>(initialData?.audience || []);
@@ -247,12 +183,6 @@ export function CampaignPlannerComposer({
     });
   }, [canSend, disabled, brandName, goal, audience, sellingPoints, budget, channels, cycle, onSubmit]);
 
-  const toggleMemory = (id: string) => {
-    setSelectedMemoryIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
   const addTag = (
     value: string,
     list: string[],
@@ -278,21 +208,21 @@ export function CampaignPlannerComposer({
       >
         <div className="text-center mb-10">
           <h1 className="text-2xl md:text-3xl font-normal tracking-tight text-[#3d3d3d]">
-            策划方案
+            {t('campaignPlanner.pageTitle')}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            输入品牌与营销目标，AI 一键生成营销策划方案
+            {t('campaignPlanner.pageSubtitle')}
           </p>
         </div>
 
         <div className="relative rounded-2xl border border-border/30 bg-card/80 backdrop-blur-sm shadow-sm transition-shadow hover:shadow-md">
           <div className="p-5 space-y-3">
             <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
-              <span className="whitespace-nowrap">为</span>
+              <span className="whitespace-nowrap">{t('campaignPlanner.forLabel')}</span>
               <input
                 value={brandName}
                 onChange={(e) => setBrandName(e.target.value)}
-                placeholder="品牌名称"
+                placeholder={t('campaignPlanner.brandNamePlaceholder')}
                 className="mx-1.5 px-2.5 h-7 bg-muted/20 border border-border/30 rounded-lg text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20 transition-colors w-[100px]"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -301,50 +231,50 @@ export function CampaignPlannerComposer({
                   }
                 }}
               />
-              <span className="whitespace-nowrap">制定</span>
+              <span className="whitespace-nowrap">{t('campaignPlanner.planLabel')}</span>
               <InlinePicker
                 options={GOALS}
                 value={goal}
                 onChange={setGoal}
-                placeholder="营销目标"
+                placeholder={t('campaignPlanner.goalPlaceholder')}
                 show={showGoalPicker}
                 setShow={setShowGoalPicker}
               />
-              <span className="whitespace-nowrap">策划方案</span>
+              <span className="whitespace-nowrap">{t('campaignPlanner.schemeLabel')}</span>
             </div>
 
             <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
-              <span className="whitespace-nowrap">目标人群</span>
+              <span className="whitespace-nowrap">{t('campaignPlanner.targetAudience')}</span>
               <TagInput
                 tags={audience}
                 input={audienceInput}
                 setInput={setAudienceInput}
                 onAdd={(v) => addTag(v, audience, setAudience, setAudienceInput)}
                 onRemove={(v) => removeTag(v, setAudience)}
-                placeholder="如：18-25岁大学生、熬夜党"
+                placeholder={audience.length === 0 ? t('campaignPlanner.audiencePlaceholder') : t('campaignPlanner.addMore')}
                 inputRef={audienceRef}
                 onEmptyEnter={handleSend}
               />
-              <span className="whitespace-nowrap">，核心卖点</span>
+              <span className="whitespace-nowrap">，{t('campaignPlanner.sellingPoints')}</span>
               <TagInput
                 tags={sellingPoints}
                 input={spInput}
                 setInput={setSpInput}
                 onAdd={(v) => addTag(v, sellingPoints, setSellingPoints, setSpInput)}
                 onRemove={(v) => removeTag(v, setSellingPoints)}
-                placeholder="如：温和不刺激、医生推荐"
+                placeholder={sellingPoints.length === 0 ? t('campaignPlanner.sellingPointsPlaceholder') : t('campaignPlanner.addMore')}
                 inputRef={spRef}
                 onEmptyEnter={handleSend}
               />
             </div>
 
             <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
-              <span className="whitespace-nowrap">预算量级</span>
+              <span className="whitespace-nowrap">{t('campaignPlanner.budgetLevel')}</span>
               <InlinePicker
                 options={BUDGETS}
                 value={budget}
                 onChange={setBudget}
-                placeholder="选择量级"
+                placeholder={t('campaignPlanner.budgetPlaceholder')}
                 show={showBudgetPicker}
                 setShow={setShowBudgetPicker}
               />
@@ -358,13 +288,13 @@ export function CampaignPlannerComposer({
               <ChevronDown
                 className={cn('w-3 h-3 transition-transform', showAdvanced && 'rotate-180')}
               />
-              高级设置 (选填)
+              {t('campaignPlanner.advancedSettings')}
             </button>
 
             {showAdvanced && (
               <div className="space-y-3 pt-1 border-t border-border/10">
                 <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
-                  <span className="whitespace-nowrap text-xs text-muted-foreground mr-2">主攻渠道</span>
+                  <span className="whitespace-nowrap text-xs text-muted-foreground mr-2">{t('campaignPlanner.mainChannels')}</span>
                   <div className="flex items-center gap-1.5">
                     {CHANNELS.map((ch) => {
                       const selected = channels.includes(ch);
@@ -397,7 +327,7 @@ export function CampaignPlannerComposer({
                           <Tooltip key={ch}>
                             <TooltipTrigger asChild>{btn}</TooltipTrigger>
                             <TooltipContent side="top" className="text-xs">
-                              Coming soon
+                              {t('common.comingSoon')}
                             </TooltipContent>
                           </Tooltip>
                         );
@@ -409,13 +339,13 @@ export function CampaignPlannerComposer({
 
                 <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
                   <span className="whitespace-nowrap text-xs text-muted-foreground mr-2">
-                    营销周期
+                    {t('campaignPlanner.cycleLabel')}
                   </span>
                   <InlinePicker
                     options={CYCLES}
                     value={cycle}
                     onChange={setCycle}
-                    placeholder="选择周期"
+                    placeholder={t('campaignPlanner.cyclePlaceholder')}
                     show={showCyclePicker}
                     setShow={setShowCyclePicker}
                   />
@@ -431,18 +361,16 @@ export function CampaignPlannerComposer({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent/60 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-accent/80" />
                 </span>
-                <span className="text-[11px] font-medium">联网搜索中</span>
+                <span className="text-[11px] font-medium">{t('campaignPlanner.searchingOnline')}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setMemoryDialogOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/30 text-muted-foreground/60 hover:bg-foreground/5 hover:text-muted-foreground transition-colors"
-              >
-                <Database className="w-3 h-3" />
-                <span className="text-[11px]">
-                  记忆库{selectedMemoryIds.length > 0 ? ` (${selectedMemoryIds.length})` : ''}
-                </span>
-              </button>
+              <MemoryButtonWithDialog
+                selectedIds={selectedMemoryIds}
+                onToggle={(id) =>
+                  setSelectedMemoryIds((prev) =>
+                    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                  )
+                }
+              />
             </div>
 
             <button
@@ -465,14 +393,6 @@ export function CampaignPlannerComposer({
       <div className="w-full max-w-5xl mt-8 relative z-0">
         <CampaignCaseSection />
       </div>
-
-      <MemorySelectionDialog
-        open={memoryDialogOpen}
-        onOpenChange={setMemoryDialogOpen}
-        items={memoryItems}
-        selectedIds={selectedMemoryIds}
-        onToggle={toggleMemory}
-      />
     </div>
   );
 }

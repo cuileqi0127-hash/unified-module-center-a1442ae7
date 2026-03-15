@@ -18,16 +18,11 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { InlinePicker } from '@/components/ui/inline-picker';
 import {
   Popover,
   PopoverContent,
@@ -37,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { UniversalCanvas, type CanvasMediaItem, type UniversalCanvasHandle } from './UniversalCanvas';
 import { ImageCapsule, type SelectedImage } from './ImageCapsule';
 import { useTextToImage, type CanvasImage } from './useTextToImage';
+import type { ImageModel } from '@/services/imageGenerationApi';
 import { getModelMaxImages, getModelConfig } from './textToImageConfig';
 import { AnimatedText } from './AnimatedText';
 import { MediaViewer } from './MediaViewer';
@@ -166,6 +162,8 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
     setViewerOpen,
     viewerIndex,
   } = useTextToImage();
+
+  const [showModelPicker, setShowModelPicker] = useState(false);
 
   // 视图层辅助函数
   const getStatusText = (status?: string) => {
@@ -299,7 +297,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                   {historySessions.map((session) => (
                     <button
                       key={session.id}
-                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted transition-colors group"
+                      className="w-full text-left px-3 py-2.5 rounded-full hover:bg-muted transition-colors group"
                       onClick={() => handleLoadSession(session.id)}
                     >
                       <p className="text-sm font-medium truncate group-hover:text-foreground">
@@ -492,34 +490,25 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             />
             )}
             
-            {/* Bottom toolbar：图2 风格 - 模型 + 设置 Popover（尺寸网格 + 输出数量）+ 添加 + 发送 */}
+            {/* Bottom toolbar：图2 风格 - 模型（与策划方案下拉样式一致）+ 设置 Popover + 添加 + 发送 */}
             <div className="flex items-center justify-between border-t border-border/50 px-3 py-2">
               <div className="flex items-center gap-2">
-                {/* Model Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
-                    >
-                      <ImageIcon className="h-3.5 w-3.5" />
-                      {t(`textToImage.modelNames.${model}`, { defaultValue: models.find(m => m.id === model)?.label })}
-                      <ChevronDown className="h-3 w-3 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="min-w-[140px]">
-                    {models.map((m) => (
-                      <DropdownMenuItem
-                        key={m.id}
-                        onClick={() => setModel(m.id)}
-                        className={cn(model === m.id && 'bg-accent')}
-                      >
-                        {t(`textToImage.modelNames.${m.id}`, { defaultValue: m.label })}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Model - 与策划方案「制定」「预算量级」「营销周期」下拉样式完全一致 */}
+                <div className="flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <InlinePicker
+                    options={models.map((m) => ({
+                      value: m.id,
+                      label: t(`textToImage.modelNames.${m.id}`, { defaultValue: m.label }),
+                    }))}
+                    value={model}
+                    onChange={(v) => setModel(v as ImageModel)}
+                    placeholder={t('textToImage.selectModel', { defaultValue: '选择模型' })}
+                    show={showModelPicker}
+                    setShow={setShowModelPicker}
+                    className="mx-0"
+                  />
+                </div>
 
                 {/* Settings Popover - Mac 风格：毛玻璃、柔和阴影、分段式选项 */}
                 <Popover>
@@ -527,7 +516,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
+                      className="h-7 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
                     >
                       <RatioIcon className="h-3.5 w-3.5" />
                       <span>{aspectRatio}</span>

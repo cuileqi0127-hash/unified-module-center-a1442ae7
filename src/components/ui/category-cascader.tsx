@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Search, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { CategoryTree } from '@/data/tiktok-categories';
+import type { CategoryTree } from '@/types/category';
 
 /** 扁平化树为 [path, value] 列表，用于检索 */
 function flattenTree(tree: CategoryTree): { path: [string, string, string]; value: string }[] {
@@ -33,7 +33,7 @@ export function findPathInTree(tree: CategoryTree, leafValue: string): [string, 
   return null;
 }
 
-/** 单列列表：与 toolbox 一致 - 选中加粗、浅灰右箭头(非叶子)、叶子选中显示 Check */
+/** 单列列表：选中加粗、非叶子右箭头、叶子选中显示 Check */
 function CascaderColumn({
   items,
   selectedValue,
@@ -58,17 +58,17 @@ function CascaderColumn({
             onClick={() => onSelect(label)}
             onMouseEnter={() => onHover(label)}
             className={cn(
-              'w-full flex items-center justify-between px-3 py-2.5 text-sm transition-colors text-left',
+              'w-full min-w-0 flex items-center justify-between gap-2 px-3 py-2 rounded-full text-sm transition-colors text-left overflow-hidden',
               isSelected
-                ? 'bg-muted/60 text-foreground font-medium'
-                : 'text-foreground/80 hover:bg-muted/30'
+                ? 'bg-accent/10 text-accent font-medium'
+                : 'text-foreground/80 hover:bg-muted/40'
             )}
           >
-            <span className="truncate">{label}</span>
+            <span className="min-w-0 truncate">{label}</span>
             {!isLast ? (
               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 ml-2" />
             ) : isSelected ? (
-              <Check className="w-3.5 h-3.5 text-foreground shrink-0 ml-2" />
+              <Check className="w-3.5 h-3.5 text-accent shrink-0 ml-2" />
             ) : null}
           </button>
         );
@@ -77,20 +77,24 @@ function CascaderColumn({
   );
 }
 
-interface CategoryCascaderProps {
+export interface CategoryCascaderProps {
+  /** 品类树数据，由外部传入 */
   tree: CategoryTree;
+  /** 当前选中的叶子节点值（三级） */
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  /** 检索输入框占位文案 */
   searchPlaceholder?: string;
-  /** 检索无结果时的提示文案 */
   searchEmptyText?: string;
   className?: string;
   triggerClassName?: string;
   disabled?: boolean;
 }
 
+/**
+ * 通用下拉级联控件（品类选择器）。
+ * 数据通过 tree 属性外部传入，不依赖具体业务数据源。
+ */
 export function CategoryCascader({
   tree,
   value,
@@ -109,7 +113,6 @@ export function CategoryCascader({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const path = useMemo(() => (value ? findPathInTree(tree, value) : null), [tree, value]);
-  /** 面包屑展示：一级 > 二级 > 三级，与 toolbox / 设计图一致 */
   const displayText = path ? path.join(' > ') : '';
 
   const flatList = useMemo(() => flattenTree(tree), [tree]);
@@ -177,14 +180,16 @@ export function CategoryCascader({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex items-center gap-1 h-7 rounded-md border border-border/40 text-xs bg-transparent px-2 hover:border-border transition-colors',
-            !displayText && 'text-muted-foreground',
+            'inline-flex items-center gap-1 h-7 rounded-full border px-2.5 py-1.5 text-sm transition-colors',
+            displayText
+              ? 'bg-accent/10 border-accent/20 text-accent font-medium'
+              : 'bg-muted/20 border-border/30 text-muted-foreground/60 hover:border-border/60',
             triggerClassName,
             className
           )}
         >
           <span className="truncate max-w-[200px]">{displayText || placeholder}</span>
-          <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+          <ChevronDown className="w-3 h-3 shrink-0" />
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -192,7 +197,6 @@ export function CategoryCascader({
         sideOffset={8}
         className="p-0 rounded-xl shadow-lg w-auto max-w-[540px] overflow-hidden [animation-duration:0.2s]"
       >
-        {/* 搜索框 - 与 toolbox 一致 */}
         <div className="px-3 py-2 border-b border-border/20">
           <div className="flex items-center gap-2 px-2 h-8 rounded-lg bg-muted/30 border border-border/20">
             <Search className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
@@ -207,7 +211,6 @@ export function CategoryCascader({
         </div>
 
         {searchTrimmed ? (
-          /* 搜索结果列表 */
           <div className="max-h-[320px] overflow-y-auto py-1 scrollbar-thin">
             {filteredBySearch.length === 0 ? (
               <p className="text-xs text-muted-foreground/50 text-center py-6">{searchEmptyText}</p>
@@ -218,17 +221,16 @@ export function CategoryCascader({
                   type="button"
                   onClick={() => handleSearchSelect(item)}
                   className={cn(
-                    'w-full text-left px-4 py-2.5 text-xs transition-colors hover:bg-muted/30',
-                    value === item.value ? 'bg-muted/60 text-foreground font-medium' : 'text-foreground/80'
+                    'w-full min-w-0 text-left px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted/40 overflow-hidden',
+                    value === item.value ? 'bg-accent/10 text-accent font-medium' : 'text-foreground/80'
                   )}
                 >
-                  {item.path.join(' > ')}
+                  <span className="block truncate">{item.path.join(' > ')}</span>
                 </button>
               ))
             )}
           </div>
         ) : (
-          /* 三列级联 - 与 toolbox 一致 */
           <div className="flex">
             <CascaderColumn
               items={level1List}

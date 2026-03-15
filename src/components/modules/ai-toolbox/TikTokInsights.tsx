@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { submitTiktokInsightTask } from '@/services/reportApi';
 import { useReportPolling } from '@/hooks/useReportPolling';
 import { categoryTreeZh, categoryTreeEn, type CategoryTree } from '@/data/tiktok-categories';
-import { CategoryCascader } from './CategoryCascader';
+import { CategoryCascader } from '@/components/ui/category-cascader';
 import { ReportDisplay, ReportPollingOverlay } from './ReportDisplay';
 import { ReportHistorySheet } from './ReportHistorySheet';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -153,7 +153,6 @@ export function TikTokInsights({ onNavigate }: TikTokInsightsProps) {
                     placeholder={t('tiktokInsights.categoryPlaceholderSelect')}
                     searchPlaceholder={t('tiktokInsights.categorySearchPlaceholder')}
                     searchEmptyText={t('tiktokInsights.categorySearchEmpty')}
-                    triggerClassName="border-border/80 bg-black/[0.02] dark:bg-white/[0.04] focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
                   />
                 </div>
 
