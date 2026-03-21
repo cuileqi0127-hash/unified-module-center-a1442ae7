@@ -7,24 +7,46 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Next.js
+.next
+out
+.vercel
+
+# Legacy Vite build output（若目录仍存在）
 dist
 dist-ssr
-*.local
 
-# Editor directories and files
+# TypeScript
+*.tsbuildinfo
+
+# Testing / coverage
+coverage
+.nyc_output
+
+# Misc
+*.local
+.eslintcache
+.turbo
+
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Environment variables
+# Environment（本地与密钥；提交示例文件请用 ! 取消忽略）
+.env
 .env.*
+!.env.example
 
-# docs
+# Project
 docs

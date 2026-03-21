@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
@@ -131,7 +131,7 @@ export function useTextToImage() {
     }
   }, []);
 
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
 
   // State
   const [prompt, setPrompt] = useState('');

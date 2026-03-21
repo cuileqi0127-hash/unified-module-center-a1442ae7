@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { ensureAspectRatioEnum, type VideoModel, type VideoTaskResponse } from '@/services/videoGenerationApi';
@@ -129,7 +129,7 @@ export function useTextToVideo() {
   const handleResizeMoveRef = useRef<(e: MouseEvent) => void>();
   const handleResizeEndRef = useRef<() => void>();
 
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
 
   // State
   const [prompt, setPrompt] = useState('');

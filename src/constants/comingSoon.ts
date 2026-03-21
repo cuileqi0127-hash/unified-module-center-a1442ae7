@@ -9,10 +9,10 @@ export const COMING_SOON_ITEMS: readonly string[] = [
 
 /** 禁止进入的 AI Toolbox 子页（直链与侧栏均不可进入） */
 export const BLOCKED_AI_TOOLBOX_PAGE_IDS: readonly string[] = [
-  'planning-solutions',
-  'tiktok-viral-video-matching',
-  'tiktok-solution',
-  'reference-to-video',
+  // 'planning-solutions',
+  // 'tiktok-viral-video-matching',
+  // 'tiktok-solution',
+  // 'reference-to-video',
 ];
 
 export function isComingSoon(id: string): boolean {

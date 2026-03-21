@@ -1,5 +1,6 @@
 import { Play, Heart, MessageSquare } from 'lucide-react';
 import logoDark from '@/assets/logo_dark.svg';
+import { imageSrc } from '@/lib/imageSrc';
 
 export interface ShowcaseCardDetail {
   author?: string;
@@ -83,7 +84,7 @@ export function ShowcaseCard({
                   </p>
                   <div className="flex items-center gap-[2px]">
                     <div className="w-[6px] h-[6px] rounded-full overflow-hidden bg-muted">
-                      <img alt="OranAI" src={logoDark} className="w-full h-full object-contain" />
+                      <img alt="OranAI" src={imageSrc(logoDark)} className="w-full h-full object-contain" />
                     </div>
                     <p className="font-medium leading-normal text-[4px] text-muted-foreground truncate">
                       OranAI

@@ -154,7 +154,7 @@ export async function uploadMediaFile(
     useAuth: false, // VOD 上传接口不使用用户认证
   });
 
-  return response.data || response as MediaUploadResponse;
+  return response.data ?? (response as unknown as MediaUploadResponse);
 }
 
 /**
@@ -228,7 +228,7 @@ export async function pollTaskStatus(taskId: string): Promise<VideoTaskResponse>
   });
 
   // 解析返回数据
-  const data = response.data || response as AigcTaskResponse;
+  const data = response.data ?? (response as unknown as AigcTaskResponse);
   
   // 提取 AigcVideoTask 信息
   const aigcTask = data.AigcVideoTask;

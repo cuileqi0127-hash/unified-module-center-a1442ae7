@@ -1,5 +1,6 @@
 import { Globe, Database, Zap, Sparkles } from 'lucide-react';
 import logoDark from '@/assets/logo_dark.svg';
+import { imageSrc } from '@/lib/imageSrc';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
@@ -61,7 +62,7 @@ export function TopNav() {
       <header className="h-14 border-b border-border/10 bg-background/20 backdrop-blur-xl flex items-center justify-between px-4 top-0 z-50 fixed left-0 w-screen">
         {/* Left: Logo */}
         <div className="flex items-center gap-3">
-          <img src={logoDark} alt="Oran Gen" className="w-6 h-6 object-fill" />
+          <img src={imageSrc(logoDark)} alt="Oran Gen" className="w-6 h-6 object-contain" />
           <span className="text-lg font-normal">Oran Gen</span>
         </div>
 

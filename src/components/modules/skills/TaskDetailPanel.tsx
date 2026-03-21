@@ -1,6 +1,8 @@
 import { X, Clock, Check, Loader2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { StaticImageData } from 'next/image';
+import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { SkillTask, CandidateVideo } from './useSkillsEngine';
 
@@ -17,7 +19,7 @@ import expertAudio from '@/assets/expert-audio.png';
 import pixelCheck from '@/assets/pixel-check.png';
 import pixelWait from '@/assets/pixel-wait.png';
 
-const expertAvatars: Record<string, string> = {
+const expertAvatars: Record<string, string | StaticImageData> = {
   memory: pixelMemory,
   crawler: expertCrawler,
   video: pixelVideo,
@@ -118,7 +120,7 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
                       'w-6 h-6 shrink-0 transition-opacity',
                       child.status === 'queued' && 'opacity-30'
                     )}>
-                          <img src={avatarSrc} alt={childExpert?.name || ''} className="w-full h-full object-contain" />
+                          <img src={imageSrc(avatarSrc)} alt={childExpert?.name || ''} className="w-full h-full object-contain" />
                         </div> :
 
                     <div className="w-6 h-6 shrink-0" />
@@ -135,11 +137,11 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
                       {/* Right: pixel status icon */}
                       <div className="w-4 h-4 shrink-0">
                         {child.status === 'done' ?
-                      <img src={pixelCheck} alt="done" className="w-full h-full object-contain" /> :
+                      <img src={imageSrc(pixelCheck)} alt="done" className="w-full h-full object-contain" /> :
                       child.status === 'running' ?
-                      <img src={pixelWait} alt="running" className="w-full h-full object-contain animate-pulse" /> :
+                      <img src={imageSrc(pixelWait)} alt="running" className="w-full h-full object-contain animate-pulse" /> :
 
-                      <img src={pixelWait} alt="queued" className="w-full h-full object-contain opacity-20" />
+                      <img src={imageSrc(pixelWait)} alt="queued" className="w-full h-full object-contain opacity-20" />
                       }
                       </div>
                     </div>);
@@ -185,9 +187,9 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
                 {/* Status icon above avatar */}
                 <div className="h-4 flex items-center justify-center">
                   {child.status === 'done' ?
-                    <img src={pixelCheck} alt="done" className="w-4 h-4 object-contain" /> :
+                    <img src={imageSrc(pixelCheck)} alt="done" className="w-4 h-4 object-contain" /> :
                   child.status === 'running' ?
-                    <img src={pixelWait} alt="running" className="w-4 h-4 object-contain animate-pulse" /> :
+                    <img src={imageSrc(pixelWait)} alt="running" className="w-4 h-4 object-contain animate-pulse" /> :
                     <div className="w-4 h-4" />
                   }
                 </div>
@@ -203,7 +205,7 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
                     child.status === 'queued' && 'opacity-30'
                   )}>
                     {avatarSrc ?
-                  <img src={avatarSrc} alt={childExpert?.name || ''} className="w-full h-full object-contain" /> :
+                  <img src={imageSrc(avatarSrc)} alt={childExpert?.name || ''} className="w-full h-full object-contain" /> :
                   <span className="text-lg">{child.title.slice(0, 1)}</span>
                   }
                   </div>

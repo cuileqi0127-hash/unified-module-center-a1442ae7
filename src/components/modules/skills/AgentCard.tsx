@@ -1,3 +1,5 @@
+import type { StaticImageData } from 'next/image';
+import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { PixelProgress } from './PixelProgress';
 import { ChevronRight } from 'lucide-react';
@@ -13,7 +15,7 @@ import expertDesigner from '@/assets/expert-designer.png';
 import expertAnalyst from '@/assets/expert-analyst.png';
 import expertAudio from '@/assets/expert-audio.png';
 
-const expertAvatars: Record<string, string> = {
+const expertAvatars: Record<string, string | StaticImageData> = {
   memory: pixelMemory,
   crawler: expertCrawler,
   video: pixelVideo,
@@ -65,7 +67,7 @@ export function AgentCard({ agent, onClick, compact }: AgentCardProps) {
             agent.status === 'running' && 'animate-pulse'
           )}>
             {avatarSrc ?
-            <img src={avatarSrc} alt={agent.name} className="w-full h-full object-contain" /> :
+            <img src={imageSrc(avatarSrc)} alt={agent.name} className="w-full h-full object-contain" /> :
 
             <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center font-pixel text-sm">
                 {agent.name[0]}
@@ -78,7 +80,7 @@ export function AgentCard({ agent, onClick, compact }: AgentCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={cn("font-pixel text-sm font-semibold text-foreground", agent.status === 'error' && 'text-destructive')}>{agent.name}</span>
-            {agent.status === 'error' && <img src={pixelCross} className="w-4 h-4 shrink-0" alt="error" />}
+            {agent.status === 'error' && <img src={imageSrc(pixelCross)} className="w-4 h-4 shrink-0" alt="error" />}
             
           </div>
 
@@ -121,7 +123,7 @@ export function AgentClusterCard({ agents, title, onAgentClick }: AgentClusterCa
     <div className="rounded-xl border border-border/30 bg-background overflow-hidden">
       {/* Header */}
       <div className="px-4 py-2.5 border-b border-border/20 flex items-center gap-2">
-        <img src={pixelAgent} className="w-4 h-4" alt="" />
+        <img src={imageSrc(pixelAgent)} className="w-4 h-4" alt="" />
         <span className="text-xs font-medium text-foreground">Agent 集群</span>
         <span className="text-[10px] text-muted-foreground/50 ml-1">
           {totalCount} 个{runningCount > 0 ? '并行' : ''}任务

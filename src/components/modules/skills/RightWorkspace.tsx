@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { X, ChevronRight, Copy, Check, FileText, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import type { StaticImageData } from 'next/image';
+import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { PixelProgress } from './PixelProgress';
 import { PromptEditorBlock } from './PromptEditorBlock';
@@ -23,7 +25,7 @@ import pixelWait from '@/assets/pixel-wait.png';
 import pixelInfo from '@/assets/pixel-info.svg';
 import pixelCross from '@/assets/pixel-cross.png';
 
-const expertAvatars: Record<string, string> = {
+const expertAvatars: Record<string, string | StaticImageData> = {
   memory: pixelMemory,
   crawler: expertCrawler,
   video: pixelVideo,
@@ -101,7 +103,7 @@ function SubTaskList({ task }: {task: SkillTask;}) {
         const isRunning = child.status === 'running';
         return (
           <div key={i} className="flex items-center gap-3 py-3 border-b border-border/10 last:border-b-0">
-            {avatarSrc && <img src={avatarSrc} className="w-5 h-5 shrink-0 object-contain" alt="" />}
+            {avatarSrc && <img src={imageSrc(avatarSrc)} className="w-5 h-5 shrink-0 object-contain" alt="" />}
             <span className="text-sm text-foreground/70 flex-1">{child.title}</span>
             {isDone && <Check className="w-4 h-4 text-foreground/40" />}
             {isRunning && <Loader2 className="w-4 h-4 text-muted-foreground/40 animate-spin" />}
@@ -151,7 +153,7 @@ export function RightWorkspace(props: RightWorkspaceProps) {
     if (currentAgent?.status === 'error') {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 p-5 text-center min-h-[300px]">
-          <img src={pixelCross} className="w-10 h-10" alt="" />
+          <img src={imageSrc(pixelCross)} className="w-10 h-10" alt="" />
           <p className="text-sm text-destructive font-medium">状态异常</p>
           <p className="text-xs text-muted-foreground/60">{currentAgent.statusText || '任务执行过程中出现错误'}</p>
         </div>);
@@ -178,7 +180,7 @@ export function RightWorkspace(props: RightWorkspaceProps) {
         if (!props.memoryEnabled) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 p-5 text-center min-h-[300px]">
-              <img src={pixelInfo} className="w-10 h-10 opacity-40" alt="" />
+              <img src={imageSrc(pixelInfo)} className="w-10 h-10 opacity-40" alt="" />
               <p className="text-sm text-muted-foreground/60">未选择记忆库</p>
             </div>);
 

@@ -1,4 +1,6 @@
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
+import type { StaticImageData } from 'next/image';
+import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { useMemory } from '@/contexts/MemoryContext';
 import { useSkillsEngine, SessionSetup, SkillsState, StreamMessageType } from './useSkillsEngine';
@@ -22,7 +24,7 @@ import pixelTrend from '@/assets/pixel-trend.svg';
 import expertCrawler from '@/assets/expert-crawler.png';
 import expertDesigner from '@/assets/expert-designer.png';
 
-const avatarMap: Record<string, string> = {
+const avatarMap: Record<string, string | StaticImageData> = {
   memory: pixelMemory, crawler: expertCrawler, video: pixelVideo,
   designer: expertDesigner, strategist: pixelPrompt, search: pixelSearch
 };
@@ -52,7 +54,7 @@ function AgentClusterSteps({ agents, isLast, msgId, category, sellingPoints, mem
               className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/20 transition-colors"
               onClick={() => setExpandedId(isExpanded ? null : agent.id)}>
               
-              <img src={pixelCreate} alt="创建助手" className="w-4 h-4 shrink-0" />
+              <img src={imageSrc(pixelCreate)} alt="创建助手" className="w-4 h-4 shrink-0" />
               <span className="text-sm text-foreground/80">创建助手</span>
               <div className="w-px h-4 bg-border/30" />
               <div className={cn(
@@ -60,7 +62,7 @@ function AgentClusterSteps({ agents, isLast, msgId, category, sellingPoints, mem
                 isExpanded ? 'w-8 h-8' : 'w-5 h-5'
               )}>
                 {avatarSrc ?
-                <img src={avatarSrc} alt={agent.name} className="w-full h-full object-contain" /> :
+                <img src={imageSrc(avatarSrc)} alt={agent.name} className="w-full h-full object-contain" /> :
 
                 <div className="w-full h-full rounded bg-muted flex items-center justify-center text-[9px] font-medium">{agent.name[0]}</div>
                 }
@@ -78,7 +80,7 @@ function AgentClusterSteps({ agents, isLast, msgId, category, sellingPoints, mem
             {isExpanded &&
             <div className="px-4 pb-4 animate-fade-in">
                 <div className="flex items-start gap-3">
-                  <img src={pixelCreate} alt="" className="w-4 h-4 shrink-0 invisible" />
+                  <img src={imageSrc(pixelCreate)} alt="" className="w-4 h-4 shrink-0 invisible" />
                   <span className="text-sm invisible">创建助手</span>
                   <div className="w-px h-4 invisible" />
                   <div className={cn('shrink-0 invisible', isExpanded ? 'w-8' : 'w-5')} />
@@ -394,7 +396,7 @@ export function SkillsModule() {
       case 'selection-confirm':
         return (
           <div key={msg.id} className="flex items-start gap-2 text-sm text-foreground/80 leading-relaxed animate-fade-in">
-            <img src={pixelTrend} className="w-4 h-4 shrink-0 mt-0.5" alt="" />
+            <img src={imageSrc(pixelTrend)} className="w-4 h-4 shrink-0 mt-0.5" alt="" />
             <span>{msg.content}</span>
           </div>);
 
@@ -404,7 +406,7 @@ export function SkillsModule() {
           let icon = null;
           let cleanContent = content;
           if (content.startsWith('✅')) {
-            icon = <img src={pixelTrend} className="w-4 h-4 shrink-0 mt-0.5" alt="" />;
+            icon = <img src={imageSrc(pixelTrend)} className="w-4 h-4 shrink-0 mt-0.5" alt="" />;
             cleanContent = content.slice(2).trim();
           } else if (content.startsWith('🎉')) {
             icon = <PartyPopper className="w-4 h-4 text-foreground shrink-0 mt-0.5" />;
@@ -413,7 +415,7 @@ export function SkillsModule() {
             icon = <RefreshCw className="w-4 h-4 text-foreground/60 shrink-0 mt-0.5" />;
             cleanContent = content.slice(2).trim();
           } else if (content.startsWith('❌')) {
-            icon = <img src={pixelCross} className="w-4 h-4 shrink-0 mt-0.5" alt="" />;
+            icon = <img src={imageSrc(pixelCross)} className="w-4 h-4 shrink-0 mt-0.5" alt="" />;
             cleanContent = content.slice(2).trim();
           }
           return (
@@ -430,7 +432,7 @@ export function SkillsModule() {
           let icon = null;
           let cleanContent = content;
           if (content.startsWith('✅')) {
-            icon = <img src={pixelTrend} className="w-4 h-4 shrink-0 mt-0.5" alt="" />;
+            icon = <img src={imageSrc(pixelTrend)} className="w-4 h-4 shrink-0 mt-0.5" alt="" />;
             cleanContent = content.slice(2).trim();
           } else if (content.startsWith('🔍') || content.startsWith('🎯')) {
             icon = <Search className="w-4 h-4 text-foreground/60 shrink-0 mt-0.5" />;

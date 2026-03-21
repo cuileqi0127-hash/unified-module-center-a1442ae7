@@ -1,5 +1,7 @@
+'use client';
+
 import { ReactNode, useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { usePathname, useRouter } from 'next/navigation';
 import { MemoryProvider } from '@/contexts/MemoryContext';
 import { TopNav } from './TopNav';
 import { DynamicSidebar } from './DynamicSidebar';
@@ -36,12 +38,12 @@ const homeItems = [
 
 export function AppShell({ children }: AppShellProps) {
   const { activeModule, sidebarCollapsed, setSidebarCollapsed } = useModule();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
   
   // 从路由路径中提取页面ID
   const getPageIdFromPath = (): string => {
-    const pathParts = location.pathname.split('/').filter(Boolean);
+    const pathParts = pathname.split('/').filter(Boolean);
     if (pathParts.length >= 2) {
       return pathParts[1]; // 例如 /ai-toolbox/text-to-image -> text-to-image
     }
@@ -54,7 +56,7 @@ export function AppShell({ children }: AppShellProps) {
   useEffect(() => {
     const pageId = getPageIdFromPath();
     setActiveItem(pageId);
-  }, [location.pathname, activeModule]);
+  }, [pathname, activeModule]);
 
   // 当 activeModule 变化时，检查是否需要导航到对应的默认页面
   // 注意：这个 useEffect 主要用于从外部（如直接访问 URL）同步 activeModule
@@ -65,10 +67,10 @@ export function AppShell({ children }: AppShellProps) {
     const modulePath = `/${activeModule}`;
     
     // 如果当前路径不属于当前模块，且不是根路径，则导航到默认页面
-    if (location.pathname !== '/' && !location.pathname.startsWith(modulePath)) {
-      navigate(`/${activeModule}/${defaultItem}`);
+    if (pathname !== '/' && !pathname.startsWith(modulePath)) {
+      router.push(`/${activeModule}/${defaultItem}`);
     }
-  }, [activeModule, location.pathname, navigate]);
+  }, [activeModule, pathname, router]);
 
   // Auto-collapse/expand based on active item
   useEffect(() => {

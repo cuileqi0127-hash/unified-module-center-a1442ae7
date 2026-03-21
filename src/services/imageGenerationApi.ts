@@ -194,7 +194,7 @@ export async function generateImage(
     });
     console.log(response,'response')
     // 验证响应数据
-    const data = response as ImageGenerationResponse;
+    const data = response as unknown as ImageGenerationResponse;
     if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
       throw new Error('Invalid response: missing image data');
     }

@@ -1,6 +1,8 @@
+'use client';
+
 import { useModule } from '@/contexts/ModuleContext';
 import { ModuleType } from '@/types/modules';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   PenTool,
@@ -197,7 +199,7 @@ interface DynamicSidebarProps {
 
 export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps) {
   const { activeModule, sidebarCollapsed, setSidebarCollapsed } = useModule();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { t } = useTranslation();
   const sections = sidebarConfig[activeModule];
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
@@ -227,7 +229,7 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
   // 处理侧边栏项点击，使用路由导航
   const handleItemClick = (itemId: string) => {
     const routePath = getRoutePath(itemId);
-    navigate(routePath);
+    router.push(routePath);
     // 同时调用原有的回调函数以保持兼容性
     onItemClick(itemId);
   };

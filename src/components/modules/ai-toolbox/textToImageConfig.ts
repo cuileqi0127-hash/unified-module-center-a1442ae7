@@ -101,21 +101,22 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
     ],
     defaultSize: '2048x2048',
   },
-  // 'kling-v1-5': {
-  //   label: '可灵',
-  //   sizes: [
-  //     { id: '1:1', label: '1:1' },
-  //     { id: '2:3', label: '2:3' },
-  //     { id: '3:2', label: '3:2' },
-  //     { id: '3:4', label: '3:4' },
-  //     { id: '4:3', label: '4:3' },
-  //     { id: '4:5', label: '4:5' },
-  //     { id: '5:4', label: '5:4' },
-  //     { id: '9:16', label: '9:16' },
-  //     { id: '16:9', label: '16:9' },
-  //   ],
-  //   defaultSize: '1:1',
-  // },
+  'kling-v1-5': {
+    label: '可灵',
+    maxImages: 0,
+    sizes: [
+      { id: '1:1', label: '1:1' },
+      { id: '2:3', label: '2:3' },
+      { id: '3:2', label: '3:2' },
+      { id: '3:4', label: '3:4' },
+      { id: '4:3', label: '4:3' },
+      { id: '4:5', label: '4:5' },
+      { id: '5:4', label: '5:4' },
+      { id: '9:16', label: '9:16' },
+      { id: '16:9', label: '16:9' },
+    ],
+    defaultSize: '1:1',
+  },
 };
 
 // 默认模型配置（用于其他未定义的模型）

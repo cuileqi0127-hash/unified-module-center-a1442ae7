@@ -13,7 +13,7 @@ const OAUTH_API_BASE_URL = '/api';
 const OAUTH_CODE_KEY = 'oauth_code';
 const OAUTH_TOKEN_KEY = 'auth_token'; // 改为使用 cookies 中的 auth_token
 
-/** 登录成功后的门户跳转（dev / test / prod 由 VITE_PORTAL_HOME_URL 区分） */
+/** 登录成功后的门户跳转（dev / test / prod 由 NEXT_PUBLIC_PORTAL_HOME_URL 区分） */
 const LOGIN_REDIRECT_URL = PORTAL_HOME_URL;
 
 
@@ -104,7 +104,9 @@ export async function getTokenByCode(code: string): Promise<TokenResponse> {
     });
     
     // 检查响应是否成功（code 是字符串 "0"）
-    const data = response.data || response as TokenResponse;
+    const data =
+      (response as { data?: TokenResponse }).data ??
+      (response as unknown as TokenResponse);
     if (!data.success || data.code !== "0") {
       throw new Error(data.msg || 'Token request failed');
     }

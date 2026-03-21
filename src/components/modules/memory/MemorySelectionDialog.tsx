@@ -117,7 +117,7 @@ export function MemorySelectionDialog({
         <div className="flex items-center justify-between mt-3">
           {isOverLimit && (
             <p className="text-[11px] text-destructive">
-              {t('memory.reduceSelection', { count: (totalChars - maxChars).toLocaleString() })}
+              {t('memory.reduceSelection', { count: totalChars - maxChars })}
             </p>
           )}
           <div className="ml-auto">

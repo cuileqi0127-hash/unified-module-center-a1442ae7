@@ -16,7 +16,7 @@ import {
   Trash2,
   MoreHorizontal,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -63,7 +63,7 @@ function isLandscapeRatio(ratio: string): boolean {
 }
 
 export function TextToImage({ onNavigate }: TextToImageProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { t, i18n } = useTranslation();
   
   // Canvas ref 用于恢复视频播放、聚焦等
@@ -218,7 +218,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
             className="flex items-center gap-1 hover:text-primary transition-colors group"
             onClick={() => {
               onNavigate?.('app-plaza');
-              navigate('/');
+              router.push('/ai-toolbox/app-plaza');
             }}
           >
             <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
@@ -524,8 +524,8 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent 
-                    align="center" 
-                    side="top-end"
+                    align="end" 
+                    side="top"
                     className={cn(
                       "ml-[68px] w-[450px] p-0 rounded-2xl border-0",
                       "bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl",
@@ -654,7 +654,7 @@ export function TextToImage({ onNavigate }: TextToImageProps) {
                           <div
                             className="absolute top-1 bottom-1 rounded-lg bg-white dark:bg-white/10 shadow-sm transition-[left] duration-200 ease-out pointer-events-none"
                             style={{
-                              left: `calc(${outputNumberOptions.indexOf(outputNumber)} * (100% - 8px) / ${outputNumberOptions.length} + 4px)`,
+                              left: `calc(${outputNumberOptions.findIndex((n) => n === outputNumber)} * (100% - 8px) / ${outputNumberOptions.length} + 4px)`,
                               width: `calc((100% - 8px) / ${outputNumberOptions.length} - 0px)`,
                             }}
                           />

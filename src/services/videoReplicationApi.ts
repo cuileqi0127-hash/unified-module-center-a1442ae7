@@ -69,7 +69,7 @@ export async function uploadMediaFile(
     useAuth: false, // VOD 上传接口不使用用户认证
   });
 
-  return response.data || response as MediaUploadResponse;
+  return response.data ?? (response as unknown as MediaUploadResponse);
 }
 
 // /aigc/create 接口返回格式
