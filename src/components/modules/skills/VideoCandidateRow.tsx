@@ -1,11 +1,31 @@
 import { useState } from 'react';
-import { Play, RefreshCw, ExternalLink, Copy, Volume2, Heart, Eye, ShoppingCart, TrendingUp, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Volume2, X, ChevronLeft, ChevronRight, Eye, Heart, ShoppingCart, TrendingUp, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CandidateVideo } from './useSkillsEngine';
+import { TrendingVideoCard, type TrendingVideoCardData } from '@/components/modules/ai-toolbox/TrendingVideoCard';
 import { cn } from '@/lib/utils';
+
+/** 将 Skills 候选视频映射为爆款卡片组件所需数据结构 */
+function candidateToCardData(v: CandidateVideo): TrendingVideoCardData {
+  const analysis = v.strategy ? `策略:${v.strategy}` : v.analysis ?? '';
+  return {
+    id: v.id,
+    coverUrl: v.cover || undefined,
+    originalLink: v.tiktokUrl || undefined,
+    duration: v.duration,
+    title: v.title,
+    likesShort: v.likes,
+    analysis,
+    views: v.views,
+    likes: v.likes,
+    cartOrConversions: v.salesCount != null ? String(v.salesCount) : '—',
+    growthRate: v.growthRate ?? '0%',
+    sellingPointHitRate: v.sellingPointHitRate ?? 0,
+  };
+}
 
 interface VideoCandidateRowProps {
   videos: CandidateVideo[];
@@ -53,101 +73,17 @@ export function VideoCandidateRow({ videos, onSelect, onPreview, selectedVideoId
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2.5">
         {displayVideos.map((video, i) => (
-          <div
+          <TrendingVideoCard
             key={video.id}
-            className="rounded-xl border border-border/30 bg-card overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer"
-            onClick={() => openDetail(video, i)}
-          >
-            {/* Cover - vertical */}
-            <div
-              className={`relative aspect-[9/14] bg-gradient-to-br ${coverColors[i % coverColors.length]} flex items-center justify-center`}
-              onClick={(e) => { e.stopPropagation(); openFullscreen(video, i); }}
-            >
-              <Play className="w-7 h-7 text-foreground/15" />
-              <div className="absolute bottom-2 left-2 bg-foreground/75 text-background text-[10px] font-mono px-1.5 py-0.5 rounded-md">
-                {video.duration}
-              </div>
-              <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-foreground/20 flex items-center justify-center">
-                <Volume2 className="w-3 h-3 text-background" />
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-2.5 space-y-2">
-              <div className="flex items-start justify-between gap-1">
-                <p className="text-[11px] font-medium text-foreground leading-tight line-clamp-2 flex-1">{video.title}</p>
-                <span className="text-[10px] text-muted-foreground shrink-0">
-                  <Heart className="w-3 h-3 inline mr-0.5" />{video.likes}
-                </span>
-              </div>
-
-              {video.strategy && (
-                <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">
-                  策略:{video.strategy}
-                </p>
-              )}
-
-              {/* Stats - 2 rows */}
-              <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                <div className="flex items-center gap-1">
-                  <Eye className="w-3 h-3 text-muted-foreground/60" />
-                  <span className="text-[10px] text-foreground/70">{video.views}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <ShoppingCart className="w-3 h-3 text-muted-foreground/60" />
-                  <span className="text-[10px] text-foreground/70">{video.salesCount ?? 0}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Heart className="w-3 h-3 text-muted-foreground/60" />
-                  <span className="text-[10px] text-foreground/70">{video.likes}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3 text-muted-foreground/60" />
-                  <span className="text-[10px] text-foreground/70">{video.growthRate ?? '0%'}</span>
-                </div>
-              </div>
-
-              {/* Selling point hit rate */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-muted-foreground">卖点命中率</span>
-                  <span className="text-[10px] font-medium text-foreground">{video.sellingPointHitRate ?? 0}%</span>
-                </div>
-                <Progress value={video.sellingPointHitRate ?? 0} className="h-1" />
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex gap-1.5 pt-1">
-                {video.tiktokUrl && (
-                  <a
-                    href={video.tiktokUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex-1 h-7 rounded-lg border border-border/50 flex items-center justify-center gap-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-border transition-colors"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    原链接
-                  </a>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); if (!disabled) onSelect(video); }}
-                  disabled={disabled && selectedVideoId !== video.id}
-                  className={cn(
-                    'flex-1 h-7 rounded-lg flex items-center justify-center gap-1 text-[10px] font-medium transition-colors',
-                    selectedVideoId === video.id
-                      ? 'bg-muted text-foreground'
-                      : disabled
-                        ? 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed'
-                        : 'bg-foreground text-background hover:bg-foreground/90'
-                  )}
-                >
-                  <Copy className="w-3 h-3" />
-                  {selectedVideoId === video.id ? '已选择' : '复刻'}
-                </button>
-              </div>
-            </div>
-          </div>
+            card={candidateToCardData(video)}
+            onVideoClick={() => openDetail(video, i)}
+            onOriginalLink={() => video.tiktokUrl && window.open(video.tiktokUrl, '_blank', 'noopener,noreferrer')}
+            onReplicate={() => !disabled && onSelect(video)}
+            replicateLabel={selectedVideoId === video.id ? '已选择' : undefined}
+            replicateDisabled={disabled && selectedVideoId !== video.id}
+            animationDelay={i * 40}
+            className="cursor-pointer"
+          />
         ))}
       </div>
 

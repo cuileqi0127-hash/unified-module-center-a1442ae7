@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowUp, X, Play, Volume2, VolumeX, Eye, Heart, ShoppingCart, TrendingUp, Copy, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ArrowUp, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { categoryTreeZh, categoryTreeEn, type CategoryTree } from '@/data/tiktok-categories';
@@ -16,24 +16,10 @@ import {
 } from '@/services/tiktokInsightApi';
 import { TiktokTrendingVideoHistorySheet } from './TiktokTrendingVideoHistorySheet';
 import { MediaViewer } from './MediaViewer';
+import { TrendingVideoCard as TrendingVideoCardComponent, type TrendingVideoCardData } from './TrendingVideoCard';
 
-export interface TrendingVideoCard {
-  id: string;
-  coverUrl?: string;
-  /** 视频地址，有值时卡片内展示视频、支持 hover 播放/暂停，一键复刻可带入复刻视频页 */
-  videoUrl?: string;
-  /** 原链接，点击「原链接」按钮时新开窗口跳转 */
-  originalLink?: string;
-  duration: string;
-  title: string;
-  likesShort: string;
-  analysis: string;
-  views: string;
-  likes: string;
-  cartOrConversions: string;
-  growthRate: string;
-  sellingPointHitRate: number;
-}
+/** @deprecated 使用 TrendingVideoCardData；保留别名便于 mapVideoItemToCard 等兼容 */
+export type TrendingVideoCard = TrendingVideoCardData;
 
 interface TikTokTrendingVideoProps {
   onNavigate?: (itemId: string) => void;
@@ -48,7 +34,7 @@ function formatShortNum(n: number | undefined): string {
 }
 
 /** 将接口返回的视频项映射为瀑布流卡片 */
-function mapVideoItemToCard(item: TiktokInsightVideoItem, index: number): TrendingVideoCard {
+function mapVideoItemToCard(item: TiktokInsightVideoItem, index: number): TrendingVideoCardData {
   const id = item.videoId != null ? String(item.videoId) : `rank-${item.rank ?? index}`;
   const videoUrl = item.downloadUrl;
   const analysisParts: string[] = [];
@@ -86,7 +72,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
     sellingPoints: [] as string[],
   });
   const [sellingPointInput, setSellingPointInput] = useState('');
-  const [videoCards, setVideoCards] = useState<TrendingVideoCard[]>([]);
+  const [videoCards, setVideoCards] = useState<TrendingVideoCardData[]>([]);
   const [removingSellingPointIndex, setRemovingSellingPointIndex] = useState<number | null>(null);
   const [cardMutedMap, setCardMutedMap] = useState<Record<string, boolean>>({});
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -164,7 +150,7 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
     }
   };
 
-  const handleReplicate = (card: TrendingVideoCard) => {
+  const handleReplicate = (card: TrendingVideoCardData) => {
     if (card.videoUrl) {
       try {
         sessionStorage.setItem('videoReplicationInitialVideoUrl', card.videoUrl);
@@ -419,16 +405,6 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
               {videoCards.map((card, index) => (
                 <div
                   key={card.id}
-                  className={cn(
-                    'overflow-hidden opacity-0 w-full min-w-0',
-                    'rounded-2xl border border-border/50 bg-card/95 dark:bg-card/90',
-                    'shadow-[0_1px_3px_hsl(var(--foreground)/0.06),0_2px_8px_hsl(var(--foreground)/0.04)]',
-                    'hover:shadow-[0_4px_12px_hsl(var(--foreground)/0.08),0_8px_24px_hsl(var(--foreground)/0.06)]',
-                    'hover:-translate-y-1 hover:border-border/80',
-                    'transition-all duration-300 ease-out',
-                    'animate-trending-card-enter group'
-                  )}
-                  style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'forwards' }}
                   onMouseEnter={() => {
                     if (card.videoUrl) videoRefsMap.current.get(card.id)?.play().catch(() => {});
                   }}
@@ -436,12 +412,16 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                     if (card.videoUrl) videoRefsMap.current.get(card.id)?.pause();
                   }}
                 >
-                  <div
-                    className={cn(
-                      'relative w-full aspect-[9/16] max-h-[320px] bg-muted/80 rounded-t-2xl overflow-hidden',
-                      card.videoUrl && 'cursor-pointer'
-                    )}
-                    onClick={() => {
+                  <TrendingVideoCardComponent
+                    card={card}
+                    isMuted={cardMutedMap[card.id] ?? false}
+                    onMutedToggle={
+                      card.videoUrl
+                        ? () => setCardMutedMap((prev) => ({ ...prev, [card.id]: !(prev[card.id] ?? false) }))
+                        : undefined
+                    }
+                    videoRef={(el) => setVideoRef(card.id, el)}
+                    onVideoClick={() => {
                       if (!card.videoUrl) return;
                       const idx = viewerItems.findIndex((i) => i.id === card.id);
                       if (idx >= 0) {
@@ -449,105 +429,12 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                         setViewerOpen(true);
                       }
                     }}
-                  >
-                    {card.videoUrl ? (
-                      <video
-                        ref={(el) => setVideoRef(card.id, el)}
-                        src={card.videoUrl}
-                        muted={cardMutedMap[card.id] ?? false}
-                        loop
-                        playsInline
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 pointer-events-none"
-                      />
-                    ) : card.coverUrl ? (
-                      <img src={card.coverUrl} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105" />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                        <Play className="w-12 h-12 text-muted-foreground/60" />
-                      </div>
-                    )}
-                    <span className="absolute left-2.5 bottom-2.5 text-xs font-medium text-white/95 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/10">
-                      {card.duration}
-                    </span>
-                    <button
-                      type="button"
-                      className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-black/30 backdrop-blur-sm text-white/90 transition-opacity duration-200 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/30"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (card.videoUrl) {
-                          setCardMutedMap((prev) => ({ ...prev, [card.id]: !(prev[card.id] ?? false) }));
-                        }
-                      }}
-                      aria-label={cardMutedMap[card.id] ? t('tiktokTrendingVideo.unmute', { defaultValue: '打开声音' }) : t('tiktokTrendingVideo.mute', { defaultValue: '静音' })}
-                    >
-                      {card.videoUrl && (cardMutedMap[card.id] ?? false) ? (
-                        <VolumeX className="w-4 h-4" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-sm text-foreground line-clamp-2 flex-1">{card.title}</h3>
-                      <span className="shrink-0 text-xs font-medium text-primary">点赞: {card.likesShort}</span>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-medium text-muted-foreground">{t('tiktokTrendingVideo.videoAnalysis')}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{card.analysis}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5 shrink-0" />
-                        {card.views}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Heart className="w-3.5 h-3.5 shrink-0" />
-                        {card.likes}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
-                        {card.cartOrConversions}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 shrink-0" />
-                        {card.growthRate}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-medium text-muted-foreground">{t('tiktokTrendingVideo.sellingPointHitRate')}</p>
-                      <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
-                          style={{ width: `${card.sellingPointHitRate}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-medium text-foreground mt-0.5 inline-block">{card.sellingPointHitRate}%</span>
-                    </div>
-                    <div className="flex gap-2 mt-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 rounded-full gap-1.5 h-10 font-medium transition-all duration-200"
-                        onClick={() => {
-                          if (card.originalLink) window.open(card.originalLink, '_blank', 'noopener,noreferrer');
-                        }}
-                        disabled={!card.originalLink}
-                      >
-                        <ExternalLink className="w-4 h-4 shrink-0" />
-                        {t('tiktokTrendingVideo.originalLink')}
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="flex-1 rounded-full gap-1.5 h-10 font-medium transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-                        onClick={() => handleReplicate(card)}
-                      >
-                        <Copy className="w-4 h-4 shrink-0" />
-                        {t('tiktokTrendingVideo.replicate')}
-                      </Button>
-                    </div>
-                  </div>
+                    onOriginalLink={() => {
+                      if (card.originalLink) window.open(card.originalLink, '_blank', 'noopener,noreferrer');
+                    }}
+                    onReplicate={() => handleReplicate(card)}
+                    animationDelay={index * 60}
+                  />
                 </div>
               ))}
             </div>

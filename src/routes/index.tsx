@@ -6,13 +6,15 @@ import { ModuleProvider, useModule } from '@/contexts/ModuleContext';
 import { AIToolboxModule } from '@/components/modules/ai-toolbox/AIToolboxModule';
 import { LLMConsoleModule } from '@/components/modules/llm-console/LLMConsoleModule';
 import { GEOInsightsModule } from '@/components/modules/geo-insights/GEOInsightsModule';
+import { isBlockedToolboxPage } from '@/constants/comingSoon';
 
 /**
  * AI Toolbox 路由包装组件
  */
 /** 策划方案、洞察报告已整合为单一路由，旧 path 重定向到统一入口 */
 const PAGE_ID_REDIRECTS: Record<string, string> = {
-  'campaign-planner': 'planning-solutions',
+  /** planning-solutions 已禁止访问，旧链接直达广场 */
+  'campaign-planner': 'app-plaza',
   'brand-health': 'market-insights',
 };
 
@@ -28,6 +30,10 @@ function AIToolboxRoute() {
   const redirectTo = pageId ? PAGE_ID_REDIRECTS[pageId] : null;
   if (redirectTo) {
     return <Navigate to={`/ai-toolbox/${redirectTo}`} replace />;
+  }
+
+  if (pageId && isBlockedToolboxPage(pageId)) {
+    return <Navigate to="/ai-toolbox/app-plaza" replace />;
   }
 
   return (

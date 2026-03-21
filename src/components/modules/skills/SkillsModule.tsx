@@ -469,36 +469,41 @@ export function SkillsModule() {
           const statusLabel = deriveStatusLabel(item.snapshot);
           const isActive = activeHistoryId === item.id;
           return (
-            <button
+            <div
               key={item.id}
+              role="button"
+              tabIndex={0}
               onClick={() => handleRestoreHistory(item)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRestoreHistory(item); } }}
               className={cn(
-                "w-full text-left p-3 rounded-xl border transition-all group relative",
+                "w-full text-left p-3 rounded-xl border transition-all group relative cursor-pointer",
                 isActive ? "border-primary/40 bg-primary/5" : "border-border/30 hover:border-border/60 hover:bg-muted/20"
-              )}>
-              
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-foreground">{item.category}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {new Date(item.date).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground truncate">{item.sellingPoints}</p>
-                <div className="flex gap-1 mt-1.5 flex-wrap">
-                  <span className={cn(
+              )}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-foreground">{item.category}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(item.date).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground truncate">{item.sellingPoints}</p>
+              <div className="flex gap-1 mt-1.5 flex-wrap">
+                <span className={cn(
                   "text-[10px] px-1.5 py-0.5 rounded-full",
                   statusLabel === '已完成' ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" : "bg-muted/40 text-muted-foreground"
                 )}>
-                    {statusLabel}
-                  </span>
-                </div>
-                <button
-                onClick={(e) => {e.stopPropagation();deleteHistory(item.id);}}
-                className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 p-1 rounded-full hover:bg-muted/40 transition-all">
-                
-                  <X className="w-3.5 h-3.5 text-muted-foreground/50" />
-                </button>
-              </button>);
+                  {statusLabel}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); deleteHistory(item.id); }}
+                className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 p-1 rounded-full hover:bg-muted/40 transition-all"
+              >
+                <X className="w-3.5 h-3.5 text-muted-foreground/50" />
+              </button>
+            </div>
+          );
 
         })}
           {history.length === 0 &&

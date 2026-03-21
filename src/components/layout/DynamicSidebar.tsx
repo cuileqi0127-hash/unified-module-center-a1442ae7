@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { COMING_SOON_ITEMS } from '@/constants/comingSoon';
+import { isToolboxSidebarDisabled } from '@/constants/comingSoon';
 
 interface SidebarItem {
   id: string;
@@ -269,18 +269,18 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
   }, [sidebarCollapsed, setSidebarCollapsed]);
 
   const renderItem = (item: SidebarItem) => {
-    const isComingSoon = COMING_SOON_ITEMS.includes(item.id);
-    
+    const disabled = isToolboxSidebarDisabled(item.id);
+
     const button = (
       <button
         key={item.id}
-        onClick={() => !isComingSoon && handleItemClick(item.id)}
-        disabled={isComingSoon}
+        onClick={() => !disabled && handleItemClick(item.id)}
+        disabled={disabled}
         className={cn(
           'sidebar-menu-item w-full',
           activeItem === item.id && 'active',
           sidebarCollapsed && 'justify-center px-2',
-          isComingSoon && 'opacity-50 cursor-not-allowed'
+          disabled && 'opacity-50 cursor-not-allowed'
         )}
       >
         {item.icon}
@@ -295,14 +295,13 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
             {button}
           </TooltipTrigger>
           <TooltipContent side="right" className="font-medium">
-            {isComingSoon ? t('common.comingSoon') : t(item.labelKey)}
+            {disabled ? t('common.comingSoon') : t(item.labelKey)}
           </TooltipContent>
         </Tooltip>
       );
     }
 
-    // 非折叠状态下，为 {t('common.comingSoon')} 项添加 Tooltip
-    if (isComingSoon) {
+    if (disabled) {
       return (
         <Tooltip key={item.id} delayDuration={0}>
           <TooltipTrigger asChild>
@@ -332,14 +331,18 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
             <div key={`sidebar-section-${idx}`} className={cn(idx > 0 && section.isGroupHeader ? 'mt-2' : idx > 0 && 'mt-3')}>
               {section.id && !section.subgroups && !section.items ? (
                 (() => {
+                  const headerDisabled = isToolboxSidebarDisabled(section.id!);
                   const headerButton = (
                     <div className={cn(sidebarCollapsed ? 'px-1.5' : 'px-2')}>
                       <button
-                        onClick={() => handleItemClick(section.id!)}
+                        type="button"
+                        onClick={() => !headerDisabled && handleItemClick(section.id!)}
+                        disabled={headerDisabled}
                         className={cn(
                           'sidebar-menu-item w-full',
                           activeItem === section.id && 'active',
-                          sidebarCollapsed && 'justify-center px-2'
+                          sidebarCollapsed && 'justify-center px-2',
+                          headerDisabled && 'opacity-50 cursor-not-allowed'
                         )}
                       >
                         {section.icon}
@@ -354,7 +357,19 @@ export function DynamicSidebar({ activeItem, onItemClick }: DynamicSidebarProps)
                           {headerButton}
                         </TooltipTrigger>
                         <TooltipContent side="right" className="font-medium">
-                          {t(section.titleKey)}
+                          {headerDisabled ? t('common.comingSoon') : t(section.titleKey)}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+                  if (headerDisabled) {
+                    return (
+                      <Tooltip key={section.id} delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          {headerButton}
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="font-medium">
+                          {t('common.comingSoon')}
                         </TooltipContent>
                       </Tooltip>
                     );
