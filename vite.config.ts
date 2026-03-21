@@ -3,11 +3,13 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// https://vitejs.dev/config/
-// const oran_target = 'http://94.74.101.163:28080'
-const oran_target = 'http://119.13.125.102:29273'
-// const oran_target = 'http://192.168.112.253:8000/'
-export default defineConfig(({ mode }) => ({
+// 本地 dev 代理目标：与 .env.development / .env.test 中 VITE_ORAN_TARGET 一致；生产构建不经过此处代理。
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const oran_target =
+    env.VITE_ORAN_TARGET || "http://119.13.125.102:29273";
+
+  return {
   server: {
     host: "::",
     port: 8080,
@@ -77,4 +79,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-}));
+};
+});

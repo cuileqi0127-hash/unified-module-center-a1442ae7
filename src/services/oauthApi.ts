@@ -4,6 +4,7 @@
  */
 
 import { getCookie, setCookie, deleteCookie } from '@/utils/cookies';
+import { PORTAL_HOME_URL } from '@/constants/portal';
 import { apiPost } from './apiClient';
 
 // 根据环境变量判断使用代理还是直接访问
@@ -12,9 +13,8 @@ const OAUTH_API_BASE_URL = '/api';
 const OAUTH_CODE_KEY = 'oauth_code';
 const OAUTH_TOKEN_KEY = 'auth_token'; // 改为使用 cookies 中的 auth_token
 
-// 根据环境变量判断登录跳转地址
-// const LOGIN_REDIRECT_URL = 'https://www.oran.cn/'
-const LOGIN_REDIRECT_URL = import.meta.env.PROD ? ' https://www.oran.cn/' : 'http://localhost:8080/';
+/** 登录成功后的门户跳转（dev / test / prod 由 VITE_PORTAL_HOME_URL 区分） */
+const LOGIN_REDIRECT_URL = PORTAL_HOME_URL;
 
 
 

@@ -10,6 +10,7 @@ import { useOAuth } from '@/contexts/OAuthContext';
 import { USER_CREDITS, USER_SUBSCRIPTION_CREDITS, USER_TOPUP_CREDITS, USER_PLAN } from '@/constants/user';
 import { useMemory } from '@/contexts/MemoryContext';
 import { MemorySelectionDialog } from '@/components/modules/memory/MemorySelectionDialog';
+import { PORTAL_HOME_URL } from '@/constants/portal';
 
 function getInitialFromNickname(nickname?: string): string {
   if (!nickname || nickname.trim() === '') return 'U';
@@ -99,7 +100,7 @@ export function TopNav() {
           <HoverCard openDelay={200} closeDelay={300}>
             <HoverCardTrigger asChild>
               <a
-                href="https://www.oran.cn/"
+                href={PORTAL_HOME_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0 text-foreground text-xs font-light overflow-hidden h-8 hover:opacity-90 transition-opacity bg-transparent border-solid border border-[#adadad] rounded-xl"
@@ -116,7 +117,7 @@ export function TopNav() {
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-light text-foreground">{USER_PLAN}</span>
                   <Button size="sm" className="rounded-full bg-foreground text-background hover:bg-foreground/90 text-xs font-light px-4" asChild>
-                    <a href="https://www.oran.cn/" target="_blank" rel="noopener noreferrer" className="font-light">
+                    <a href={PORTAL_HOME_URL} target="_blank" rel="noopener noreferrer" className="font-light">
                       {t('common.upgrade')}
                     </a>
                   </Button>
@@ -178,7 +179,7 @@ export function TopNav() {
                   className="rounded-full bg-foreground text-background hover:bg-foreground/90 text-xs font-light px-5"
                   asChild
                 >
-                  <a href="https://www.oran.cn/" target="_blank" rel="noopener noreferrer" className="font-light">
+                  <a href={PORTAL_HOME_URL} target="_blank" rel="noopener noreferrer" className="font-light">
                     {t('common.upgrade')}
                   </a>
                 </Button>
