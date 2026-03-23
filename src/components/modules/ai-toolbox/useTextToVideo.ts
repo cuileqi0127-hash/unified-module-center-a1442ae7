@@ -296,7 +296,7 @@ export function useTextToVideo() {
         // 优化：如果后端已经返回 assetCount，直接使用；否则获取详情
         const sessionsWithMessageCount = await Promise.all(
           sessions.map(async (session: Session) => {
-            let assetCount = session.assetCount ?? 0;
+            const assetCount = session.assetCount ?? 0;
             
             return {
               id: session.id.toString(),

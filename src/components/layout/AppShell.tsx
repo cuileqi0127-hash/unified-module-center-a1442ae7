@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { MemoryProvider } from '@/contexts/MemoryContext';
 import { TopNav } from './TopNav';
@@ -40,33 +40,28 @@ export function AppShell({ children }: AppShellProps) {
   const { activeModule, sidebarCollapsed, setSidebarCollapsed } = useModule();
   const pathname = usePathname();
   const router = useRouter();
-  
-  // 从路由路径中提取页面ID
-  const getPageIdFromPath = (): string => {
+
+  const pageIdFromPath = useMemo(() => {
     const pathParts = pathname.split('/').filter(Boolean);
     if (pathParts.length >= 2) {
-      return pathParts[1]; // 例如 /ai-toolbox/text-to-image -> text-to-image
+      return pathParts[1];
     }
     return defaultItems[activeModule];
-  };
-
-  const [activeItem, setActiveItem] = useState(getPageIdFromPath());
-
-  // 当路由变化时，更新 activeItem
-  useEffect(() => {
-    const pageId = getPageIdFromPath();
-    setActiveItem(pageId);
   }, [pathname, activeModule]);
+
+  const [activeItem, setActiveItem] = useState(pageIdFromPath);
+
+  useEffect(() => {
+    setActiveItem(pageIdFromPath);
+  }, [pageIdFromPath]);
 
   // 当 activeModule 变化时，检查是否需要导航到对应的默认页面
   // 注意：这个 useEffect 主要用于从外部（如直接访问 URL）同步 activeModule
   // TopNav 的切换会直接导航，不需要这里再次导航
   useEffect(() => {
     const defaultItem = defaultItems[activeModule];
-    const currentPageId = getPageIdFromPath();
     const modulePath = `/${activeModule}`;
-    
-    // 如果当前路径不属于当前模块，且不是根路径，则导航到默认页面
+
     if (pathname !== '/' && !pathname.startsWith(modulePath)) {
       router.push(`/${activeModule}/${defaultItem}`);
     }

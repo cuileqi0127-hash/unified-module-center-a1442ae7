@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { GEOInsightsModule } from "@/components/modules/geo-insights/GEOInsightsModule";
-import { useModule } from "@/contexts/ModuleContext";
+import { useActiveModuleOnMount } from "@/hooks/useActiveModuleOnMount";
 
 export function GEOInsightsPageClient({ pageId }: { pageId: string }) {
-  const { setActiveModule } = useModule();
-
-  useEffect(() => {
-    setActiveModule("geo-insights");
-  }, [setActiveModule]);
+  useActiveModuleOnMount("geo-insights");
 
   return (
     <AppShell>

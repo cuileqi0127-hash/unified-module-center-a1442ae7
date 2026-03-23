@@ -1,18 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { AIToolboxModule } from "@/components/modules/ai-toolbox/AIToolboxModule";
-import { useModule } from "@/contexts/ModuleContext";
+import { useActiveModuleOnMount } from "@/hooks/useActiveModuleOnMount";
 
 export function AIToolboxPageClient({ pageId }: { pageId: string }) {
   const router = useRouter();
-  const { setActiveModule } = useModule();
-
-  useEffect(() => {
-    setActiveModule("ai-toolbox");
-  }, [setActiveModule]);
+  useActiveModuleOnMount("ai-toolbox");
 
   return (
     <AppShell>
