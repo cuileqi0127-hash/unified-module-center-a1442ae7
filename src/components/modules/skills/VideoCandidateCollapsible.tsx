@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Play, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CandidateVideo } from './useSkillsEngine';
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function VideoCandidateCollapsible({ videos, onShowPanel, active }: Props) {
+  const { t } = useTranslation();
   if (videos.length === 0) return null;
 
   return (
@@ -23,9 +25,9 @@ export function VideoCandidateCollapsible({ videos, onShowPanel, active }: Props
     >
       <div className="flex items-center gap-2">
         <Play className={cn("w-4 h-4", active ? "text-foreground" : "text-foreground/60")} />
-        <span className="text-sm font-medium text-foreground">爆款视频列表</span>
+        <span className="text-sm font-medium text-foreground">{t('skills.videoCandidate.listTitle')}</span>
         <span className="text-[10px] text-muted-foreground/60 bg-muted/30 px-1.5 py-0.5 rounded-full">
-          {videos.length} 条
+          {t('skills.videoCandidate.countItems', { count: videos.length })}
         </span>
       </div>
       <ChevronRight className={cn("w-4 h-4 text-muted-foreground/50", active && "text-foreground/60")} />

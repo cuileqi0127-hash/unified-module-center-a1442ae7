@@ -1,14 +1,27 @@
-import { useState } from 'react';
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useOAuth } from '@/contexts/OAuthContext';
 import { clearOAuthCache, redirectToLogin } from '@/services/oauthApi';
 import { clearUserInfoCache } from '@/services/userApi';
 import { USER_CREDITS, USER_SUBSCRIPTION_CREDITS, USER_TOPUP_CREDITS, USER_PLAN } from '@/constants/user';
+
+/** 与 toolbox AccountDialog「使用」页表格行一致，后续可对接积分流水 API */
+export interface UsageDetailRecord {
+  id: string;
+  label: string;
+  amount: number;
+  /** ISO 时间字符串 */
+  date: string;
+  status: 'consumed' | 'earned' | 'refunded';
+}
 
 function getInitialFromNickname(nickname?: string): string {
   if (!nickname || nickname.trim() === '') return 'U';
@@ -19,13 +32,34 @@ function getInitialFromNickname(nickname?: string): string {
 interface AccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 打开弹窗时切换到的标签（如从顶栏「使用明细」进入「使用」页） */
+  openToTab?: 'account' | 'usage' | 'invoices';
 }
 
-export function AccountDialog({ open, onOpenChange }: AccountDialogProps) {
-  const { t } = useTranslation();
+export function AccountDialog({ open, onOpenChange, openToTab }: AccountDialogProps) {
+  const { t, i18n } = useTranslation();
   const { userInfo } = useOAuth();
   const [activeTab, setActiveTab] = useState('account');
   const userInitial = getInitialFromNickname(userInfo?.nickname);
+
+  /** 对接 API 前为空；结构对齐 toolbox-no-skills CreditsContext.usageHistory */
+  const usageHistory = useMemo<UsageDetailRecord[]>(() => [], []);
+
+  useEffect(() => {
+    if (open && openToTab) setActiveTab(openToTab);
+  }, [open, openToTab]);
+
+  const formatUsageDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString(i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  };
 
   const getAvatarUrl = (avatar?: string): string | undefined => {
     if (!avatar) return undefined;
@@ -116,13 +150,32 @@ export function AccountDialog({ open, onOpenChange }: AccountDialogProps) {
 
             <TabsContent value="usage" className="mt-6">
               <div className="border border-border rounded-xl overflow-hidden">
-                <div className="bg-muted/50 px-6 py-3 flex items-center text-sm font-medium text-muted-foreground">
-                  <span className="flex-1">{t('common.usageDetails')}</span>
-                  <span className="w-32 text-center">{t('common.status')}</span>
+                <div className="bg-muted/50 px-6 py-3 flex items-center text-sm font-medium text-muted-foreground gap-[120px]">
+                  <span className="flex-1 mx-0 mr-[150px]">{t('common.usageDetails')}</span>
                   <span className="w-48 text-center">{t('common.date')}</span>
                   <span className="w-32 text-right">{t('common.credits')}</span>
                 </div>
-                <div className="py-8 text-center text-muted-foreground text-sm">{t('common.noMoreData')}</div>
+                {usageHistory.map((record) => (
+                  <div
+                    key={record.id}
+                    className="px-6 py-4 flex items-center text-sm border-t border-border gap-[120px]"
+                  >
+                    <span className="flex-1 text-foreground mr-[150px]">{record.label}</span>
+                    <span className="w-48 text-center text-muted-foreground">{formatUsageDate(record.date)}</span>
+                    <span
+                      className={cn(
+                        'w-32 text-right tabular-nums font-medium',
+                        record.status === 'consumed' ? 'text-destructive' : 'text-foreground',
+                      )}
+                    >
+                      {record.status === 'consumed' ? '-' : '+'}
+                      {record.amount}
+                    </span>
+                  </div>
+                ))}
+                {usageHistory.length === 0 && (
+                  <div className="py-8 text-center text-muted-foreground text-sm">{t('common.noMoreData')}</div>
+                )}
               </div>
             </TabsContent>
 

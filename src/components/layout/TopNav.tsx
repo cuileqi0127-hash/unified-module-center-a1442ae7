@@ -1,4 +1,4 @@
-import { Globe, Database, Zap, Sparkles } from 'lucide-react';
+import { Globe, Database, Zap, Sparkles, History, LogOut } from 'lucide-react';
 import logoDark from '@/assets/logo_dark.svg';
 import { imageSrc } from '@/lib/imageSrc';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,6 +8,8 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { AccountDialog } from './AccountDialog';
 import { useState, useMemo } from 'react';
 import { useOAuth } from '@/contexts/OAuthContext';
+import { clearOAuthCache, redirectToLogin } from '@/services/oauthApi';
+import { clearUserInfoCache } from '@/services/userApi';
 import { USER_CREDITS, USER_SUBSCRIPTION_CREDITS, USER_TOPUP_CREDITS, USER_PLAN } from '@/constants/user';
 import { useMemory } from '@/contexts/MemoryContext';
 import { MemorySelectionDialog } from '@/components/modules/memory/MemorySelectionDialog';
@@ -26,6 +28,7 @@ export function TopNav() {
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [accountOpenToTab, setAccountOpenToTab] = useState<'account' | 'usage' | 'invoices'>('account');
 
   const memoryItems = useMemo(
     () =>
@@ -55,6 +58,12 @@ export function TopNav() {
   const toggleLanguage = () => {
     const newLang = i18n.language === 'zh' ? 'en' : 'zh';
     i18n.changeLanguage(newLang);
+  };
+
+  const handleLogout = () => {
+    clearOAuthCache();
+    clearUserInfoCache();
+    redirectToLogin();
   };
 
   return (
@@ -142,7 +151,11 @@ export function TopNav() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setAccountOpen(true)}
+                  type="button"
+                  onClick={() => {
+                    setAccountOpenToTab('usage');
+                    setAccountOpen(true);
+                  }}
                   className="flex items-center gap-1 text-sm font-light text-foreground hover:text-primary transition-colors"
                 >
                   {t('common.usageDetails')} <span>›</span>
@@ -157,41 +170,54 @@ export function TopNav() {
               <button className="rounded-full focus:outline-none" type="button">
                 <Avatar className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
                   {avatarUrl && <AvatarImage src={avatarUrl} alt={userInfo?.nickname || 'User'} />}
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-light">
+                  <AvatarFallback className="bg-foreground text-xs font-medium text-background">
                     {userInitial}
                   </AvatarFallback>
                 </Avatar>
               </button>
             </HoverCardTrigger>
-            <HoverCardContent align="end" className="w-72 p-4 rounded-2xl bg-popover/70 backdrop-blur-xl border-border/50 shadow-lg">
-              <div className="flex flex-col items-center gap-3">
-                <Avatar className="w-14 h-14">
-                  {avatarUrl && <AvatarImage src={avatarUrl} alt={userInfo?.nickname || 'User'} />}
-                  <AvatarFallback className="bg-primary text-primary-foreground text-lg font-light">
-                    {userInitial}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="text-center">
-                  <p className="text-sm font-light text-foreground">{userInfo?.nickname || '—'}</p>
-                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">{userInfo?.email || userInfo?.mobile || '—'}</p>
-                </div>
-                <Button
-                  size="sm"
-                  className="rounded-full bg-foreground text-background hover:bg-foreground/90 text-xs font-light px-5"
-                  asChild
+            <HoverCardContent
+              align="end"
+              className="w-[280px] p-0 overflow-hidden rounded-[24px] border border-border/40 bg-background shadow-lg"
+            >
+              <div className="relative px-6 pb-6 pt-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountOpenToTab('usage');
+                    setAccountOpen(true);
+                  }}
+                  className="absolute top-4 right-4 flex items-center gap-1 text-xs font-light text-muted-foreground/80 hover:text-muted-foreground transition-colors"
                 >
-                  <a href={PORTAL_HOME_URL} target="_blank" rel="noopener noreferrer" className="font-light">
-                    {t('common.upgrade')}
-                  </a>
-                </Button>
-                <div className="w-full flex items-center justify-between pt-2 border-t border-border">
-                  <span className="text-sm text-muted-foreground">{t('common.credits')}</span>
-                  <button
-                    onClick={() => setAccountOpen(true)}
-                    className="flex items-center gap-1 text-sm font-light text-foreground hover:text-primary transition-colors"
+                  <History className="w-3.5 h-3.5 opacity-70" strokeWidth={1.5} />
+                  {t('topNav.historyRecords')}
+                </button>
+
+                <div className="flex flex-col items-center gap-4 pt-6">
+                  <Avatar className="h-16 w-16 border-0 shadow-none">
+                    {avatarUrl && <AvatarImage src={avatarUrl} alt={userInfo?.nickname || 'User'} />}
+                    <AvatarFallback className="bg-foreground text-lg font-medium text-background">
+                      {userInitial}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="w-full text-center">
+                    <p className="text-base font-medium leading-snug text-foreground">
+                      {userInfo?.nickname || '—'}
+                    </p>
+                    <p className="mt-1 truncate px-1 text-xs font-light text-muted-foreground">
+                      {userInfo?.email || userInfo?.mobile || '—'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 rounded-lg text-xs font-light text-muted-foreground hover:text-destructive"
+                    onClick={handleLogout}
                   >
-                    {USER_CREDITS} <span className="text-muted-foreground">→</span>
-                  </button>
+                    <LogOut className="h-3.5 w-3.5" />
+                    {t('common.logout')}
+                  </Button>
                 </div>
               </div>
             </HoverCardContent>
@@ -199,7 +225,7 @@ export function TopNav() {
         </div>
       </header>
 
-      <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} />
+      <AccountDialog open={accountOpen} onOpenChange={setAccountOpen} openToTab={accountOpenToTab} />
     </>
   );
 }

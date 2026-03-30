@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, Loader2, Clock, SkipForward, ChevronRight, ChevronDown, ListChecks, CircleDot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SkillTask } from './useSkillsEngine';
@@ -60,6 +61,7 @@ const ChildStatusIcon = ({ status }: { status: string }) => {
 };
 
 export function ChecklistCard({ tasks, onTaskClick, activeTaskId }: ChecklistCardProps) {
+  const { t } = useTranslation();
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (taskId: string, e: React.MouseEvent) => {
@@ -67,7 +69,7 @@ export function ChecklistCard({ tasks, onTaskClick, activeTaskId }: ChecklistCar
     setExpandedTasks(prev => ({ ...prev, [taskId]: !prev[taskId] }));
   };
 
-  const doneCount = tasks.filter(t => t.status === 'done').length;
+  const doneCount = tasks.filter((task) => task.status === 'done').length;
 
   return (
     <div className="rounded-xl border border-border/30 bg-background overflow-hidden">
@@ -75,10 +77,10 @@ export function ChecklistCard({ tasks, onTaskClick, activeTaskId }: ChecklistCar
       <div className="px-4 py-2.5 border-b border-border/20 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ListChecks className="w-4 h-4 text-foreground/60" />
-          <span className="text-xs font-medium text-foreground">编写待办清单</span>
+          <span className="text-xs font-medium text-foreground">{t('skills.checklistCard.title')}</span>
         </div>
         <span className="text-[10px] text-muted-foreground/60">
-          {doneCount}/{tasks.length} 完成
+          {t('skills.checklistCard.progressDone', { done: doneCount, total: tasks.length })}
         </span>
       </div>
 

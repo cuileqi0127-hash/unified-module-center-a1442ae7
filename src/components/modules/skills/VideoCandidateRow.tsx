@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Play, Volume2, X, ChevronLeft, ChevronRight, Eye, Heart, ShoppingCart, TrendingUp, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -8,9 +9,14 @@ import { CandidateVideo } from './useSkillsEngine';
 import { TrendingVideoCard, type TrendingVideoCardData } from '@/components/modules/ai-toolbox/TrendingVideoCard';
 import { cn } from '@/lib/utils';
 
-/** 将 Skills 候选视频映射为爆款卡片组件所需数据结构 */
-function candidateToCardData(v: CandidateVideo): TrendingVideoCardData {
-  const analysis = v.strategy ? `策略:${v.strategy}` : v.analysis ?? '';
+/** Map Skills candidate videos to TrendingVideoCard data */
+function buildCandidateToCardData(
+  t: (key: string, opts?: Record<string, unknown>) => string
+): (v: CandidateVideo) => TrendingVideoCardData {
+  return (v: CandidateVideo) => {
+  const analysis = v.strategy
+    ? t('skills.videoCandidate.strategyLine', { strategy: v.strategy })
+    : v.analysis ?? '';
   return {
     id: v.id,
     coverUrl: v.cover || undefined,
@@ -24,6 +30,7 @@ function candidateToCardData(v: CandidateVideo): TrendingVideoCardData {
     cartOrConversions: v.salesCount != null ? String(v.salesCount) : '—',
     growthRate: v.growthRate ?? '0%',
     sellingPointHitRate: v.sellingPointHitRate ?? 0,
+  };
   };
 }
 
@@ -44,6 +51,8 @@ const coverColors = [
 ];
 
 export function VideoCandidateRow({ videos, onSelect, onPreview, selectedVideoId, disabled }: VideoCandidateRowProps) {
+  const { t } = useTranslation();
+  const candidateToCardData = useCallback(buildCandidateToCardData(t), [t]);
   const [detailVideo, setDetailVideo] = useState<CandidateVideo | null>(null);
   const [detailIndex, setDetailIndex] = useState(0);
   const [fullscreenVideo, setFullscreenVideo] = useState<CandidateVideo | null>(null);
@@ -79,7 +88,7 @@ export function VideoCandidateRow({ videos, onSelect, onPreview, selectedVideoId
             onVideoClick={() => openDetail(video, i)}
             onOriginalLink={() => video.tiktokUrl && window.open(video.tiktokUrl, '_blank', 'noopener,noreferrer')}
             onReplicate={() => !disabled && onSelect(video)}
-            replicateLabel={selectedVideoId === video.id ? '已选择' : undefined}
+            replicateLabel={selectedVideoId === video.id ? t('skills.videoCandidate.selected') : undefined}
             replicateDisabled={disabled && selectedVideoId !== video.id}
             animationDelay={i * 40}
             className="cursor-pointer"
@@ -112,15 +121,15 @@ export function VideoCandidateRow({ videos, onSelect, onPreview, selectedVideoId
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-base font-medium text-foreground leading-snug flex-1">{detailVideo.title}</h3>
                     <div className="shrink-0 text-right">
-                      <span className="text-xs text-muted-foreground">点赞: </span>
+                      <span className="text-xs text-muted-foreground">{t('skills.videoCandidate.likesPrefix')}</span>
                       <span className="text-sm font-semibold text-foreground">{detailVideo.likes}</span>
                     </div>
                   </div>
 
                   {detailVideo.strategy && (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">{detailVideo.analysis || '视频解析'}</p>
-                      <p className="text-sm text-foreground/80 leading-relaxed">策略:{detailVideo.strategy}</p>
+                      <p className="text-xs text-muted-foreground mb-1">{detailVideo.analysis || t('tiktokTrendingVideo.videoAnalysis')}</p>
+                      <p className="text-sm text-foreground/80 leading-relaxed">{t('skills.videoCandidate.strategyLine', { strategy: detailVideo.strategy })}</p>
                     </div>
                   )}
 
@@ -144,7 +153,7 @@ export function VideoCandidateRow({ videos, onSelect, onPreview, selectedVideoId
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground mb-2">卖点命中率</p>
+                    <p className="text-xs text-muted-foreground mb-2">{t('tiktokTrendingVideo.sellingPointHitRate')}</p>
                     <Progress value={detailVideo.sellingPointHitRate ?? 0} className="h-1.5" />
                     <p className="text-sm font-semibold text-foreground mt-1.5">{detailVideo.sellingPointHitRate ?? 0}%</p>
                   </div>
@@ -159,7 +168,7 @@ export function VideoCandidateRow({ videos, onSelect, onPreview, selectedVideoId
                     )}
                   >
                     <Copy className="w-4 h-4" />
-                    一键复刻
+                    {t('tiktokTrendingVideo.oneClickReplicate')}
                   </Button>
 
                   {detailVideo.tiktokUrl && (
@@ -171,7 +180,7 @@ export function VideoCandidateRow({ videos, onSelect, onPreview, selectedVideoId
                         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <ExternalLink className="w-3 h-3" />
-                        查看 TikTok 原视频
+                        {t('skills.videoCandidate.viewTikTokOriginal')}
                       </a>
                     </div>
                   )}

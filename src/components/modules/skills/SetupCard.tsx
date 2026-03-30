@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Upload, Image as ImageIcon, X, ChevronDown, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +18,7 @@ interface SetupCardProps {
 }
 
 export function SetupCard({ memoryItems, categories, onComplete, onReset }: SetupCardProps) {
+  const { t } = useTranslation();
   const [image, setImage] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
   const [memoryEnabled, setMemoryEnabled] = useState(true);
@@ -59,18 +61,18 @@ export function SetupCard({ memoryItems, categories, onComplete, onReset }: Setu
     <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm p-6 space-y-6 shadow-sm">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-base font-semibold text-foreground">初始化配置</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">上传商品图，配置参数后开始生成</p>
+          <h3 className="text-base font-semibold text-foreground">{t('skills.setupCard.title')}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('skills.setupCard.subtitle')}</p>
         </div>
-        <Badge variant="outline" className="text-xs">Setup</Badge>
+        <Badge variant="outline" className="text-xs">{t('skills.setupCard.badgeSetup')}</Badge>
       </div>
 
       {/* Image upload */}
       <div>
-        <label className="text-sm font-medium text-foreground mb-2 block">白底商品图</label>
+        <label className="text-sm font-medium text-foreground mb-2 block">{t('skills.setupCard.whiteBgImage')}</label>
         {image ? (
           <div className="relative w-28 h-28 rounded-xl border border-border overflow-hidden group">
-            <img src={image} alt="Product" className="w-full h-full object-cover" />
+            <img src={image} alt={t('skills.chatInput.altProduct')} className="w-full h-full object-cover" />
             <button
               onClick={() => { setImage(null); setImageName(null); }}
               className="absolute top-1 right-1 w-5 h-5 rounded-full bg-foreground/80 text-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -85,17 +87,17 @@ export function SetupCard({ memoryItems, categories, onComplete, onReset }: Setu
             className="w-full h-32 rounded-xl border-2 border-dashed border-border/60 hover:border-foreground/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors"
           >
             <Upload className="w-6 h-6 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">点击或拖拽上传</span>
-            <span className="text-xs text-muted-foreground/60">支持 PNG / JPG</span>
+            <span className="text-sm text-muted-foreground">{t('skills.setupCard.clickOrDragUpload')}</span>
+            <span className="text-xs text-muted-foreground/60">{t('skills.setupCard.formatsPngJpg')}</span>
           </div>
         )}
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
       </div>
 
-      {/* Memory - 使用公共记忆库弹窗 */}
+      {/* Memory — shared memory dialog */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-foreground">记忆库</label>
+          <label className="text-sm font-medium text-foreground">{t('skills.setupCard.memory')}</label>
           <Switch checked={memoryEnabled} onCheckedChange={setMemoryEnabled} />
         </div>
         {memoryEnabled && (
@@ -110,11 +112,11 @@ export function SetupCard({ memoryItems, categories, onComplete, onReset }: Setu
             >
               <span className="flex items-center gap-1.5 text-muted-foreground">
                 <Database className="w-3.5 h-3.5" />
-                选择记忆库
+                {t('skills.setupCard.selectMemory')}
               </span>
               {selectedMemoryIds.length > 0 && (
                 <Badge variant="secondary" className="text-[10px] px-1.5">
-                  {selectedMemoryIds.length} 个
+                  {t('skills.setupCard.countUnit', { count: selectedMemoryIds.length })}
                 </Badge>
               )}
             </button>
@@ -131,21 +133,21 @@ export function SetupCard({ memoryItems, categories, onComplete, onReset }: Setu
 
       {/* Selling points */}
       <div>
-        <label className="text-sm font-medium text-foreground mb-2 block">核心卖点</label>
+        <label className="text-sm font-medium text-foreground mb-2 block">{t('skills.setupCard.coreSellingPoints')}</label>
         <Textarea
           value={sellingPoints}
           onChange={e => setSellingPoints(e.target.value)}
-          placeholder="输入产品核心卖点，支持多条换行..."
+          placeholder={t('skills.setupCard.placeholderSellingMultiline')}
           className="min-h-[80px] resize-none rounded-xl border-border/60 bg-background text-sm"
         />
       </div>
 
       {/* Category */}
       <div>
-        <label className="text-sm font-medium text-foreground mb-2 block">商品品类</label>
+        <label className="text-sm font-medium text-foreground mb-2 block">{t('skills.setupCard.productCategory')}</label>
         <Select value={category} onValueChange={setCategory}>
           <SelectTrigger className="rounded-xl border-border/60">
-            <SelectValue placeholder="选择品类" />
+            <SelectValue placeholder={t('skills.chatInput.selectCategory')} />
           </SelectTrigger>
           <SelectContent>
             {categories.map(c => (
@@ -162,14 +164,14 @@ export function SetupCard({ memoryItems, categories, onComplete, onReset }: Setu
           disabled={!canSubmit}
           className="flex-1 rounded-xl h-10 bg-foreground text-background hover:bg-foreground/90 font-medium"
         >
-          开始生成
+          {t('skills.setupCard.startGenerate')}
         </Button>
         <Button
           variant="outline"
           onClick={onReset}
           className="rounded-xl h-10 border-border/60"
         >
-          重置
+          {t('skills.setupCard.reset')}
         </Button>
       </div>
     </div>

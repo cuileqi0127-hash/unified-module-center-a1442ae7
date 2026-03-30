@@ -17,6 +17,7 @@ import {
 import { TiktokTrendingVideoHistorySheet } from './TiktokTrendingVideoHistorySheet';
 import { MediaViewer } from './MediaViewer';
 import { TrendingVideoCard as TrendingVideoCardComponent, type TrendingVideoCardData } from './TrendingVideoCard';
+import { EstimatedCreditsHint } from './EstimatedCreditsHint';
 
 /** @deprecated 使用 TrendingVideoCardData；保留别名便于 mapVideoItemToCard 等兼容 */
 export type TrendingVideoCard = TrendingVideoCardData;
@@ -347,7 +348,9 @@ export function TikTokTrendingVideo({ onNavigate }: TikTokTrendingVideoProps) {
                 </div>
               </div>
               <div className="flex items-center justify-between px-5 py-3 border-t border-border/20">
-                <div />
+                <div className="flex items-center gap-3">
+                  <EstimatedCreditsHint amount={200} />
+                </div>
                 <button
                   type="button"
                   onClick={handleGenerate}

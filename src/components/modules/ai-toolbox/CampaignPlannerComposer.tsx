@@ -6,7 +6,9 @@ import { cn } from '@/lib/utils';
 
 import { InlinePicker } from '@/components/ui/inline-picker';
 import { MemoryButtonWithDialog } from '@/components/modules/memory/MemoryButtonWithDialog';
-import { ShowcaseCard, SHOWCASE_CARDS } from './app-plaza/ShowcaseCard';
+import { ShowcaseCard } from './app-plaza/ShowcaseCard';
+import { SHOWCASE_CARDS } from './app-plaza/showcaseData';
+import { EstimatedCreditsHint } from './EstimatedCreditsHint';
 
 /* ─── Types ─── */
 export interface CampaignPayload {
@@ -373,19 +375,22 @@ export function CampaignPlannerComposer({
               />
             </div>
 
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!canSend || disabled}
-              className={cn(
-                'w-9 h-9 rounded-full flex items-center justify-center transition-all',
-                canSend && !disabled
-                  ? 'bg-foreground text-background hover:bg-foreground/90'
-                  : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed'
-              )}
-            >
-              <ArrowUp className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-3">
+              <EstimatedCreditsHint amount={200} />
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={!canSend || disabled}
+                className={cn(
+                  'w-9 h-9 rounded-full flex items-center justify-center transition-all',
+                  canSend && !disabled
+                    ? 'bg-foreground text-background hover:bg-foreground/90'
+                    : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed'
+                )}
+              >
+                <ArrowUp className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

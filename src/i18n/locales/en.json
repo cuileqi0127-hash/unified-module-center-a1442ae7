@@ -2,7 +2,8 @@
   "topNav": {
     "appName": "Oran Gen",
     "langZh": "中文",
-    "langEn": "EN"
+    "langEn": "EN",
+    "historyRecords": "History"
   },
   "placeholder": {
     "trendAnalysis": "Trend Analysis",
@@ -60,6 +61,7 @@
     "upgrade": "Upgrade",
     "usageDetails": "Usage Details",
     "credits": "Credits",
+    "estimatedCostPrefix": "Est. cost: ~",
     "subscriptionCredits": "Subscription",
     "topupCredits": "Top-up",
     "accountManagement": "Account",
@@ -815,5 +817,132 @@
     "replicate": "Replicate",
     "oneClickReplicate": "One-click Replicate",
     "removeTag": "Remove"
+  },
+  "skills": {
+    "agentDesc01": "You are a TikTok viral video expert. Collect benchmark viral videos for category \"{{category}}\" that best match selling points \"{{sellingPoints}}\", and produce a replicable video list.",
+    "agentDesc02": "You are a memory expert. Extract key feature vectors from \"{{memoryNames}}\" to ensure brand consistency for downstream generation.",
+    "defaultMemoryLib": "Brand memory library",
+    "agentDesc03": "You are a Prompt expert. Design high-quality TikTok replication prompts based on the selected viral structure and brand context.",
+    "agentDesc04": "You are a video generation expert. Produce high-quality TikTok short videos from the prompt and assets.",
+    "createAssistant": "Assistant",
+    "taskBackground": "Task context",
+    "snapshotStatus": {
+      "done": "Completed",
+      "promptReady": "Prompt ready",
+      "videoSelected": "Video selected",
+      "candidatesReady": "Candidates ready",
+      "inProgress": "In progress"
+    },
+    "networkError": "Network error, please retry",
+    "agentErrorDesc": "Error while running {{name}}",
+    "categoryOther": "Other",
+    "writeChecklist": "Write checklist",
+    "memoryLibraryDefault": "Memory library",
+    "readVerb": "Read",
+    "history": "History",
+    "historyEmpty": "No history yet",
+    "solutionTitle": "TikTok Solution",
+    "solutionSubtitle": "Upload a product image to start, or type your question",
+    "back": "Back",
+    "processing": "Processing...",
+    "taskPanel": {
+      "currentProgress": "Progress {{completed}}/{{total}}",
+      "queuePending": "Queued",
+      "done": "Done",
+      "outputResult": "Output",
+      "subtasks": "Subtasks",
+      "logs": "Logs",
+      "startTime": "Start: {{time}}",
+      "endTime": "End: {{time}}",
+      "running": "Running",
+      "waiting": "Waiting",
+      "workLog": "Work log"
+    },
+    "workspace": {
+      "statusAbnormal": "Abnormal status",
+      "taskErrorFallback": "An error occurred during the task",
+      "trendingVideos": "Reference videos",
+      "noMemorySelected": "No memory selected",
+      "checklistTodo": "Checklist",
+      "emptyMemoryContent": "No content",
+      "readMemoryHeader": "Read",
+      "copyAllTitle": "Copy all",
+      "agentTabExpert01": "TikTok expert",
+      "agentTabExpert02": "Memory expert",
+      "agentTabExpert03": "Prompt expert",
+      "agentTabExpert04": "Video expert",
+      "headerAgent": "Agent{{tab}}",
+      "headerWriteChecklist": "Write checklist",
+      "statusLoading": "LOADING",
+      "statusDone": "DONE",
+      "statusError": "ERROR",
+      "statusSkip": "SKIP",
+      "statusWaiting": "WAITING"
+    },
+    "chatInput": {
+      "uploadProductImage": "Upload product image",
+      "selectCategory": "Select category",
+      "placeholderSellingPoints": "Enter selling points and key benefits...",
+      "memoryCount": "{{count}} memories",
+      "creditsRemaining": "Credits remaining: 40",
+      "modelK25Agent": "K2.5 Agent cluster",
+      "modelK25Fast": "K2.5 Fast",
+      "modelK25Pro": "K2.5 Pro",
+      "altProduct": "Product"
+    },
+    "setupCard": {
+      "title": "Initial setup",
+      "subtitle": "Upload a product image and configure options to start",
+      "badgeSetup": "Setup",
+      "whiteBgImage": "White-background product image",
+      "clickOrDragUpload": "Click or drag to upload",
+      "formatsPngJpg": "PNG / JPG supported",
+      "memory": "Memory library",
+      "selectMemory": "Select memory library",
+      "countUnit": "{{count}} selected",
+      "coreSellingPoints": "Key selling points",
+      "placeholderSellingMultiline": "Enter key selling points (multiple lines supported)...",
+      "productCategory": "Product category",
+      "startGenerate": "Start",
+      "reset": "Reset"
+    },
+    "videoCandidate": {
+      "strategyLine": "Strategy: {{strategy}}",
+      "selected": "Selected",
+      "selectedThisVideo": "This video is selected",
+      "likesPrefix": "Likes: ",
+      "viewTikTokOriginal": "View original on TikTok",
+      "videoDetailTitle": "Video details",
+      "listTitle": "Trending candidates",
+      "countItems": "{{count}} items"
+    },
+    "agentCluster": {
+      "title": "Agent cluster",
+      "tasks": "{{count}} tasks",
+      "tasksParallel": "{{count}} parallel tasks"
+    },
+    "setupSummary": {
+      "memoryWithCount": "Memory library ({{count}})",
+      "memoryOff": "Memory off"
+    },
+    "resultPreview": {
+      "title": "Replication preview",
+      "exportDownload": "Export",
+      "regenerate": "Generate again"
+    },
+    "promptEditor": {
+      "title": "Generated viral replication prompt",
+      "copyPromptTitle": "Copy prompt",
+      "source": "Sources:",
+      "tagMemory": "Memory",
+      "tagSellingPoints": "Selling points",
+      "tagCategory": "Category",
+      "tagRefVideo": "Reference video",
+      "confirmGenerate": "Confirm and generate"
+    },
+    "checklistCard": {
+      "title": "Write checklist",
+      "progressDone": "{{done}}/{{total}} done"
+    }
   }
 }

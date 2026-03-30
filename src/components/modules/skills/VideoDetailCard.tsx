@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Play, Eye, Heart, ShoppingCart, TrendingUp, Volume2, ExternalLink, Maximize2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -24,13 +25,14 @@ interface VideoDetailCardProps {
 }
 
 export function VideoDetailCard({ video, index = 0, isSelected, onSelect, onClose }: VideoDetailCardProps) {
+  const { t } = useTranslation();
   const [fullscreen, setFullscreen] = useState(false);
 
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="px-5 py-3 border-b border-border/20 flex items-center justify-between shrink-0">
-        <span className="text-sm font-medium text-foreground">视频详情</span>
+        <span className="text-sm font-medium text-foreground">{t('skills.videoCandidate.videoDetailTitle')}</span>
         <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
           <X className="w-4 h-4" />
         </Button>
@@ -64,7 +66,7 @@ export function VideoDetailCard({ video, index = 0, isSelected, onSelect, onClos
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-base font-medium text-foreground leading-snug flex-1">{video.title}</h3>
                 <div className="shrink-0 text-right">
-                  <span className="text-xs text-muted-foreground">点赞: </span>
+                  <span className="text-xs text-muted-foreground">{t('skills.videoCandidate.likesPrefix')}</span>
                   <span className="text-sm font-semibold text-foreground">{video.likes}</span>
                 </div>
               </div>
@@ -72,9 +74,9 @@ export function VideoDetailCard({ video, index = 0, isSelected, onSelect, onClos
               {/* Analysis */}
               {video.strategy && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">{video.analysis || '视频解析'}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{video.analysis || t('tiktokTrendingVideo.videoAnalysis')}</p>
                   <p className="text-sm text-foreground/80 leading-relaxed">
-                    策略:{video.strategy}
+                    {t('skills.videoCandidate.strategyLine', { strategy: video.strategy })}
                   </p>
                 </div>
               )}
@@ -101,7 +103,7 @@ export function VideoDetailCard({ video, index = 0, isSelected, onSelect, onClos
 
               {/* Selling point hit rate */}
               <div>
-                <p className="text-xs text-muted-foreground mb-2">卖点命中率</p>
+                <p className="text-xs text-muted-foreground mb-2">{t('tiktokTrendingVideo.sellingPointHitRate')}</p>
                 <Progress value={video.sellingPointHitRate ?? 0} className="h-1.5" />
                 <p className="text-sm font-semibold text-foreground mt-1.5">{video.sellingPointHitRate ?? 0}%</p>
               </div>
@@ -117,11 +119,11 @@ export function VideoDetailCard({ video, index = 0, isSelected, onSelect, onClos
                 )}
               >
                 {isSelected ? (
-                  <span className="flex items-center gap-2">已选择此视频</span>
+                  <span className="flex items-center gap-2">{t('skills.videoCandidate.selectedThisVideo')}</span>
                 ) : (
                   <>
                     <Copy className="w-4 h-4" />
-                    一键复刻
+                    {t('tiktokTrendingVideo.oneClickReplicate')}
                   </>
                 )}
               </Button>
@@ -136,7 +138,7 @@ export function VideoDetailCard({ video, index = 0, isSelected, onSelect, onClos
                     className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <ExternalLink className="w-3 h-3" />
-                    查看 TikTok 原视频
+                    {t('skills.videoCandidate.viewTikTokOriginal')}
                   </a>
                 </div>
               )}

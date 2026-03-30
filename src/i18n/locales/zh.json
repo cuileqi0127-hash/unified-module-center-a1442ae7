@@ -2,7 +2,8 @@
   "topNav": {
     "appName": "Oran Gen",
     "langZh": "中文",
-    "langEn": "EN"
+    "langEn": "EN",
+    "historyRecords": "历史记录"
   },
   "placeholder": {
     "trendAnalysis": "趋势分析",
@@ -60,6 +61,7 @@
     "upgrade": "升级",
     "usageDetails": "使用明细",
     "credits": "积分",
+    "estimatedCostPrefix": "预计消耗：约",
     "subscriptionCredits": "订阅积分",
     "topupCredits": "充值积分",
     "accountManagement": "账户管理",
@@ -813,5 +815,132 @@
     "replicate": "复刻",
     "oneClickReplicate": "一键复刻",
     "removeTag": "移除"
+  },
+  "skills": {
+    "agentDesc01": "你是一名TikTok爆款视频专家，需要为用户收集「{{category}}」品类下最符合「{{sellingPoints}}」卖点的对标爆款视频，并生成一个可供复刻的视频列表。",
+    "agentDesc02": "你是一名记忆库专家，需要根据「{{memoryNames}}」中的核心信息，提取关键特征向量，为后续内容生成提供品牌一致性保障。",
+    "defaultMemoryLib": "品牌记忆库",
+    "agentDesc03": "你是一名Prompt设计专家，需要基于用户选择的爆款视频结构和上述所有品牌信息，设计出高质量的TikTok视频复刻Prompt。",
+    "agentDesc04": "你是一名视频生成专家，需要根据Prompt和素材图，生成高质量的TikTok短视频内容。",
+    "createAssistant": "创建助手",
+    "taskBackground": "任务背景",
+    "snapshotStatus": {
+      "done": "已完成",
+      "promptReady": "提示词已生成",
+      "videoSelected": "已选择视频",
+      "candidatesReady": "候选视频已生成",
+      "inProgress": "进行中"
+    },
+    "networkError": "网络异常，请重试",
+    "agentErrorDesc": "{{name}} 执行过程中出现错误",
+    "categoryOther": "其它",
+    "writeChecklist": "编写待办清单",
+    "memoryLibraryDefault": "记忆库",
+    "readVerb": "阅读",
+    "history": "历史记录",
+    "historyEmpty": "暂无历史记录",
+    "solutionTitle": "TikTok 解决方案",
+    "solutionSubtitle": "上传商品图开始对话，或直接输入问题",
+    "back": "返回",
+    "processing": "正在处理中...",
+    "taskPanel": {
+      "currentProgress": "当前进度 {{completed}}/{{total}}",
+      "queuePending": "排队中",
+      "done": "已完成",
+      "outputResult": "输出结果",
+      "subtasks": "子任务",
+      "logs": "日志",
+      "startTime": "开始: {{time}}",
+      "endTime": "结束: {{time}}",
+      "running": "执行中",
+      "waiting": "等待",
+      "workLog": "工作日志"
+    },
+    "workspace": {
+      "statusAbnormal": "状态异常",
+      "taskErrorFallback": "任务执行过程中出现错误",
+      "trendingVideos": "爆款参考视频",
+      "noMemorySelected": "未选择记忆库",
+      "checklistTodo": "待办清单",
+      "emptyMemoryContent": "暂无内容",
+      "readMemoryHeader": "阅读",
+      "copyAllTitle": "复制全部内容",
+      "agentTabExpert01": "TikTok爆款专家",
+      "agentTabExpert02": "记忆库专家",
+      "agentTabExpert03": "Prompt专家",
+      "agentTabExpert04": "视频专家",
+      "headerAgent": "Agent{{tab}}",
+      "headerWriteChecklist": "编写待办清单",
+      "statusLoading": "LOADING",
+      "statusDone": "DONE",
+      "statusError": "ERROR",
+      "statusSkip": "SKIP",
+      "statusWaiting": "WAITING"
+    },
+    "chatInput": {
+      "uploadProductImage": "上传商品白底图",
+      "selectCategory": "选择品类",
+      "placeholderSellingPoints": "输入商品卖点，描述产品核心优势...",
+      "memoryCount": "{{count}} 个记忆库",
+      "creditsRemaining": "剩余额度 40",
+      "modelK25Agent": "K2.5 Agent 集群",
+      "modelK25Fast": "K2.5 快速",
+      "modelK25Pro": "K2.5 专业",
+      "altProduct": "商品图"
+    },
+    "setupCard": {
+      "title": "初始化配置",
+      "subtitle": "上传商品图，配置参数后开始生成",
+      "badgeSetup": "Setup",
+      "whiteBgImage": "白底商品图",
+      "clickOrDragUpload": "点击或拖拽上传",
+      "formatsPngJpg": "支持 PNG / JPG",
+      "memory": "记忆库",
+      "selectMemory": "选择记忆库",
+      "countUnit": "{{count}} 个",
+      "coreSellingPoints": "核心卖点",
+      "placeholderSellingMultiline": "输入产品核心卖点，支持多条换行...",
+      "productCategory": "商品品类",
+      "startGenerate": "开始生成",
+      "reset": "重置"
+    },
+    "videoCandidate": {
+      "strategyLine": "策略: {{strategy}}",
+      "selected": "已选择",
+      "selectedThisVideo": "已选择此视频",
+      "likesPrefix": "点赞: ",
+      "viewTikTokOriginal": "查看 TikTok 原视频",
+      "videoDetailTitle": "视频详情",
+      "listTitle": "爆款视频列表",
+      "countItems": "{{count}} 条"
+    },
+    "agentCluster": {
+      "title": "Agent 集群",
+      "tasks": "{{count}} 个任务",
+      "tasksParallel": "{{count}} 个并行任务"
+    },
+    "setupSummary": {
+      "memoryWithCount": "记忆库 ({{count}})",
+      "memoryOff": "记忆库关闭"
+    },
+    "resultPreview": {
+      "title": "复刻视频预览",
+      "exportDownload": "导出下载",
+      "regenerate": "再次生成"
+    },
+    "promptEditor": {
+      "title": "生成的爆款复刻 Prompt",
+      "copyPromptTitle": "复制 Prompt",
+      "source": "来源：",
+      "tagMemory": "记忆库",
+      "tagSellingPoints": "卖点",
+      "tagCategory": "品类",
+      "tagRefVideo": "参考视频",
+      "confirmGenerate": "确认并生成"
+    },
+    "checklistCard": {
+      "title": "编写待办清单",
+      "progressDone": "{{done}}/{{total}} 完成"
+    }
   }
 }

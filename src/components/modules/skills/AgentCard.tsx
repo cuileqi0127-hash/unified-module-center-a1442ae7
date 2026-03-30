@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { StaticImageData } from 'next/image';
 import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
@@ -116,6 +117,7 @@ interface AgentClusterCardProps {
 }
 
 export function AgentClusterCard({ agents, title, onAgentClick }: AgentClusterCardProps) {
+  const { t } = useTranslation();
   const runningCount = agents.filter((a) => a.status === 'running').length;
   const totalCount = agents.length;
 
@@ -124,9 +126,11 @@ export function AgentClusterCard({ agents, title, onAgentClick }: AgentClusterCa
       {/* Header */}
       <div className="px-4 py-2.5 border-b border-border/20 flex items-center gap-2">
         <img src={imageSrc(pixelAgent)} className="w-4 h-4" alt="" />
-        <span className="text-xs font-medium text-foreground">Agent 集群</span>
+        <span className="text-xs font-medium text-foreground">{t('skills.agentCluster.title')}</span>
         <span className="text-[10px] text-muted-foreground/50 ml-1">
-          {totalCount} 个{runningCount > 0 ? '并行' : ''}任务
+          {runningCount > 0
+            ? t('skills.agentCluster.tasksParallel', { count: totalCount })
+            : t('skills.agentCluster.tasks', { count: totalCount })}
         </span>
       </div>
 

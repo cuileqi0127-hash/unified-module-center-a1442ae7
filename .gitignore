@@ -1,40 +1,50 @@
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+debug.log
 
 # Dependencies
-node_modules
+node_modules/
 
 # Next.js
-.next
-out
+.next/
+out/
 .vercel
 
-# Legacy Vite build output（若目录仍存在）
-dist
-dist-ssr
+# 历史 Vite 产物（若目录仍存在）
+dist/
+dist-ssr/
 
 # TypeScript
 *.tsbuildinfo
 
 # Testing / coverage
-coverage
-.nyc_output
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+blob-report/
 
-# Misc
-*.local
+# Lint / format 缓存
 .eslintcache
+.prettiercache
+
+# 构建工具缓存
 .turbo
+
+# Misc 本地覆盖
+*.local
+*.pem
 
 # Editor
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 Thumbs.db
 *.suo
@@ -43,10 +53,10 @@ Thumbs.db
 *.sln
 *.sw?
 
-# Environment（本地与密钥；提交示例文件请用 ! 取消忽略）
+# 环境变量与密钥（提交示例请用 .env.example，并已通过 ! 取消忽略）
 .env
 .env.*
 !.env.example
 
-# Project
-docs
+# 本地/脚本导出文档（如 npm run docs:export-docx）
+docs/

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, ChevronRight, Copy, Check, FileText, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -77,10 +78,11 @@ interface RightWorkspaceProps {
 }
 
 function WorkLog({ logs, task }: {logs: TaskLog[];task?: SkillTask;}) {
+  const { t } = useTranslation();
   if (!logs || logs.length === 0) return null;
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-2">工作日志</p>
+      <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-2">{t('skills.taskPanel.workLog')}</p>
       <div className="space-y-0.5 font-mono text-xs">
         {logs.map((log, i) =>
         <div key={i} className="flex items-start gap-2 py-0.5">
@@ -93,10 +95,11 @@ function WorkLog({ logs, task }: {logs: TaskLog[];task?: SkillTask;}) {
 }
 
 function SubTaskList({ task }: {task: SkillTask;}) {
+  const { t } = useTranslation();
   if (!task || task.children.length === 0) return null;
   return (
     <div className="space-y-0">
-      <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">子任务</p>
+      <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">{t('skills.taskPanel.subtasks')}</p>
       {task.children.map((child, i) => {
         const avatarSrc = child.expert ? expertAvatars[child.expert.avatar] : undefined;
         const isDone = child.status === 'done';
@@ -114,6 +117,7 @@ function SubTaskList({ task }: {task: SkillTask;}) {
 }
 
 function CopyButton({ text }: {text: string;}) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
@@ -124,19 +128,20 @@ function CopyButton({ text }: {text: string;}) {
     <button
       onClick={handleCopy}
       className="absolute top-2 right-3 p-1.5 rounded-md bg-background/80 backdrop-blur-sm border border-border/20 hover:bg-muted/60 text-muted-foreground/40 hover:text-muted-foreground transition-colors z-10 shadow-sm"
-      title="复制全部内容">
+      title={t('skills.workspace.copyAllTitle')}>
       {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
     </button>);
 }
 
-const agentTabs: {id: AgentTab;label: string;avatar: string;name: string;}[] = [
-{ id: '01', label: '01', avatar: 'search', name: 'TikTok爆款专家' },
-{ id: '02', label: '02', avatar: 'memory', name: '记忆库专家' },
-{ id: '03', label: '03', avatar: 'strategist', name: 'Prompt专家' },
-{ id: '04', label: '04', avatar: 'video', name: '视频专家' }];
-
+const agentTabs: { id: AgentTab; label: string; avatar: string }[] = [
+  { id: '01', label: '01', avatar: 'search' },
+  { id: '02', label: '02', avatar: 'memory' },
+  { id: '03', label: '03', avatar: 'strategist' },
+  { id: '04', label: '04', avatar: 'video' },
+];
 
 export function RightWorkspace(props: RightWorkspaceProps) {
+  const { t } = useTranslation();
   const { view, onClose, activeAgentTab = '01', onAgentTabChange } = props;
 
   if (view === 'none') return null;
@@ -154,8 +159,8 @@ export function RightWorkspace(props: RightWorkspaceProps) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 p-5 text-center min-h-[300px]">
           <img src={imageSrc(pixelCross)} className="w-10 h-10" alt="" />
-          <p className="text-sm text-destructive font-medium">状态异常</p>
-          <p className="text-xs text-muted-foreground/60">{currentAgent.statusText || '任务执行过程中出现错误'}</p>
+          <p className="text-sm text-destructive font-medium">{t('skills.workspace.statusAbnormal')}</p>
+          <p className="text-xs text-muted-foreground/60">{currentAgent.statusText || t('skills.workspace.taskErrorFallback')}</p>
         </div>);
 
     }
@@ -167,7 +172,7 @@ export function RightWorkspace(props: RightWorkspaceProps) {
             {props.agent01Task && <WorkLog logs={props.agent01Task.logs} />}
             {props.candidateVideos && props.candidateVideos.length > 0 &&
             <div className="space-y-3">
-                <p className="text-xs font-medium text-foreground">爆款参考视频</p>
+                <p className="text-xs font-medium text-foreground">{t('skills.workspace.trendingVideos')}</p>
                 <VideoCandidateRow
                 videos={props.candidateVideos}
                 onSelect={(v) => props.onVideoSelect?.(v)}
@@ -181,7 +186,7 @@ export function RightWorkspace(props: RightWorkspaceProps) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 p-5 text-center min-h-[300px]">
               <img src={imageSrc(pixelInfo)} className="w-10 h-10 opacity-40" alt="" />
-              <p className="text-sm text-muted-foreground/60">未选择记忆库</p>
+              <p className="text-sm text-muted-foreground/60">{t('skills.workspace.noMemorySelected')}</p>
             </div>);
 
         }
@@ -222,7 +227,7 @@ export function RightWorkspace(props: RightWorkspaceProps) {
       case 'checklist':
         return (
           <div className="p-5 space-y-4">
-            <p className="text-xs text-muted-foreground/60 mb-3">待办清单</p>
+            <p className="text-xs text-muted-foreground/60 mb-3">{t('skills.workspace.checklistTodo')}</p>
             {props.checklistItems?.map((item, i) =>
             <div key={i} className="flex items-start gap-2 py-1">
                 <span className="font-pixel text-xs text-foreground/60 mt-0.5">
@@ -240,14 +245,14 @@ export function RightWorkspace(props: RightWorkspaceProps) {
         return renderAgentContent();
 
       case 'read-memory':{
-          const lines = (props.memoryContent || '暂无内容').split('\n');
+          const lines = (props.memoryContent || t('skills.workspace.emptyMemoryContent')).split('\n');
           return (
             <div className="flex flex-col h-full">
             <div className="flex items-center gap-2.5 px-5 py-3 border-b border-border/30 bg-muted/30 shrink-0">
               <FileText className="w-5 h-5 text-muted-foreground shrink-0" />
-              <span className="text-sm text-muted-foreground font-normal">阅读</span>
+              <span className="text-sm text-muted-foreground font-normal">{t('skills.workspace.readMemoryHeader')}</span>
               <span className="text-sm text-muted-foreground/40">|</span>
-              <span className="text-sm truncate text-[#5c5c5c] font-normal">{props.memoryTitle || '记忆库'}.md</span>
+              <span className="text-sm truncate text-[#5c5c5c] font-normal">{props.memoryTitle || t('skills.memoryLibraryDefault')}.md</span>
               {props.memoryCategory &&
                 <span className="ml-auto inline-block text-xs px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">
                   {props.memoryCategory}
@@ -258,7 +263,7 @@ export function RightWorkspace(props: RightWorkspaceProps) {
               </Button>
             </div>
             <div className="flex-1 overflow-auto relative">
-              <CopyButton text={props.memoryContent || '暂无内容'} />
+              <CopyButton text={props.memoryContent || t('skills.workspace.emptyMemoryContent')} />
               <div className="px-5 pt-10 pb-4 font-mono text-sm leading-7">
                 {lines.map((line, i) =>
                   <div key={i} className="flex">
@@ -279,11 +284,11 @@ export function RightWorkspace(props: RightWorkspaceProps) {
   const isReadMemory = view === 'read-memory';
   const isAgents = view === 'agents';
 
-  const headerTitle = isAgents ?
-  `Agent${activeAgentTab}` :
-  view === 'checklist' ?
-  '编写待办清单' :
-  props.memoryTitle || '记忆库';
+  const headerTitle = isAgents
+    ? t('skills.workspace.headerAgent', { tab: activeAgentTab })
+    : view === 'checklist'
+      ? t('skills.workspace.headerWriteChecklist')
+      : props.memoryTitle || t('skills.memoryLibraryDefault');
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -342,7 +347,7 @@ export function RightWorkspace(props: RightWorkspaceProps) {
                   status === 'skipped' && 'text-muted-foreground/50',
                   status === 'idle' && 'text-muted-foreground/40'
                   )}>
-                    {status === 'running' ? 'LOADING' : status === 'done' ? 'DONE' : status === 'error' ? 'ERROR' : status === 'skipped' ? 'SKIP' : 'WAITING'}
+                    {status === 'running' ? t('skills.workspace.statusLoading') : status === 'done' ? t('skills.workspace.statusDone') : status === 'error' ? t('skills.workspace.statusError') : status === 'skipped' ? t('skills.workspace.statusSkip') : t('skills.workspace.statusWaiting')}
                   </span>
                 </button>);
             })}

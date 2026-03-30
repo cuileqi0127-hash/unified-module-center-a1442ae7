@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { X, Clock, Check, Loader2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -38,7 +39,7 @@ interface TaskDetailPanelProps {
 }
 
 export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect }: TaskDetailPanelProps) {
-
+  const { t } = useTranslation();
 
   // Progress calculation
   const totalSteps = task.moduleChain?.length || 1;
@@ -56,16 +57,16 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
                 {task.status === 'running' &&
                 <>
                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    当前进度 {completedSteps}/{totalSteps}
+                    {t('skills.taskPanel.currentProgress', { completed: completedSteps, total: totalSteps })}
                   </>
                 }
                 {task.status === 'done' &&
                 <>
                     <Check className="w-3 h-3" />
-                    已完成
+                    {t('skills.taskPanel.done')}
                   </>
                 }
-                {task.status === 'queued' && '排队中'}
+                {task.status === 'queued' && t('skills.taskPanel.queuePending')}
               </span>
             </div>
           </div>
@@ -91,7 +92,7 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
           <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <span>📄</span>
-                <span>输出结果</span>
+                <span>{t('skills.taskPanel.outputResult')}</span>
               </div>
               <div className="pl-1 space-y-1.5">
                 <p className="text-sm text-foreground/80 flex items-start gap-2">
@@ -107,7 +108,7 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
           {/* Sub-tasks */}
           {task.children.length > 0 &&
           <div>
-              <p className="text-xs text-muted-foreground mb-2">子任务</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('skills.taskPanel.subtasks')}</p>
               <div className="space-y-0">
                 {task.children.map((child) => {
                 const childExpert = child.expert;
@@ -154,7 +155,7 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
           {/* Logs */}
           {task.logs.length > 0 &&
           <div>
-              <p className="text-xs text-muted-foreground mb-2">日志</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('skills.taskPanel.logs')}</p>
               <div className="space-y-0.5 font-mono text-xs">
                 {task.logs.map((log, i) =>
               <div key={i} className="flex items-start gap-2 py-0.5">
@@ -168,8 +169,8 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
 
           {/* Time info */}
           <div className="flex items-center gap-4 text-[11px] text-muted-foreground/50 pt-2 border-t border-border/10">
-            {task.startAt && <span>开始: {task.startAt}</span>}
-            {task.endAt && <span>结束: {task.endAt}</span>}
+            {task.startAt && <span>{t('skills.taskPanel.startTime', { time: task.startAt })}</span>}
+            {task.endAt && <span>{t('skills.taskPanel.endTime', { time: task.endAt })}</span>}
           </div>
 
         </div>
@@ -215,7 +216,7 @@ export function TaskDetailPanel({ task, onClose, selectedVideoId, onVideoSelect 
                 child.status === 'done' ? 'text-foreground/60' :
                 child.status === 'running' ? 'text-foreground' : 'text-muted-foreground/40'
               )}>
-                  {childExpert?.name || (child.status === 'done' ? '已完成' : child.status === 'running' ? '执行中' : '等待')}
+                  {childExpert?.name || (child.status === 'done' ? t('skills.taskPanel.done') : child.status === 'running' ? t('skills.taskPanel.running') : t('skills.taskPanel.waiting'))}
                 </span>
               </div>);
 

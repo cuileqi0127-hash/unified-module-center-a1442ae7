@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Bot, ArrowUp, X, Paperclip, Brain, ChevronDown, Check, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,19 +33,29 @@ interface ChatInputBarProps {
   memoryItems: MemoryItem[];
 }
 
-const MODELS = [
-  { id: 'k2.5-agent', label: 'K2.5 Agent 集群' },
-  { id: 'k2.5-fast', label: 'K2.5 快速' },
-  { id: 'k2.5-pro', label: 'K2.5 专业' },
-];
+const MODEL_IDS = ['k2.5-agent', 'k2.5-fast', 'k2.5-pro'] as const;
 
 export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProps) {
+  const { t } = useTranslation();
+  const models = useMemo(
+    () =>
+      MODEL_IDS.map((id) => ({
+        id,
+        label:
+          id === 'k2.5-agent'
+            ? t('skills.chatInput.modelK25Agent')
+            : id === 'k2.5-fast'
+              ? t('skills.chatInput.modelK25Fast')
+              : t('skills.chatInput.modelK25Pro'),
+      })),
+    [t]
+  );
   const [input, setInput] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
   const [category, setCategory] = useState('');
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState(MODELS[0]);
+  const [selectedModelId, setSelectedModelId] = useState<string>(MODEL_IDS[0]);
   const [modelOpen, setModelOpen] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
@@ -92,6 +103,7 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
 
   const hasContent = input.trim() && image && category;
   const categoryTree = useMemo(() => categoryNodeTreeToCategoryTree(CATEGORY_TREE), []);
+  const selectedModel = models.find((m) => m.id === selectedModelId) ?? models[0];
 
   return (
     <div className="border-t border-border/20 bg-transparent px-6 py-3">
@@ -101,7 +113,7 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
           <div className="shrink-0 pt-0.5">
             {image ? (
               <div className="relative w-[100px] h-[100px] rounded-xl overflow-hidden border border-border/60 group">
-                <img src={image} alt="Product" className="w-full h-full object-cover" />
+                <img src={image} alt={t('skills.chatInput.altProduct')} className="w-full h-full object-cover" />
                 <button
                   onClick={removeImage}
                   className="absolute top-1 right-1 w-5 h-5 rounded-full bg-foreground/70 text-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -115,20 +127,20 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
                 className="w-[100px] h-[100px] rounded-xl border-2 border-dashed border-border/40 hover:border-foreground/20 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors"
               >
                 <Plus className="w-5 h-5 text-muted-foreground/50" />
-                <span className="text-[10px] text-muted-foreground/50 leading-tight text-center px-2">上传商品白底图</span>
+                <span className="text-[10px] text-muted-foreground/50 leading-tight text-center px-2">{t('skills.chatInput.uploadProductImage')}</span>
               </button>
             )}
           </div>
 
           {/* Right: Input area */}
           <div className="flex-1 min-w-0">
-            {/* Category selector - 使用统一的下拉级联控件，数据由外部传入 */}
+            {/* Category cascader; tree from CATEGORY_TREE */}
             <div className="flex items-center gap-2 mb-2">
               <CategoryCascader
                 tree={categoryTree}
                 value={category}
                 onChange={setCategory}
-                placeholder="选择品类"
+                placeholder={t('skills.chatInput.selectCategory')}
               />
             </div>
 
@@ -143,7 +155,7 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
                   handleSend();
                 }
               }}
-              placeholder="输入商品卖点，描述产品核心优势..."
+              placeholder={t('skills.chatInput.placeholderSellingPoints')}
               disabled={disabled}
               rows={2}
               className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none disabled:opacity-50 leading-relaxed"
@@ -168,7 +180,7 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
               <Brain className="w-4 h-4" />
               {selectedMemoryIds.length > 0 && (
                 <span className="text-[11px] font-medium whitespace-nowrap">
-                  {selectedMemoryIds.length} 个记忆库
+                  {t('skills.chatInput.memoryCount', { count: selectedMemoryIds.length })}
                 </span>
               )}
             </button>
@@ -176,7 +188,7 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
             {/* Credits display */}
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
               <MessageCircle className="w-3.5 h-3.5" />
-              <span>剩余额度 40</span>
+              <span>{t('skills.chatInput.creditsRemaining')}</span>
             </div>
           </div>
 
@@ -190,10 +202,10 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
                 </button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-44 p-1 rounded-xl" sideOffset={8}>
-                {MODELS.map(m => (
+                {models.map(m => (
                   <button
                     key={m.id}
-                    onClick={() => { setSelectedModel(m); setModelOpen(false); }}
+                    onClick={() => { setSelectedModelId(m.id); setModelOpen(false); }}
                     className={cn(
                       'w-full text-left px-3 py-2 text-sm rounded-lg transition-colors',
                       selectedModel.id === m.id

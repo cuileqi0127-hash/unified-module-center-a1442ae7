@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ interface PromptEditorBlockProps {
 }
 
 export function PromptEditorBlock({ prompt, onChange, onConfirm, onBack, memoryEnabled, disabled, readonly }: PromptEditorBlockProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -26,12 +28,12 @@ export function PromptEditorBlock({ prompt, onChange, onConfirm, onBack, memoryE
   return (
     <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-foreground">生成的爆款复刻 Prompt</h4>
+        <h4 className="text-sm font-semibold text-foreground">{t('skills.promptEditor.title')}</h4>
         <div className="flex items-center gap-2">
           <button
             onClick={handleCopy}
             className="p-1 rounded-md hover:bg-muted/40 transition-colors text-muted-foreground hover:text-foreground"
-            title="复制 Prompt"
+            title={t('skills.promptEditor.copyPromptTitle')}
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
@@ -47,20 +49,20 @@ export function PromptEditorBlock({ prompt, onChange, onConfirm, onBack, memoryE
 
       {/* Source tags */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] text-muted-foreground">来源：</span>
+        <span className="text-[10px] text-muted-foreground">{t('skills.promptEditor.source')}</span>
         {memoryEnabled && (
           <Badge variant="secondary" className="text-[10px] gap-1">
-            <Database className="w-2.5 h-2.5" /> 记忆库
+            <Database className="w-2.5 h-2.5" /> {t('skills.promptEditor.tagMemory')}
           </Badge>
         )}
         <Badge variant="secondary" className="text-[10px] gap-1">
-          <Tag className="w-2.5 h-2.5" /> 卖点
+          <Tag className="w-2.5 h-2.5" /> {t('skills.promptEditor.tagSellingPoints')}
         </Badge>
         <Badge variant="secondary" className="text-[10px] gap-1">
-          <FolderOpen className="w-2.5 h-2.5" /> 品类
+          <FolderOpen className="w-2.5 h-2.5" /> {t('skills.promptEditor.tagCategory')}
         </Badge>
         <Badge variant="secondary" className="text-[10px] gap-1">
-          <Video className="w-2.5 h-2.5" /> 参考视频
+          <Video className="w-2.5 h-2.5" /> {t('skills.promptEditor.tagRefVideo')}
         </Badge>
       </div>
 
@@ -72,7 +74,7 @@ export function PromptEditorBlock({ prompt, onChange, onConfirm, onBack, memoryE
             disabled={disabled}
             className="flex-1 rounded-xl h-10 bg-foreground text-background hover:bg-foreground/90 font-medium disabled:opacity-50"
           >
-            确认并生成
+            {t('skills.promptEditor.confirmGenerate')}
           </Button>
         </div>
       )}

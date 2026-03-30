@@ -12,8 +12,8 @@ export function FeatureCard({ title, description, preview, onClick }: FeatureCar
   return (
     <div
       onClick={onClick}
-      className="group relative flex items-stretch rounded-2xl border border-border/30 bg-card/40 backdrop-blur-xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-border/50 hover:shadow-card-hover hover:scale-[1.03] hover:-translate-y-1 min-h-[140px]"
-    >
+      className="group relative flex items-stretch rounded-2xl border border-border/30 bg-card/40 backdrop-blur-xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-border/50 hover:shadow-card-hover hover:scale-[1.03] hover:-translate-y-1 min-h-[140px]">
+      
       {/* Left: text */}
       <div className="flex flex-col justify-center gap-2 p-4 pr-3 flex-1 min-w-0">
         <div>
@@ -27,9 +27,11 @@ export function FeatureCard({ title, description, preview, onClick }: FeatureCar
       </div>
 
       {/* Right: preview */}
-      <div className="w-[45%] shrink-0 flex items-center justify-center p-2 min-h-[100px]">
-        {preview}
-      </div>
-    </div>
-  );
+      
+
+
+
+      
+    </div>);
+
 }

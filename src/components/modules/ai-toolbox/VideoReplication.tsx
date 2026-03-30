@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Video,
   Image as ImageIcon,
@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { uploadVideoFile, uploadMediaFile, createVideoTask, pollTaskUntilComplete } from '@/services/videoReplicationApi';
 import { MemoryButtonWithDialog } from '@/components/modules/memory/MemoryButtonWithDialog';
+import { EstimatedCreditsHint } from './EstimatedCreditsHint';
 
 interface VideoReplicationProps {
   onNavigate?: (itemId: string) => void;
@@ -63,6 +64,17 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [dynamicsLevel, setDynamicsLevel] = useState(0.6);
   const [resolution, setResolution] = useState<'720p' | '1080p' | '2k'>('1080p');
   const [ratio, setRatio] = useState<'16:9' | '9:16'>('16:9');
+
+  /** 与 toolbox ReplicateWorkspace 一致的粗略计费展示（样式对齐） */
+  const estimatedCost = useMemo(() => {
+    let cost = 0;
+    if (originalVideo) cost += 8;
+    if (referenceImage) cost += 2;
+    const spLines = sellingPoints.split(/[\n,，]/).map((s) => s.trim()).filter(Boolean);
+    cost += spLines.length;
+    cost += selectedMemoryIds.length;
+    return Math.max(cost, 0);
+  }, [originalVideo, referenceImage, sellingPoints, selectedMemoryIds]);
 
   useEffect(() => {
     const url = sessionStorage.getItem('videoReplicationInitialVideoUrl');
@@ -495,6 +507,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 )}
               </div>
               <div className="flex items-center gap-3">
+                <EstimatedCreditsHint amount={estimatedCost} />
                 <button
                   type="button"
                   onClick={() => {

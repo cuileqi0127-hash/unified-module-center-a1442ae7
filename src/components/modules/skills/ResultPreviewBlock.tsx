@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Play, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -7,10 +8,11 @@ interface ResultPreviewBlockProps {
 }
 
 export function ResultPreviewBlock({ onRegenerate, disabled }: ResultPreviewBlockProps) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-border/30">
-        <h4 className="text-sm font-semibold text-foreground">复刻视频预览</h4>
+        <h4 className="text-sm font-semibold text-foreground">{t('skills.resultPreview.title')}</h4>
       </div>
       
       {/* Mock video player */}
@@ -29,7 +31,7 @@ export function ResultPreviewBlock({ onRegenerate, disabled }: ResultPreviewBloc
       {/* Actions */}
       <div className="p-4 flex items-center gap-2 flex-wrap">
         <Button variant="outline" size="sm" className="rounded-lg gap-1.5 text-xs border-border/50">
-          <Download className="w-3.5 h-3.5" /> 导出下载
+          <Download className="w-3.5 h-3.5" /> {t('skills.resultPreview.exportDownload')}
         </Button>
         <Button
           variant="outline"
@@ -38,7 +40,7 @@ export function ResultPreviewBlock({ onRegenerate, disabled }: ResultPreviewBloc
           onClick={onRegenerate}
           disabled={disabled}
         >
-          <RefreshCw className="w-3.5 h-3.5" /> 再次生成
+          <RefreshCw className="w-3.5 h-3.5" /> {t('skills.resultPreview.regenerate')}
         </Button>
       </div>
     </div>

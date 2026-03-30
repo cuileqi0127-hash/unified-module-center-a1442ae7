@@ -1,5 +1,6 @@
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import type { StaticImageData } from 'next/image';
+import { useTranslation } from 'react-i18next';
 import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { useMemory } from '@/contexts/MemoryContext';
@@ -29,17 +30,30 @@ const avatarMap: Record<string, string | StaticImageData> = {
   designer: expertDesigner, strategist: pixelPrompt, search: pixelSearch
 };
 
-/* ─── Agent task background descriptions ─── */
-const getAgentDescriptions = (category: string, sellingPoints: string, memoryNames: string): Record<string, string> => ({
-  'agent-01': `你是一名TikTok爆款视频专家，需要为用户收集「${category}」品类下最符合「${sellingPoints}」卖点的对标爆款视频，并生成一个可供复刻的视频列表。`,
-  'agent-02': `你是一名记忆库专家，需要根据「${memoryNames || '品牌记忆库'}」中的核心信息，提取关键特征向量，为后续内容生成提供品牌一致性保障。`,
-  'agent-03': '你是一名Prompt设计专家，需要基于用户选择的爆款视频结构和上述所有品牌信息，设计出高质量的TikTok视频复刻Prompt。',
-  'agent-04': '你是一名视频生成专家，需要根据Prompt和素材图，生成高质量的TikTok短视频内容。'
-});
+type SnapshotStatusKey = 'done' | 'promptReady' | 'videoSelected' | 'candidatesReady' | 'inProgress';
+
+function deriveSnapshotStatus(snapshot: SkillsState): SnapshotStatusKey {
+  if (snapshot.resultVideo) return 'done';
+  if (snapshot.generatedPrompt) return 'promptReady';
+  if (snapshot.selectedVideo) return 'videoSelected';
+  if (snapshot.candidateVideos.length > 0) return 'candidatesReady';
+  return 'inProgress';
+}
 
 /* ─── Agent rows inside flow-step card ─── */
 function AgentClusterSteps({ agents, isLast, msgId, category, sellingPoints, memoryNames }: {agents: import('./AgentCard').AgentInfo[];isLast: boolean;msgId: string;category?: string;sellingPoints?: string;memoryNames?: string;}) {
-  const agentDescriptions = getAgentDescriptions(category || '', sellingPoints || '', memoryNames || '');
+  const { t } = useTranslation();
+  const agentDescriptions = useMemo(
+    () => ({
+      'agent-01': t('skills.agentDesc01', { category: category || '', sellingPoints: sellingPoints || '' }),
+      'agent-02': t('skills.agentDesc02', {
+        memoryNames: memoryNames || t('skills.defaultMemoryLib'),
+      }),
+      'agent-03': t('skills.agentDesc03'),
+      'agent-04': t('skills.agentDesc04'),
+    }),
+    [t, category, sellingPoints, memoryNames]
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
@@ -54,8 +68,8 @@ function AgentClusterSteps({ agents, isLast, msgId, category, sellingPoints, mem
               className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/20 transition-colors"
               onClick={() => setExpandedId(isExpanded ? null : agent.id)}>
               
-              <img src={imageSrc(pixelCreate)} alt="创建助手" className="w-4 h-4 shrink-0" />
-              <span className="text-sm text-foreground/80">创建助手</span>
+              <img src={imageSrc(pixelCreate)} alt={t('skills.createAssistant')} className="w-4 h-4 shrink-0" />
+              <span className="text-sm text-foreground/80">{t('skills.createAssistant')}</span>
               <div className="w-px h-4 bg-border/30" />
               <div className={cn(
                 'shrink-0 transition-all duration-200',
@@ -81,11 +95,11 @@ function AgentClusterSteps({ agents, isLast, msgId, category, sellingPoints, mem
             <div className="px-4 pb-4 animate-fade-in">
                 <div className="flex items-start gap-3">
                   <img src={imageSrc(pixelCreate)} alt="" className="w-4 h-4 shrink-0 invisible" />
-                  <span className="text-sm invisible">创建助手</span>
+                  <span className="text-sm invisible">{t('skills.createAssistant')}</span>
                   <div className="w-px h-4 invisible" />
                   <div className={cn('shrink-0 invisible', isExpanded ? 'w-8' : 'w-5')} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground/60 mb-1">任务背景</p>
+                    <p className="text-xs text-muted-foreground/60 mb-1">{t('skills.taskBackground')}</p>
                     <p className="text-sm text-foreground/70 leading-relaxed whitespace-pre-wrap">
                       {agentDescriptions[agent.id] || agent.statusText}
                     </p>
@@ -130,14 +144,6 @@ function saveSkillsHistory(items: SkillsHistoryItem[]) {
   localStorage.setItem(SKILLS_HISTORY_KEY, JSON.stringify(items));
 }
 
-function deriveStatusLabel(snapshot: SkillsState): string {
-  if (snapshot.resultVideo) return '已完成';
-  if (snapshot.generatedPrompt) return '提示词已生成';
-  if (snapshot.selectedVideo) return '已选择视频';
-  if (snapshot.candidateVideos.length > 0) return '候选视频已生成';
-  return '进行中';
-}
-
 export function SkillsModule() {
   const {
     state, CATEGORIES, completeSetup, refreshCandidates, selectVideo,
@@ -145,6 +151,7 @@ export function SkillsModule() {
     setActiveTaskId, setActiveRightView, handleUserInput, resetSession, restoreState
   } = useSkillsEngine();
 
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { entries } = useMemory();
   const memoryItems = useMemo(() => entries.map((e) => ({
@@ -177,12 +184,12 @@ export function SkillsModule() {
     const errorAgent = state.agents.find((a) => a.status === 'error');
     if (errorAgent) {
       toast({
-        title: '网络异常，请重试',
-        description: `${errorAgent.name} 执行过程中出现错误`,
+        title: t('skills.networkError'),
+        description: t('skills.agentErrorDesc', { name: errorAgent.name }),
         variant: 'destructive'
       });
     }
-  }, [state.agents.map((a) => a.status).join(',')]);
+  }, [state.agents.map((a) => a.status).join(','), t, toast]);
 
   useEffect(() => {
     if (!activeHistoryId || !state.setupCompleted || state.isProcessing) return;
@@ -226,7 +233,7 @@ export function SkillsModule() {
         memoryEnabled: memoryIds && memoryIds.length > 0 || false,
         selectedMemoryIds: memoryIds || [],
         sellingPoints: text || '',
-        category: category || '其它'
+        category: category || t('skills.categoryOther')
       };
       addHistory(setup);
       completeSetup(setup);
@@ -303,7 +310,7 @@ export function SkillsModule() {
 
           if (msg.type === 'checklist') {
             icon = <ListChecks className="w-4 h-4 text-foreground/60" />;
-            label = '编写待办清单';
+            label = t('skills.writeChecklist');
             onClick = () => setActiveRightView('checklist');
           } else if (msg.type === 'create-agent') {
             // Show as a bullet point step (agent details below)
@@ -315,9 +322,9 @@ export function SkillsModule() {
             onClick = () => setActiveRightView('checklist');
           } else if (msg.type === 'read-memory') {
             const memEntry = entries.find((e) => e.id === msg.memoryId);
-            const memTitle = memEntry?.title || msg.content || '记忆库';
+            const memTitle = memEntry?.title || msg.content || t('skills.memoryLibraryDefault');
             icon = <FileText className="w-4 h-4 text-foreground/60" />;
-            label = `阅读`;
+            label = t('skills.readVerb');
             onClick = () => {
               setActiveMemoryId(msg.memoryId || null);
               setActiveRightView('read-memory');
@@ -344,7 +351,9 @@ export function SkillsModule() {
                   {msg.type === 'read-memory' &&
                   <>
                       <div className="w-px h-4 bg-border/30" />
-                      <span className="text-foreground/70">{entries.find((e) => e.id === msg.memoryId)?.title || msg.content}</span>
+                      <span className="text-foreground/70">
+                        {entries.find((e) => e.id === msg.memoryId)?.title || msg.content || t('skills.memoryLibraryDefault')}
+                      </span>
                     </>
                   }
                   {msg.type === 'checklist' &&
@@ -459,16 +468,17 @@ export function SkillsModule() {
       <SheetTrigger asChild>
         <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted/40">
           <History className="w-3.5 h-3.5" />
-          <span>历史记录</span>
+          <span>{t('skills.history')}</span>
         </button>
       </SheetTrigger>
       <SheetContent className="w-80 sm:w-96">
         <SheetHeader>
-          <SheetTitle className="text-base font-medium">历史记录</SheetTitle>
+          <SheetTitle className="text-base font-medium">{t('skills.history')}</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-3 overflow-y-auto max-h-[calc(100vh-6rem)]">
           {history.map((item) => {
-          const statusLabel = deriveStatusLabel(item.snapshot);
+          const statusKey = deriveSnapshotStatus(item.snapshot);
+          const statusLabel = t(`skills.snapshotStatus.${statusKey}`);
           const isActive = activeHistoryId === item.id;
           return (
             <div
@@ -485,14 +495,14 @@ export function SkillsModule() {
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-medium text-foreground">{item.category}</span>
                 <span className="text-[10px] text-muted-foreground">
-                  {new Date(item.date).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(item.date).toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground truncate">{item.sellingPoints}</p>
               <div className="flex gap-1 mt-1.5 flex-wrap">
                 <span className={cn(
                   "text-[10px] px-1.5 py-0.5 rounded-full",
-                  statusLabel === '已完成' ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" : "bg-muted/40 text-muted-foreground"
+                  statusKey === 'done' ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" : "bg-muted/40 text-muted-foreground"
                 )}>
                   {statusLabel}
                 </span>
@@ -509,7 +519,7 @@ export function SkillsModule() {
 
         })}
           {history.length === 0 &&
-        <p className="text-sm text-muted-foreground text-center py-8">暂无历史记录</p>
+        <p className="text-sm text-muted-foreground text-center py-8">{t('skills.historyEmpty')}</p>
         }
         </div>
       </SheetContent>
@@ -536,10 +546,10 @@ export function SkillsModule() {
               <div className="w-full max-w-2xl animate-fade-in my-[120px]">
                 <div className="text-center mb-10">
                   <h1 className="text-2xl md:text-3xl font-normal text-foreground tracking-tight">
-                    TikTok 解决方案
+                    {t('skills.solutionTitle')}
                   </h1>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    上传商品图开始对话，或直接输入问题
+                    {t('skills.solutionSubtitle')}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-border/50 bg-card/90 backdrop-blur-sm shadow-sm">
@@ -554,7 +564,7 @@ export function SkillsModule() {
                 <div className="flex items-center gap-2">
                   <button onClick={handleNewSession} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted/40">
                     <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>返回</span>
+                    <span>{t('skills.back')}</span>
                   </button>
                 </div>
               </div>
@@ -591,7 +601,7 @@ export function SkillsModule() {
                     {state.isProcessing && state.messages.length > 0 &&
                   <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>正在处理中...</span>
+                        <span>{t('skills.processing')}</span>
                       </div>
                   }
                   </div>
