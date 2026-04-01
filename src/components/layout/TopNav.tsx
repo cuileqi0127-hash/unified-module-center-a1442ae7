@@ -6,14 +6,15 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { AccountDialog } from './AccountDialog';
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOAuth } from '@/contexts/OAuthContext';
 import { clearOAuthCache, redirectToLogin } from '@/services/oauthApi';
 import { clearUserInfoCache } from '@/services/userApi';
-import { USER_CREDITS, USER_SUBSCRIPTION_CREDITS, USER_TOPUP_CREDITS, USER_PLAN } from '@/constants/user';
 import { useMemory } from '@/contexts/MemoryContext';
 import { MemorySelectionDialog } from '@/components/modules/memory/MemorySelectionDialog';
 import { PORTAL_HOME_URL } from '@/constants/portal';
+import { formatMembershipPlan } from '@/lib/membershipPlan';
+import { getBillingMeSummary, type BillingMeSummaryResp } from '@/services/billingApi';
 
 function getInitialFromNickname(nickname?: string): string {
   if (!nickname || nickname.trim() === '') return 'U';
@@ -29,6 +30,7 @@ export function TopNav() {
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountOpenToTab, setAccountOpenToTab] = useState<'account' | 'usage' | 'invoices'>('account');
+  const [billingSummary, setBillingSummary] = useState<BillingMeSummaryResp | null>(null);
 
   const memoryItems = useMemo(
     () =>
@@ -48,12 +50,36 @@ export function TopNav() {
 
   const userInitial = getInitialFromNickname(userInfo?.nickname);
 
+  const pricingUrl = useMemo(() => {
+    const base = PORTAL_HOME_URL.endsWith('/') ? PORTAL_HOME_URL : `${PORTAL_HOME_URL}/`;
+    return `${base}pricing`;
+  }, []);
+
   const getAvatarUrl = (avatar?: string): string | undefined => {
     if (!avatar) return undefined;
     if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
     return `/api/${avatar}`;
   };
   const avatarUrl = getAvatarUrl(userInfo?.avatar);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!userInfo) {
+        setBillingSummary(null);
+        return;
+      }
+      try {
+        const res = await getBillingMeSummary();
+        if (!cancelled && res?.success) setBillingSummary(res.data);
+      } catch {
+        if (!cancelled) setBillingSummary(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userInfo]);
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'zh' ? 'en' : 'zh';
@@ -110,7 +136,7 @@ export function TopNav() {
           <HoverCard openDelay={200} closeDelay={300}>
             <HoverCardTrigger asChild>
               <a
-                href={PORTAL_HOME_URL}
+                href={pricingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0 text-foreground text-xs font-light overflow-hidden h-8 hover:opacity-90 transition-opacity bg-transparent border-solid border border-[#adadad] rounded-xl"
@@ -118,16 +144,18 @@ export function TopNav() {
                 <span className="px-3 py-1.5">{t('common.upgrade')}</span>
                 <span className="flex items-center gap-1 px-3 py-1.5 border-l border-border font-light bg-transparent">
                   <Zap className="w-3.5 h-3.5 fill-current" />
-                  {USER_CREDITS}
+                  {billingSummary?.totalCredits ?? '—'}
                 </span>
               </a>
             </HoverCardTrigger>
             <HoverCardContent align="end" className="w-80 p-5 rounded-2xl bg-popover/70 backdrop-blur-xl border-border/50 shadow-lg">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-light text-foreground">{USER_PLAN}</span>
+                  <span className="text-lg font-light text-foreground">
+                    {formatMembershipPlan(billingSummary?.membershipPlan, t)}
+                  </span>
                   <Button size="sm" className="rounded-full bg-foreground text-background hover:bg-foreground/90 text-xs font-light px-4" asChild>
-                    <a href={PORTAL_HOME_URL} target="_blank" rel="noopener noreferrer" className="font-light">
+                    <a href={pricingUrl} target="_blank" rel="noopener noreferrer" className="font-light">
                       {t('common.upgrade')}
                     </a>
                   </Button>
@@ -139,15 +167,15 @@ export function TopNav() {
                       <Sparkles className="w-4 h-4" />
                       {t('common.credits')}
                     </div>
-                    <span className="text-sm font-light text-foreground">{USER_CREDITS}</span>
+                    <span className="text-sm font-light text-foreground">{billingSummary?.totalCredits ?? '—'}</span>
                   </div>
                   <div className="flex items-center justify-between pl-6">
                     <span className="text-xs text-muted-foreground">{t('common.subscriptionCredits')}</span>
-                    <span className="text-xs font-light text-foreground">{USER_SUBSCRIPTION_CREDITS}</span>
+                    <span className="text-xs font-light text-foreground">{billingSummary?.subscriptionCredits ?? '—'}</span>
                   </div>
                   <div className="flex items-center justify-between pl-6">
                     <span className="text-xs text-muted-foreground">{t('common.topupCredits')}</span>
-                    <span className="text-xs font-light text-foreground">{USER_TOPUP_CREDITS}</span>
+                    <span className="text-xs font-light text-foreground">{billingSummary?.packCredits ?? '—'}</span>
                   </div>
                 </div>
                 <button

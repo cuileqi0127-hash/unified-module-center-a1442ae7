@@ -11,14 +11,15 @@ import { cn } from '@/lib/utils';
 import { useOAuth } from '@/contexts/OAuthContext';
 import { clearOAuthCache, redirectToLogin } from '@/services/oauthApi';
 import { clearUserInfoCache } from '@/services/userApi';
-import { USER_CREDITS, USER_SUBSCRIPTION_CREDITS, USER_TOPUP_CREDITS, USER_PLAN } from '@/constants/user';
+import { formatMembershipPlan } from '@/lib/membershipPlan';
+import { getBillingJournals, getBillingMeSummary, type BillingMeSummaryResp } from '@/services/billingApi';
 
 /** 与 toolbox AccountDialog「使用」页表格行一致，后续可对接积分流水 API */
 export interface UsageDetailRecord {
   id: string;
   label: string;
   amount: number;
-  /** ISO 时间字符串 */
+  /** yyyy-MM-dd HH:mm:ss（后端返回） */
   date: string;
   status: 'consumed' | 'earned' | 'refunded';
 }
@@ -41,16 +42,23 @@ export function AccountDialog({ open, onOpenChange, openToTab }: AccountDialogPr
   const { userInfo } = useOAuth();
   const [activeTab, setActiveTab] = useState('account');
   const userInitial = getInitialFromNickname(userInfo?.nickname);
+  const [billingSummary, setBillingSummary] = useState<BillingMeSummaryResp | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageError, setUsageError] = useState<string | null>(null);
+  const [usageRecords, setUsageRecords] = useState<UsageDetailRecord[]>([]);
 
   /** 对接 API 前为空；结构对齐 toolbox-no-skills CreditsContext.usageHistory */
-  const usageHistory = useMemo<UsageDetailRecord[]>(() => [], []);
+  const usageHistory = useMemo<UsageDetailRecord[]>(() => usageRecords, [usageRecords]);
 
   useEffect(() => {
     if (open && openToTab) setActiveTab(openToTab);
   }, [open, openToTab]);
 
-  const formatUsageDate = (iso: string) => {
-    const d = new Date(iso);
+  const formatUsageDate = (s: string) => {
+    // 后端返回的是 yyyy-MM-dd HH:mm:ss；这里仅做本地化输出时的兜底解析
+    const normalized = s.includes('T') ? s : s.replace(' ', 'T');
+    const d = new Date(normalized);
+    if (Number.isNaN(d.getTime())) return s;
     return d.toLocaleString(i18n.language?.startsWith('zh') ? 'zh-CN' : 'en-US', {
       year: 'numeric',
       month: '2-digit',
@@ -67,6 +75,61 @@ export function AccountDialog({ open, onOpenChange, openToTab }: AccountDialogPr
     return `/api/${avatar}`;
   };
   const avatarUrl = getAvatarUrl(userInfo?.avatar);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!open || !userInfo) {
+        setBillingSummary(null);
+        return;
+      }
+      try {
+        const res = await getBillingMeSummary();
+        if (!cancelled && res?.success) setBillingSummary(res.data);
+      } catch {
+        if (!cancelled) setBillingSummary(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, userInfo]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!open || !userInfo || activeTab !== 'usage') return;
+      setUsageLoading(true);
+      setUsageError(null);
+      try {
+        const res = await getBillingJournals({ page: 1, size: 10 });
+        if (cancelled) return;
+        if (!res?.success) {
+          setUsageError(res?.msg || 'Request failed');
+          setUsageRecords([]);
+          return;
+        }
+        const mapped: UsageDetailRecord[] = (res.data?.list ?? []).map((j) => ({
+          id: String(j.id),
+          label: j.title,
+          amount: j.credits,
+          date: j.occurredTime,
+          status: j.direction === 'DECREASE' ? 'consumed' : 'earned',
+        }));
+        setUsageRecords(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setUsageError(e instanceof Error ? e.message : 'Request failed');
+          setUsageRecords([]);
+        }
+      } finally {
+        if (!cancelled) setUsageLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, userInfo, activeTab]);
 
   const handleLogout = () => {
     clearOAuthCache();
@@ -130,19 +193,21 @@ export function AccountDialog({ open, onOpenChange, openToTab }: AccountDialogPr
                 <div className="space-y-4 text-sm">
                   <div className="flex items-center">
                     <span className="text-muted-foreground w-40 font-thin">{t('common.currentPlan')}</span>
-                    <span className="text-foreground font-light">{USER_PLAN}</span>
+                    <span className="text-foreground font-light">
+                      {formatMembershipPlan(billingSummary?.membershipPlan, t)}
+                    </span>
                   </div>
                   <div className="flex items-center">
                     <span className="text-muted-foreground w-40 font-light">{t('common.availableCredits')}</span>
-                    <span className="text-foreground font-normal">{USER_CREDITS}</span>
+                    <span className="text-foreground font-normal">{billingSummary?.totalCredits ?? '—'}</span>
                   </div>
                   <div className="flex items-center">
                     <span className="text-muted-foreground w-40 font-light pl-4">{t('common.subscriptionCredits')}</span>
-                    <span className="text-foreground font-light">{USER_SUBSCRIPTION_CREDITS}</span>
+                    <span className="text-foreground font-light">{billingSummary?.subscriptionCredits ?? '—'}</span>
                   </div>
                   <div className="flex items-center">
                     <span className="text-muted-foreground w-40 font-light pl-4">{t('common.topupCredits')}</span>
-                    <span className="text-foreground font-light">{USER_TOPUP_CREDITS}</span>
+                    <span className="text-foreground font-light">{billingSummary?.packCredits ?? '—'}</span>
                   </div>
                 </div>
               </div>
@@ -174,7 +239,9 @@ export function AccountDialog({ open, onOpenChange, openToTab }: AccountDialogPr
                   </div>
                 ))}
                 {usageHistory.length === 0 && (
-                  <div className="py-8 text-center text-muted-foreground text-sm">{t('common.noMoreData')}</div>
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    {usageLoading ? t('common.loading') : usageError ? usageError : t('common.noMoreData')}
+                  </div>
                 )}
               </div>
             </TabsContent>
