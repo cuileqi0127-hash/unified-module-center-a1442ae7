@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X, ChevronRight, Copy, Check, FileText, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import type { StaticImageData } from 'next/image';
+import type { ImageSrcInput } from '@/lib/imageSrc';
 import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { PixelProgress } from './PixelProgress';
@@ -26,7 +26,7 @@ import pixelWait from '@/assets/pixel-wait.png';
 import pixelInfo from '@/assets/pixel-info.svg';
 import pixelCross from '@/assets/pixel-cross.png';
 
-const expertAvatars: Record<string, string | StaticImageData> = {
+const expertAvatars: Record<string, ImageSrcInput> = {
   memory: pixelMemory,
   crawler: expertCrawler,
   video: pixelVideo,

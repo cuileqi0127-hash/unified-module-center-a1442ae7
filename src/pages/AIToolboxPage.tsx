@@ -1,21 +1,21 @@
-"use client";
-
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { AIToolboxModule } from "@/components/modules/ai-toolbox/AIToolboxModule";
 import { useActiveModuleOnMount } from "@/hooks/useActiveModuleOnMount";
 
-export function AIToolboxPageClient({ pageId }: { pageId: string }) {
-  const router = useRouter();
+export function AIToolboxPage({ pageId }: { pageId: string }) {
+  const navigate = useNavigate();
   useActiveModuleOnMount("ai-toolbox");
 
   return (
     <AppShell>
       {() => {
         const handleNavigate = (itemId: string) => {
-          router.push(`/ai-toolbox/${itemId}`);
+          navigate(`/ai-toolbox/${itemId}`);
         };
-        return <AIToolboxModule activeItem={pageId} onNavigate={handleNavigate} />;
+        return (
+          <AIToolboxModule activeItem={pageId} onNavigate={handleNavigate} />
+        );
       }}
     </AppShell>
   );

@@ -1,10 +1,8 @@
-"use client";
-
 import { AppShell } from "@/components/layout/AppShell";
 import { GEOInsightsModule } from "@/components/modules/geo-insights/GEOInsightsModule";
 import { useActiveModuleOnMount } from "@/hooks/useActiveModuleOnMount";
 
-export function GEOInsightsPageClient({ pageId }: { pageId: string }) {
+export function GEOInsightsPage({ pageId }: { pageId: string }) {
   useActiveModuleOnMount("geo-insights");
 
   return (

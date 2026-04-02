@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { X, Clock, Check, Loader2, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { StaticImageData } from 'next/image';
+import type { ImageSrcInput } from '@/lib/imageSrc';
 import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { SkillTask, CandidateVideo } from './useSkillsEngine';
@@ -20,7 +20,7 @@ import expertAudio from '@/assets/expert-audio.png';
 import pixelCheck from '@/assets/pixel-check.png';
 import pixelWait from '@/assets/pixel-wait.png';
 
-const expertAvatars: Record<string, string | StaticImageData> = {
+const expertAvatars: Record<string, ImageSrcInput> = {
   memory: pixelMemory,
   crawler: expertCrawler,
   video: pixelVideo,

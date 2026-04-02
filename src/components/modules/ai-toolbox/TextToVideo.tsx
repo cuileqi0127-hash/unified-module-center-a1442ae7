@@ -17,7 +17,7 @@ import {
   Trash2,
   LayoutGrid,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -72,7 +72,7 @@ function isLandscapeRatio(ratio: string): boolean {
 }
 
 export function TextToVideo({ onNavigate }: TextToVideoProps) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   
   // Canvas ref 用于恢复视频播放、聚焦等
@@ -222,7 +222,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
             className="flex items-center gap-1 hover:text-primary transition-colors group"
             onClick={() => {
               onNavigate?.('app-plaza');
-              router.push('/ai-toolbox/app-plaza');
+              navigate('/ai-toolbox/app-plaza');
             }}
           >
             <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />

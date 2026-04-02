@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import type { StaticImageData } from 'next/image';
+import type { ImageSrcInput } from '@/lib/imageSrc';
 import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { PixelProgress } from './PixelProgress';
@@ -16,7 +16,7 @@ import expertDesigner from '@/assets/expert-designer.png';
 import expertAnalyst from '@/assets/expert-analyst.png';
 import expertAudio from '@/assets/expert-audio.png';
 
-const expertAvatars: Record<string, string | StaticImageData> = {
+const expertAvatars: Record<string, ImageSrcInput> = {
   memory: pixelMemory,
   crawler: expertCrawler,
   video: pixelVideo,

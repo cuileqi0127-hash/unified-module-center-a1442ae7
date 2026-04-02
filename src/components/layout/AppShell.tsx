@@ -1,7 +1,5 @@
-'use client';
-
 import { ReactNode, useState, useEffect, useMemo } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { MemoryProvider } from '@/contexts/MemoryContext';
 import { TopNav } from './TopNav';
 import { DynamicSidebar } from './DynamicSidebar';
@@ -38,8 +36,8 @@ const homeItems = [
 
 export function AppShell({ children }: AppShellProps) {
   const { activeModule, sidebarCollapsed, setSidebarCollapsed } = useModule();
-  const pathname = usePathname();
-  const router = useRouter();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   const pageIdFromPath = useMemo(() => {
     const pathParts = pathname.split('/').filter(Boolean);
@@ -63,9 +61,9 @@ export function AppShell({ children }: AppShellProps) {
     const modulePath = `/${activeModule}`;
 
     if (pathname !== '/' && !pathname.startsWith(modulePath)) {
-      router.push(`/${activeModule}/${defaultItem}`);
+      navigate(`/${activeModule}/${defaultItem}`);
     }
-  }, [activeModule, pathname, router]);
+  }, [activeModule, pathname, navigate]);
 
   // Auto-collapse/expand based on active item
   useEffect(() => {

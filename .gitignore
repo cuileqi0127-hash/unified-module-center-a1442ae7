@@ -11,12 +11,9 @@ debug.log
 # Dependencies
 node_modules/
 
-# Next.js
-.next/
+# 构建产物
 out/
 .vercel
-
-# 历史 Vite 产物（若目录仍存在）
 dist/
 dist-ssr/
 
@@ -40,6 +37,11 @@ blob-report/
 # Misc 本地覆盖
 *.local
 *.pem
+*.pid
+*.seed
+*.bak
+*.backup
+*.tmp
 
 # Editor
 .vscode/*
@@ -53,14 +55,36 @@ Thumbs.db
 *.sln
 *.sw?
 
-# 环境变量与密钥（提交示例请用 .env.example，并已通过 ! 取消忽略）
-.env
+# 环境变量与密钥
+# - 仅忽略本地机密文件（避免误伤仓库内已提交的 .env.development/.env.test/.env.production）
+.env.local
 .env.*
+.env.*.local
+.env.*.secret
+.env.*.private
 !.env.example
+
+# direnv / shell
+.direnv/
+.envrc
+
+# Yarn Berry（若使用）
+.pnp.*
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
 
 # 本地/脚本导出文档（如 npm run docs:export-docx）
 docs/
 
+# 压缩包
+*.zip
+*.tgz
+
 # 根目录 Markdown（本地/草案文档勿提交；子目录如 src 下不受影响）
 /*.md
 !README.md
+
+# Cursor / AI 工具本地文件
+.cursor/

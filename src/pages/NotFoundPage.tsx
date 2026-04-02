@@ -1,11 +1,9 @@
-"use client";
-
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
-export default function NotFound() {
-  const pathname = usePathname();
+export function NotFoundPage() {
+  const { pathname } = useLocation();
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -22,12 +20,12 @@ export default function NotFound() {
         <p className="mb-4 text-xl text-muted-foreground">
           {t("notFound.message")}
         </p>
-        <a
-          href="/"
+        <Link
+          to="/"
           className="text-primary underline hover:text-primary/90"
         >
           {t("notFound.backHome")}
-        </a>
+        </Link>
       </div>
     </div>
   );

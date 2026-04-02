@@ -1,10 +1,8 @@
-"use client";
-
 import { AppShell } from "@/components/layout/AppShell";
 import { LLMConsoleModule } from "@/components/modules/llm-console/LLMConsoleModule";
 import { useActiveModuleOnMount } from "@/hooks/useActiveModuleOnMount";
 
-export function LLMConsolePageClient({ pageId }: { pageId: string }) {
+export function LLMConsolePage({ pageId }: { pageId: string }) {
   useActiveModuleOnMount("llm-console");
 
   return (

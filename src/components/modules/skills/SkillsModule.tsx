@@ -1,5 +1,5 @@
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
-import type { StaticImageData } from 'next/image';
+import type { ImageSrcInput } from '@/lib/imageSrc';
 import { useTranslation } from 'react-i18next';
 import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
@@ -25,7 +25,7 @@ import pixelTrend from '@/assets/pixel-trend.svg';
 import expertCrawler from '@/assets/expert-crawler.png';
 import expertDesigner from '@/assets/expert-designer.png';
 
-const avatarMap: Record<string, string | StaticImageData> = {
+const avatarMap: Record<string, ImageSrcInput> = {
   memory: pixelMemory, crawler: expertCrawler, video: pixelVideo,
   designer: expertDesigner, strategist: pixelPrompt, search: pixelSearch
 };
