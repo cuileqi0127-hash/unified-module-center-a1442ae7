@@ -82,7 +82,7 @@ export function clearOAuthCache(): void {
  * 跳转到登录页面
  */
 export function redirectToLogin(): void {
-  window.location.href = `${LOGIN_REDIRECT_URL}?login=toolbox`;
+  // window.location.href = `${LOGIN_REDIRECT_URL}?login=toolbox`;
 }
 
 /**

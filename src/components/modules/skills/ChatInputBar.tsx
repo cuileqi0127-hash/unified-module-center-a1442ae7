@@ -18,13 +18,15 @@ import {
 import { CategoryCascader } from '@/components/ui/category-cascader';
 import { CATEGORY_TREE, categoryNodeTreeToCategoryTree } from './categoryTreeData';
 import { MemorySelectionDialog } from '@/components/modules/memory/MemorySelectionDialog';
+import { uploadFile } from '@/services/fileUploadApi';
 
 export interface MemoryItem {
   id: string;
   name: string;
   desc: string;
   tag: string;
-  charCount: number;
+  /** 正文 UTF-8 字节长度 */
+  byteLength: number;
 }
 
 interface ChatInputBarProps {
@@ -53,6 +55,7 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
   const [input, setInput] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [category, setCategory] = useState('');
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string>(MODEL_IDS[0]);
@@ -75,11 +78,14 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setImage(url);
-      setImageName(file.name);
-    }
+    if (!file) return;
+    setIsUploadingImage(true);
+    uploadFile(file)
+      .then(({ url }) => {
+        setImage(url);
+        setImageName(file.name);
+      })
+      .finally(() => setIsUploadingImage(false));
     setPlusOpen(false);
   };
 
@@ -124,10 +130,27 @@ export function ChatInputBar({ onSend, disabled, memoryItems }: ChatInputBarProp
             ) : (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-[100px] h-[100px] rounded-xl border-2 border-dashed border-border/40 hover:border-foreground/20 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                disabled={disabled || isUploadingImage}
+                className={cn(
+                  "w-[100px] h-[100px] rounded-xl border-2 border-dashed border-border/40 hover:border-foreground/20 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors",
+                  (disabled || isUploadingImage) && "opacity-60 cursor-not-allowed"
+                )}
               >
-                <Plus className="w-5 h-5 text-muted-foreground/50" />
-                <span className="text-[10px] text-muted-foreground/50 leading-tight text-center px-2">{t('skills.chatInput.uploadProductImage')}</span>
+                {isUploadingImage ? (
+                  <>
+                    <Bot className="w-5 h-5 text-muted-foreground/50 animate-pulse" />
+                    <span className="text-[10px] text-muted-foreground/50 leading-tight text-center px-2">
+                      {t('common.loading')}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5 text-muted-foreground/50" />
+                    <span className="text-[10px] text-muted-foreground/50 leading-tight text-center px-2">
+                      {t('skills.chatInput.uploadProductImage')}
+                    </span>
+                  </>
+                )}
               </button>
             )}
           </div>

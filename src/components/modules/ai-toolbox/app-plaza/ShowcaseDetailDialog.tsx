@@ -34,11 +34,28 @@ export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: 
     setIsPlaying(true);
   }, []);
 
+  const handleDownloadVideo = useCallback(() => {
+    const detail = card?.detail as any;
+    const videoUrl: string | undefined = (detail?.sourceUrl as string | undefined) || card?.image;
+    if (!videoUrl) return;
+    // 尽量触发浏览器下载；跨域时 download 可能被忽略，但仍可在新标签打开由服务端决定 Content-Disposition
+    const a = document.createElement('a');
+    a.href = videoUrl;
+    a.download = `${card?.title || 'video'}.mp4`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }, [card]);
+
   if (!card) return null;
 
   const isVideo = card.category === 'video';
   const isImage = card.category === 'image';
-  const detail = card.detail;
+  const detail = card.detail as any;
+  const videoUrl = (detail?.sourceUrl as string | undefined) || card.image;
+  const posterUrl = (detail?.previewUrl as string | null | undefined) || undefined;
 
   // Image dialog: simple layout
   if (isImage) {
@@ -75,7 +92,11 @@ export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: 
           >
             <video
               ref={videoRef}
-              src={card.image}
+              src={videoUrl}
+              poster={posterUrl}
+              preload="metadata"
+              playsInline
+              controls
               className="w-full h-full object-cover"
               onEnded={() => setIsPlaying(false)}
             />
@@ -170,7 +191,11 @@ export function ShowcaseDetailDialog({ card, open, onOpenChange, onReplicate }: 
 
             {/* Action buttons */}
             <div className="flex gap-3 mt-auto pt-2">
-              <Button variant="outline" className="flex-1 rounded-full h-11 gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-full h-11 gap-2"
+                onClick={handleDownloadVideo}
+              >
                 <Download className="w-4 h-4" />
                 下载视频
               </Button>

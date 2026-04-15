@@ -14,7 +14,7 @@ const VOD_BASE_URL = '/vod';  // 使用相对路径，通过 Nginx 代理到 /vo
 const AIGC_BASE_URL = '/aigc';  // 使用相对路径，通过 Nginx 代理到 /aigc
 
 // 支持的模型类型（Sora 2 / Google veo 3.1 / 海螺 / 可灵 / 即梦 / Vidu）
-export type VideoModel = 'OS' | 'GV' | 'Hailuo' | 'Kling' | 'Jimeng' | 'Vidu';
+export type VideoModel = 'os' | 'gv' | 'hailuo' | 'kling' | 'jimeng' | 'vidu';
 
 // 支持的视频时长（秒）
 export type VideoSeconds = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '12';

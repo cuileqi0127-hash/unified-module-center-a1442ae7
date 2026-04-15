@@ -7,6 +7,10 @@ export interface ShowcaseCardDetail {
   purpose?: string;
   audience?: string;
   techHighlight?: string;
+  /** 灵感库：视频源地址（详情播放/下载） */
+  sourceUrl?: string;
+  /** 灵感库：封面预览图（用于 video poster） */
+  previewUrl?: string | null;
   stats?: { views: string; likes: string; comments: string; shares: string };
   tags?: string[];
 }

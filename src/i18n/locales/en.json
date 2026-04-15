@@ -31,6 +31,15 @@
   "errors": {
     "uploadFailed": "Upload failed"
   },
+  "reportCases": {
+    "hoverMarketInsight": "Click to view market insight case",
+    "hoverStrategyCase": "Click to view planning case",
+    "empty": "No cases yet",
+    "loadFailed": "Failed to load cases",
+    "detailLoadFailed": "Failed to load case detail",
+    "openingReport": "Loading...",
+    "openingReportHint": "Loading report content…"
+  },
   "imageCapsule": {
     "defaultLabel": "Image",
     "selectedImage": "Selected image"
@@ -75,6 +84,7 @@
     "new": "New",
     "history": "History",
     "loading": "Loading...",
+    "loadMore": "Load more",
     "error": "Error",
     "success": "Success",
     "cancel": "Cancel",
@@ -106,10 +116,10 @@
   "memory": {
     "dialogTitle": "Select Memory",
     "noMemory": "No memory yet",
-    "charsSelected": "{{current}} / {{max}} chars selected",
+    "bytesSelected": "{{current}} / {{max}} bytes selected (UTF-8)",
     "overLimit": "Over limit",
-    "reduceSelection": "Please reduce selection, {{count}} chars over limit",
-    "charsSuffix": " chars"
+    "reduceSelection": "Please reduce selection, {{count}} bytes over limit",
+    "bytesSuffix": " B"
   },
   "pagination": {
     "previous": "Previous",
@@ -266,8 +276,9 @@
     "generate": "Generate Image",
     "generating": "Generating...",
     "modelNames": {
-      "gemini-3-pro-image-preview-hd": "Nano Banana 2",
+      "gemini-flash-image-vip": "Nano Banana 2",
       "gpt-image-1.5": "GPT-Image",
+      "seedream-5.0": "Jimeng",
       "jimeng": "Jimeng",
       "unknown": "Unknown"
     },
@@ -336,12 +347,12 @@
     "generate": "Generate Video",
     "generating": "Generating...",
     "modelNames": {
-      "OS": "Sora",
-      "GV": "Google veo",
-      "Hailuo": "Hailuo",
-      "Kling": "Kling",
-      "Jimeng": "Jimeng",
-      "Vidu": "Vidu"
+      "os": "Sora",
+      "gv": "Google veo",
+      "hailuo": "Hailuo",
+      "kling": "Kling",
+      "jimeng": "Jimeng",
+      "vidu": "Vidu"
     },
     "status": {
       "queued": "Queued...",
@@ -473,25 +484,42 @@
     "retry": "Retry",
     "startOver": "Start Over",
     "generatingVideoHint": "AI is generating video based on prompt and reference image",
+    "pendingPromptTitle": "Confirm prompt",
+    "pendingPromptHint": "A pending prompt is generated. You can confirm it directly or edit before confirming.",
+    "pendingPromptPlaceholder": "Enter the prompt to confirm…",
+    "confirmPrompt": "Confirm prompt",
     "analyzingVideoHint": "AI is identifying video segments and generating new prompts",
     "errors": {
       "generatePrompt": "Failed to generate prompt",
       "uploadImage": "Failed to upload image",
+      "uploadVideoFailed": "Failed to upload video",
       "createTask": "Failed to create task",
       "noVideoUrl": "Video generation completed but no video URL available",
       "generateVideo": "Failed to generate video",
       "enterSellingPoints": "Please enter selling points",
       "uploadImageFirst": "Please upload an image first",
+      "uploadBenchmarkVideoFirst": "Please upload the benchmark video first",
       "videoSizeLimit": "File size must be less than 50MB",
       "imageSizeLimit": "File size must be less than 5MB",
       "imageFormatLimit": "Only JPG, PNG, and WEBP images are allowed",
-      "urlToFileFailed": "Video load failed, reverse prompt unavailable"
+      "urlToFileFailed": "Video load failed, reverse prompt unavailable",
+      "estimateFailed": "Failed to estimate credits",
+      "loadHistoryFailed": "Failed to load history",
+      "promptEmpty": "Prompt cannot be empty"
     },
     "success": {
       "imageUploaded": "Image uploaded successfully",
+      "videoUploaded": "Video uploaded successfully",
       "promptCopied": "Prompt copied to clipboard",
       "videoDownloadStarted": "Video download started",
       "videoGenerated": "Video generated successfully!"
+    },
+    "status": {
+      "queued": "Queued",
+      "processing": "Processing",
+      "awaiting_confirmation": "Awaiting confirmation",
+      "completed": "Completed",
+      "failed": "Failed"
     }
   },
   "login": {
@@ -576,6 +604,7 @@
     "imageAddedToCanvas": "Image added to canvas",
     "imageUploadFailed": "Image upload failed",
     "generationFailed": "Generation failed",
+    "memoryPromptTooLong": "Memory is too long. Please select fewer memory entries or shorten the content and try again",
     "deleteFailed": "Delete failed",
     "deletedItems": "Deleted",
     "items": "items",
@@ -678,7 +707,11 @@
     "statusQueued": "Queued",
     "backToRegenerate": "Back to Regenerate",
     "copyToMemory": "Copy to Memory",
-    "copyToMemoryComingSoon": "Copy to Memory coming soon",
+    "copyToMemoryNeedLogin": "Please sign in to save to Memory",
+    "copyToMemorySuccess": "Saved to Memory",
+    "copyToMemoryFailed": "Failed to save to Memory",
+    "copyToMemoryEmpty": "Report content is empty",
+    "copyToMemoryWaitGenerating": "Report is still generating, please wait",
     "generatingFor": "Generating insight report for",
     "generatingReportSuffix": "...",
     "reportTitle": "Brand Health Report",
@@ -844,6 +877,18 @@
     "readVerb": "Read",
     "history": "History",
     "historyEmpty": "No history yet",
+    "backendAgentFeed": "Agent activity",
+    "serverTasks": "Cloud tasks",
+    "localDrafts": "Local drafts",
+    "tkTaskStatus": {
+      "queued": "Queued",
+      "processing": "Processing",
+      "awaiting_selection": "Awaiting video",
+      "awaiting_confirmation": "Awaiting prompt",
+      "completed": "Completed",
+      "closed_timeout": "Timed out",
+      "failed": "Failed"
+    },
     "solutionTitle": "TikTok Solution",
     "solutionSubtitle": "Upload a product image to start, or type your question",
     "back": "Back",

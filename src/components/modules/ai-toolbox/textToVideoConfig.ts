@@ -30,7 +30,7 @@ export interface VideoModelConfig {
 // 模型配置映射（与产品规格表一致：可灵 2.6 / Google veo 3.1 / SORA 2.0 / Vidu q2-turubo / 海螺 2.3 / 即梦 3.0pro）
 export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'>> = {
   // 可灵 2.6：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9/2:3，5(默认)/10s，支持高清，支持 4 张参考图
-  Kling: {
+  kling: {
     label: '可灵',
     maxImages: 4,
     seconds: ['5', '10'],
@@ -44,7 +44,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     isSound: true,
   },
   // SORA 2.0：768P(默认)/1080P，16:9(默认)/9:16，4/8(默认)/12s，支持高清
-  OS: {
+  os: {
     label: 'Sora',
     maxImages: 1,
     seconds: ['4', '8', '12'],
@@ -58,7 +58,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     isSound: true,
   },
   // Google veo 3.1：720P(默认)/1080P，16:9(默认)/9:16，4/8(默认)/12s，支持高清
-  GV: {
+  gv: {
     label: 'Google veo',
     maxImages: 3,
     seconds: ['4', '8', '12'],
@@ -72,7 +72,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     isSound: true,
   },
   // 海螺 2.3：720P(默认)/1080P，仅 16:9，6(默认)/10s，无高清
-  Hailuo: {
+  hailuo: {
     label: '海螺',
     maxImages: 1,
     seconds: ['6', '10'],
@@ -86,7 +86,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     isSound: false,
   },
   // 即梦 3.0pro：720P(默认)/1080P，16:9/9:16/1:1/4:3/3:4/21:9，5(默认)/10s，无高清
-  Jimeng: {
+  jimeng: {
     label: '即梦',
     maxImages: 1,
     seconds: ['5', '10'],
@@ -100,7 +100,7 @@ export const VIDEO_MODEL_CONFIGS: Record<VideoModel, Omit<VideoModelConfig, 'id'
     isSound: false,
   },
   // Vidu q2-turubo：720P(默认)/1080P，16:9/9:16/4:3/3:4/1:1，1–10s(默认5)，无高清
-  Vidu: {
+  vidu: {
     label: 'Vidu',
     maxImages: 4,
     seconds: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
@@ -127,7 +127,7 @@ export function getVideoModelList(): Array<{ id: VideoModel; label: string }> {
 export function getModelSeconds(model: VideoModel): VideoSeconds[] {
   const config = VIDEO_MODEL_CONFIGS[model];
   if (!config) {
-    return VIDEO_MODEL_CONFIGS['OS'].seconds;
+    return VIDEO_MODEL_CONFIGS.os.seconds;
   }
   return config.seconds;
 }
@@ -136,7 +136,7 @@ export function getModelSeconds(model: VideoModel): VideoSeconds[] {
 export function getModelSizes(model: VideoModel): VideoSize[] {
   const config = VIDEO_MODEL_CONFIGS[model];
   if (!config) {
-    return VIDEO_MODEL_CONFIGS['OS'].sizes;
+    return VIDEO_MODEL_CONFIGS.os.sizes;
   }
   return config.sizes;
 }
@@ -145,7 +145,7 @@ export function getModelSizes(model: VideoModel): VideoSize[] {
 export function getModelDefaultSeconds(model: VideoModel): VideoSeconds {
   const config = VIDEO_MODEL_CONFIGS[model];
   if (!config) {
-    return VIDEO_MODEL_CONFIGS['OS'].defaultSeconds;
+    return VIDEO_MODEL_CONFIGS.os.defaultSeconds;
   }
   return config.defaultSeconds;
 }
@@ -154,7 +154,7 @@ export function getModelDefaultSeconds(model: VideoModel): VideoSeconds {
 export function getModelDefaultSize(model: VideoModel): VideoSize {
   const config = VIDEO_MODEL_CONFIGS[model];
   if (!config) {
-    return VIDEO_MODEL_CONFIGS['OS'].defaultSize;
+    return VIDEO_MODEL_CONFIGS.os.defaultSize;
   }
   return config.defaultSize;
 }
@@ -163,7 +163,7 @@ export function getModelDefaultSize(model: VideoModel): VideoSize {
 export function getModelResolutions(model: VideoModel): VideoResolution[] {
   const config = VIDEO_MODEL_CONFIGS[model];
   if (!config) {
-    return VIDEO_MODEL_CONFIGS['OS'].resolutions;
+    return VIDEO_MODEL_CONFIGS.os.resolutions;
   }
   return config.resolutions;
 }
@@ -172,7 +172,7 @@ export function getModelResolutions(model: VideoModel): VideoResolution[] {
 export function getModelDefaultResolution(model: VideoModel): VideoResolution {
   const config = VIDEO_MODEL_CONFIGS[model];
   if (!config) {
-    return VIDEO_MODEL_CONFIGS['OS'].defaultResolution;
+    return VIDEO_MODEL_CONFIGS.os.defaultResolution;
   }
   return config.defaultResolution;
 }
@@ -181,7 +181,7 @@ export function getModelDefaultResolution(model: VideoModel): VideoResolution {
 export function getModelVersion(model: VideoModel): string {
   const config = VIDEO_MODEL_CONFIGS[model];
   if (!config) {
-    return VIDEO_MODEL_CONFIGS['OS'].defaultModelVersion;
+    return VIDEO_MODEL_CONFIGS.os.defaultModelVersion;
   }
   return config.defaultModelVersion;
 }
@@ -211,8 +211,28 @@ export function isValidResolutionForModel(model: VideoModel, resolution: string)
   return valid.includes(resolution as VideoResolution);
 }
 
-// 默认模型
-export const DEFAULT_VIDEO_MODEL: VideoModel = 'Kling';
+// 默认模型（与 VideoModel 类型一致：首字母小写）
+export const DEFAULT_VIDEO_MODEL: VideoModel = 'kling';
+
+const VIDEO_MODEL_IDS: VideoModel[] = ['os', 'gv', 'hailuo', 'kling', 'jimeng', 'vidu'];
+
+/** 将接口/历史数据中的模型字符串规范为当前 VideoModel（兼容旧版 PascalCase） */
+export function normalizeVideoModel(raw: string | undefined | null): VideoModel {
+  if (raw == null) return DEFAULT_VIDEO_MODEL;
+  const r = String(raw).trim();
+  if (!r) return DEFAULT_VIDEO_MODEL;
+  const lower = r.toLowerCase() as VideoModel;
+  if (VIDEO_MODEL_IDS.includes(lower)) return lower;
+  const legacy: Record<string, VideoModel> = {
+    OS: 'os',
+    GV: 'gv',
+    Hailuo: 'hailuo',
+    Kling: 'kling',
+    Jimeng: 'jimeng',
+    Vidu: 'vidu',
+  };
+  return legacy[r] ?? DEFAULT_VIDEO_MODEL;
+}
 
 /** 获取模型一起生视频时最多支持的参考图数量，未配置时返回 0 */
 export function getModelMaxImages(model: VideoModel): number {

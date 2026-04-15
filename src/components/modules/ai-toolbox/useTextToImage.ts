@@ -14,6 +14,7 @@ import {
   createSession,
   saveGenerationResult,
   submitImageTask,
+  estimateImageTaskCredits,
   getTaskStatus,
   updateSession,
   updateCanvasItem,
@@ -21,6 +22,7 @@ import {
   getSessionDetail,
   type Session,
   type SessionDetail,
+  type SubmitImageTaskRequest,
 } from '@/services/generationSessionApi';
 import { redirectToLogin } from '@/services/oauthApi';
 import { debounce } from '@/utils/debounce';
@@ -99,7 +101,7 @@ interface ImageTaskQueueItem {
 const mockHistory: ChatMessage[] = [];
 const initialCanvasImages: CanvasImage[] = [];
 
-export function useTextToImage() {
+export function useTextToImage(options?: { memoryEntryIds?: string[] }) {
   const { t } = useTranslation();
 
   // Refs
@@ -452,7 +454,7 @@ export function useTextToImage() {
                     // 添加尺寸信息
                     if (generation.size) {
                       const model = session.settings?.model || 'gpt-image-1.5';
-                      const isSeedreamModel = model === 'doubao-seedream-4-5-251128';
+                      const isSeedreamModel = model === 'seedream-5.0';
                       designThoughts.push(
                         isSeedreamModel
                           ? t('toast.sizeLabel', { size: generation.size })
@@ -721,7 +723,7 @@ export function useTextToImage() {
             if (generation.prompt) designThoughts.push(t('toast.imageUnderstanding', { prompt: generation.prompt }));
             if (generation.size) {
               const modelId = session.settings?.model || 'gpt-image-1.5';
-              const isSeedreamModel = modelId === 'doubao-seedream-4-5-251128';
+              const isSeedreamModel = modelId === 'seedream-5.0';
               designThoughts.push(
                 isSeedreamModel
                   ? t('toast.sizeLabel', { size: generation.size })
@@ -791,7 +793,7 @@ export function useTextToImage() {
           if (generation.prompt) designThoughts.push(t('toast.imageUnderstanding', { prompt: generation.prompt }));
           if (generation.size) {
             const modelId = session.settings?.model || 'gpt-image-1.5';
-            const isSeedreamModel = modelId === 'doubao-seedream-4-5-251128';
+            const isSeedreamModel = modelId === 'seedream-5.0';
             designThoughts.push(
               isSeedreamModel
                 ? t('toast.sizeLabel', { size: generation.size })
@@ -1639,10 +1641,10 @@ export function useTextToImage() {
                 progress: 100,
                 designThoughts: [
                   t('toast.imageUnderstanding', { prompt: task.prompt }),
-                  model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: task.aspectRatio }) : t('toast.aspectRatioLabel', { size: task.aspectRatio }),
+                  model === 'seedream-5.0' ? t('toast.sizeLabel', { size: task.aspectRatio }) : t('toast.aspectRatioLabel', { size: task.aspectRatio }),
                 ],
                 resultSummary: t('toast.resultSummaryImageComplete', {
-                  output: model === 'doubao-seedream-4-5-251128' ? t('toast.sizeLabel', { size: task.aspectRatio }) : t('toast.aspectRatioLabel', { size: task.aspectRatio }),
+                  output: model === 'seedream-5.0' ? t('toast.sizeLabel', { size: task.aspectRatio }) : t('toast.aspectRatioLabel', { size: task.aspectRatio }),
                 }),
               }
             : msg
@@ -1845,11 +1847,11 @@ export function useTextToImage() {
       );
         batchRects.push({ x: position.x, y: position.y, width: defaultWidth, height: defaultHeight });
         // let model_async: string | null = null
-        // if(model === 'gemini-3-pro-image-preview-hd') {
+        // if(model === 'gemini-flash-image-vip') {
         //   if(quality === '1k') {
-        //     model_async = `gemini-3-pro-image-preview-async`
+        //     model_async = `gemini-flash-image-vip-async`
         //   } else {
-        //     model_async = `gemini-3-pro-image-preview-${quality}-async`
+        //     model_async = `gemini-flash-image-vip-${quality}-async`
         //   }
         // } else {
         //   model_async = model
@@ -1857,6 +1859,7 @@ export function useTextToImage() {
         const response = await submitImageTask(currentSessionId, {
           model,
           prompt: currentPrompt,
+          memoryEntryIds: options?.memoryEntryIds,
           sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
           size: aspectRatio,
           quality: quality || null,
@@ -1874,6 +1877,12 @@ export function useTextToImage() {
         });
 
         if (!response.success || !response.data) {
+          const bizCode = (response as any)?.bizCode;
+          const code = (response as any)?.code;
+          if (String(code) === '400' && bizCode === 'TOOLS_GEN_MEMORY_PROMPT_TOO_LONG') {
+            toast.error(t('toast.memoryPromptTooLong'));
+            throw new Error('TOOLS_GEN_MEMORY_PROMPT_TOO_LONG');
+          }
           throw new Error(response.msg || 'Submit image task failed');
         }
 
@@ -1947,12 +1956,12 @@ export function useTextToImage() {
                   image: lastCompletedImage!.url,
                   designThoughts: [
                     t('toast.imageUnderstanding', { prompt: currentPrompt }),
-                    model === 'doubao-seedream-4-5-251128'
+                    model === 'seedream-5.0'
                       ? t('toast.sizeLabel', { size: aspectRatio })
                       : t('toast.aspectRatioLabel', { size: aspectRatio }),
                   ],
                   resultSummary: t('toast.resultSummaryImageComplete', {
-                    output: model === 'doubao-seedream-4-5-251128'
+                    output: model === 'seedream-5.0'
                       ? t('toast.sizeLabel', { size: aspectRatio })
                       : t('toast.aspectRatioLabel', { size: aspectRatio }),
                   }),
@@ -1999,7 +2008,28 @@ export function useTextToImage() {
         )
       );
     }
-  }, [prompt, isGenerating, model, aspectRatio, quality, style, outputNumber, selectedImages, selectedImageIds, selectedImageId, canvasImages, taskPlaceholders, t, getImageDimensions, handleAddSelectedImage, currentSessionId, loadSessions, getModelMaxImages, getModelConfig]);
+  }, [
+    prompt,
+    isGenerating,
+    model,
+    aspectRatio,
+    quality,
+    style,
+    outputNumber,
+    options?.memoryEntryIds,
+    selectedImages,
+    selectedImageIds,
+    selectedImageId,
+    canvasImages,
+    taskPlaceholders,
+    t,
+    getImageDimensions,
+    handleAddSelectedImage,
+    currentSessionId,
+    loadSessions,
+    getModelMaxImages,
+    getModelConfig,
+  ]);
 
   // 处理键盘事件
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -2287,6 +2317,108 @@ export function useTextToImage() {
     });
   }, []);
 
+  const [apiEstimatedCredits, setApiEstimatedCredits] = useState<number | null>(null);
+  const [estimateCreditsBizCode, setEstimateCreditsBizCode] = useState<string | null>(null);
+
+  const hasPrompt = prompt.trim().length > 0;
+  const estimatedCredits = hasPrompt ? (apiEstimatedCredits ?? 0) : 0;
+  const effectiveEstimateBizCode = hasPrompt ? estimateCreditsBizCode : null;
+
+  useEffect(() => {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
+      setApiEstimatedCredits(null);
+      setEstimateCreditsBizCode(null);
+      return;
+    }
+
+    const ac = new AbortController();
+    const tid = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const sourceImages: string[] = [];
+          const selectedCanvasImageIds =
+            selectedImageIds.length > 0 ? selectedImageIds : selectedImageId ? [selectedImageId] : [];
+          selectedCanvasImageIds.forEach((id) => {
+            const selectedCanvasImage = canvasImages.find((img) => img.id === id);
+            if (selectedCanvasImage && !sourceImages.includes(selectedCanvasImage.url)) {
+              sourceImages.push(selectedCanvasImage.url);
+            }
+          });
+
+          const defaultWidth = 400;
+          const ratioParts = aspectRatio.includes(':') ? aspectRatio.split(':') : aspectRatio.split('x');
+          const ratioW = Number(ratioParts[0]) || 1;
+          const ratioH = Number(ratioParts[1]) || 1;
+          const defaultHeight = Math.round(defaultWidth * (ratioH / ratioW));
+          const existingRects = [
+            ...canvasImages.map((img) => ({ x: img.x, y: img.y, width: img.width, height: img.height })),
+            ...taskPlaceholders.map((p) => ({ x: p.x, y: p.y, width: p.width, height: p.height })),
+          ];
+          const position = findNonOverlappingPosition(
+            { width: defaultWidth, height: defaultHeight },
+            existingRects,
+            300,
+            200,
+            10,
+            10,
+            100,
+            12
+          );
+
+          // 与 submitImageTask 请求体字段一致（含 null）
+          const body = {
+            model,
+            prompt: trimmedPrompt,
+            sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
+            size: aspectRatio,
+            quality: quality || null,
+            style: style || null,
+            n: 1,
+            canvasItem: {
+              x: position.x,
+              y: position.y,
+              width: defaultWidth,
+              height: defaultHeight,
+              rotate: 0,
+              visible: true,
+              zindex: canvasImages.length,
+            },
+          } as SubmitImageTaskRequest;
+
+          const res = await estimateImageTaskCredits(body, { signal: ac.signal });
+          if (ac.signal.aborted) return;
+          if (res.success && res.data && typeof res.data.estimatedCredits === 'number') {
+            setApiEstimatedCredits(res.data.estimatedCredits * outputNumber);
+            setEstimateCreditsBizCode(res.bizCode ?? null);
+          }
+        } catch {
+          if (!ac.signal.aborted) {
+            setApiEstimatedCredits(null);
+            setEstimateCreditsBizCode(null);
+          }
+        }
+      })();
+    }, 400);
+
+    return () => {
+      ac.abort();
+      window.clearTimeout(tid);
+    };
+  }, [
+    model,
+    aspectRatio,
+    quality,
+    style,
+    outputNumber,
+    prompt,
+    options?.memoryEntryIds,
+    selectedImageIds,
+    selectedImageId,
+    canvasImages,
+    taskPlaceholders,
+  ]);
+
   return {
     // Refs
     chatEndRef,
@@ -2335,6 +2467,8 @@ export function useTextToImage() {
     deletingImageIds,
     addingImageIds,
     isOverImageLimit,
+    estimatedCredits,
+    estimateCreditsBizCode: effectiveEstimateBizCode,
     
     // Config
     workModes,

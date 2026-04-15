@@ -31,6 +31,15 @@
   "errors": {
     "uploadFailed": "上传失败"
   },
+  "reportCases": {
+    "hoverMarketInsight": "点击查看市场洞察报告案例",
+    "hoverStrategyCase": "点击查看策划方案案例",
+    "empty": "暂无案例",
+    "loadFailed": "案例列表加载失败",
+    "detailLoadFailed": "案例详情加载失败",
+    "openingReport": "加载中...",
+    "openingReportHint": "正在加载报告内容…"
+  },
   "imageCapsule": {
     "defaultLabel": "图片",
     "selectedImage": "已选图片"
@@ -75,6 +84,7 @@
     "new": "新建",
     "history": "历史",
     "loading": "加载中...",
+    "loadMore": "加载更多",
     "error": "错误",
     "success": "成功",
     "cancel": "取消",
@@ -106,10 +116,10 @@
   "memory": {
     "dialogTitle": "选择记忆库",
     "noMemory": "暂无记忆",
-    "charsSelected": "已选 {{current}} / {{max}} 字符",
+    "bytesSelected": "已选 {{current}} / {{max}} 字节（UTF-8）",
     "overLimit": "超出上限",
-    "reduceSelection": "请减少选择，当前超出 {{count}} 字符",
-    "charsSuffix": "字"
+    "reduceSelection": "请减少选择，当前超出 {{count}} 字节",
+    "bytesSuffix": " 字节"
   },
   "pagination": {
     "previous": "上一页",
@@ -266,8 +276,9 @@
     "generate": "生成图片",
     "generating": "生成中...",
     "modelNames": {
-      "gemini-3-pro-image-preview-hd": "Nano Banana 2",
+      "gemini-flash-image-vip": "Nano Banana 2",
       "gpt-image-1.5": "GPT-Image",
+      "seedream-5.0": "即梦",
       "jimeng": "即梦",
       "unknown": "未知"
     },
@@ -336,12 +347,12 @@
     "generate": "生成视频",
     "generating": "生成中...",
     "modelNames": {
-      "OS": "Sora",
-      "GV": "Google veo",
-      "Hailuo": "海螺",
-      "Kling": "可灵",
-      "Jimeng": "即梦",
-      "Vidu": "Vidu"
+      "os": "Sora",
+      "gv": "Google veo",
+      "hailuo": "海螺",
+      "kling": "可灵",
+      "jimeng": "即梦",
+      "vidu": "Vidu"
     },
     "status": {
       "queued": "排队中...",
@@ -472,24 +483,41 @@
     "retry": "重试",
     "startOver": "重新开始",
     "generatingVideoHint": "AI正在根据Prompt和参考图片生成视频",
+    "pendingPromptTitle": "确认生成文案",
+    "pendingPromptHint": "系统生成了一段待确认的 Prompt。你可以直接确认，也可以编辑后再确认。",
+    "pendingPromptPlaceholder": "请输入要确认的 Prompt…",
+    "confirmPrompt": "确认 Prompt",
     "errors": {
       "generatePrompt": "生成Prompt失败",
       "uploadImage": "上传图片失败",
+      "uploadVideoFailed": "上传视频失败",
       "createTask": "创建任务失败",
       "noVideoUrl": "视频生成完成但未获取到视频URL",
       "generateVideo": "生成视频失败",
       "enterSellingPoints": "请输入商品卖点",
       "uploadImageFirst": "请先上传图片",
+      "uploadBenchmarkVideoFirst": "请先上传对标视频",
       "videoSizeLimit": "视频大小必须小于50MB",
       "imageSizeLimit": "图片大小必须小于5MB",
       "imageFormatLimit": "只允许上传JPG、PNG和WEBP格式的图片",
-      "urlToFileFailed": "视频加载失败，反推提示词不可用"
+      "urlToFileFailed": "视频加载失败，反推提示词不可用",
+      "estimateFailed": "预估积分失败",
+      "loadHistoryFailed": "加载历史记录失败",
+      "promptEmpty": "Prompt 不能为空"
     },
     "success": {
       "imageUploaded": "图片上传成功",
+      "videoUploaded": "视频上传成功",
       "promptCopied": "Prompt已复制到剪贴板",
       "videoDownloadStarted": "视频下载已开始",
       "videoGenerated": "视频生成成功！"
+    },
+    "status": {
+      "queued": "已排队",
+      "processing": "处理中",
+      "awaiting_confirmation": "等待确认",
+      "completed": "已完成",
+      "failed": "失败"
     }
   },
   "login": {
@@ -574,6 +602,7 @@
     "imageAddedToCanvas": "图片已添加到画布",
     "imageUploadFailed": "图片上传失败",
     "generationFailed": "生成失败",
+    "memoryPromptTooLong": "记忆库超长，请减少选择的记忆条目或缩短内容后重试",
     "deleteFailed": "删除失败",
     "deletedItems": "已删除",
     "items": "个图层",
@@ -676,7 +705,11 @@
     "statusQueued": "排队中",
     "backToRegenerate": "返回重新生成",
     "copyToMemory": "复制到记忆库",
-    "copyToMemoryComingSoon": "复制到记忆库功能敬请期待",
+    "copyToMemoryNeedLogin": "请先登录后再复制到记忆库",
+    "copyToMemorySuccess": "已保存到记忆库",
+    "copyToMemoryFailed": "保存到记忆库失败",
+    "copyToMemoryEmpty": "报告内容为空，无法保存",
+    "copyToMemoryWaitGenerating": "报告生成中，请稍后再试",
     "generatingFor": "正在为",
     "generatingReportSuffix": "生成洞察报告...",
     "reportTitle": "品牌健康度报告",
@@ -842,6 +875,18 @@
     "readVerb": "阅读",
     "history": "历史记录",
     "historyEmpty": "暂无历史记录",
+    "backendAgentFeed": "智能体运行记录",
+    "serverTasks": "云端任务",
+    "localDrafts": "本地草稿",
+    "tkTaskStatus": {
+      "queued": "排队中",
+      "processing": "处理中",
+      "awaiting_selection": "待选视频",
+      "awaiting_confirmation": "待确认 Prompt",
+      "completed": "已完成",
+      "closed_timeout": "已超时关闭",
+      "failed": "失败"
+    },
     "solutionTitle": "TikTok 解决方案",
     "solutionSubtitle": "上传商品图开始对话，或直接输入问题",
     "back": "返回",

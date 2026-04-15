@@ -9,6 +9,11 @@ import { CandidateVideo } from './useSkillsEngine';
 import { TrendingVideoCard, type TrendingVideoCardData } from '@/components/modules/ai-toolbox/TrendingVideoCard';
 import { cn } from '@/lib/utils';
 
+function isVideoMediaUrl(u?: string | null): boolean {
+  if (!u) return false;
+  return /\.(mp4|webm|mov)(\?|$)/i.test(u);
+}
+
 /** Map Skills candidate videos to TrendingVideoCard data */
 function buildCandidateToCardData(
   t: (key: string, opts?: Record<string, unknown>) => string
@@ -17,9 +22,12 @@ function buildCandidateToCardData(
   const analysis = v.strategy
     ? t('skills.videoCandidate.strategyLine', { strategy: v.strategy })
     : v.analysis ?? '';
+  const videoUrl = v.previewVideoUrl ?? (isVideoMediaUrl(v.cover) ? v.cover : undefined);
+  const coverUrl = videoUrl ? undefined : v.cover || undefined;
   return {
     id: v.id,
-    coverUrl: v.cover || undefined,
+    coverUrl,
+    videoUrl,
     originalLink: v.tiktokUrl || undefined,
     duration: v.duration,
     title: v.title,
@@ -58,7 +66,7 @@ export function VideoCandidateRow({ videos, onSelect, onPreview, selectedVideoId
   const [fullscreenVideo, setFullscreenVideo] = useState<CandidateVideo | null>(null);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
 
-  const displayVideos = videos.slice(0, 6);
+  const displayVideos = videos.slice(0, 10);
 
   const openDetail = (video: CandidateVideo, idx: number) => {
     setDetailVideo(video);

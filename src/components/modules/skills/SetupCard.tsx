@@ -7,11 +7,12 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { utf8ByteLength } from '@/lib/utf8ByteLength';
 import { MemorySelectionDialog } from '@/components/modules/memory/MemorySelectionDialog';
 import { SessionSetup } from './useSkillsEngine';
 
 interface SetupCardProps {
-  memoryItems: { id: string; name: string; desc: string; tag: string }[];
+  memoryItems: { id: string; name: string; desc: string; tag: string; byteLength?: number }[];
   categories: string[];
   onComplete: (setup: SessionSetup) => void;
   onReset: () => void;
@@ -50,7 +51,7 @@ export function SetupCard({ memoryItems, categories, onComplete, onReset }: Setu
         name: item.name,
         desc: item.desc,
         tag: item.tag,
-        charCount: item.desc?.length ?? 0,
+        byteLength: item.byteLength ?? utf8ByteLength(item.desc ?? ''),
       })),
     [memoryItems]
   );

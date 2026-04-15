@@ -5,7 +5,15 @@
  * 提供文生图、文生视频的统一数据存储接口封装
  */
 
-import { apiGet, apiPost, apiPatch, apiDelete, type ApiResponse, type PaginatedResponse } from './apiClient';
+import {
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDelete,
+  type ApiResponse,
+  type PaginatedResponse,
+  type RequestConfig,
+} from './apiClient';
 
 // 根据环境变量判断使用代理还是直接访问
 // 生产环境也使用相对路径，通过 Nginx 代理转发
@@ -262,6 +270,8 @@ export interface SaveGenerationResultResponse {
 export interface SubmitImageTaskRequest {
   model: string;
   prompt: string;
+  /** 记忆库条目 ID 列表（可选） */
+  memoryEntryIds?: string[];
   sourceImages?: string[];
   size: string;
   quality?: string;
@@ -288,6 +298,8 @@ export interface SubmitVideoTaskRequest {
   modelName: string;
   modelVersion?: number | string;
   prompt: string;
+  /** 记忆库条目 ID 列表（可选） */
+  memoryEntryIds?: string[];
   duration: number;
   aspectRatio: string;
   /** 分辨率：720P / 768P / 1080P */
@@ -304,6 +316,43 @@ export interface SubmitVideoTaskResponse {
   internalTaskId: string;
   thirdTaskId: string;
   status: 'queued' | 'processing' | 'completed';
+}
+
+/** 文生图/文生视频任务预估积分（与提交任务入参一致，响应含可选 bizCode） */
+export interface EstimateTaskCreditsData {
+  estimatedCredits: number;
+}
+
+export type EstimateTaskCreditsResult = ApiResponse<EstimateTaskCreditsData> & {
+  bizCode?: string;
+};
+
+/**
+ * 文生图任务预估积分（base 与 submitImageTask 一致：/api + /tools/gen/...）
+ */
+export async function estimateImageTaskCredits(
+  request: SubmitImageTaskRequest,
+  config?: RequestConfig
+): Promise<EstimateTaskCreditsResult> {
+  return (await apiPost<EstimateTaskCreditsData>(
+    '/tools/gen/image-tasks/estimate',
+    request,
+    config
+  )) as EstimateTaskCreditsResult;
+}
+
+/**
+ * 文生视频任务预估积分（base 与 submitVideoTask 一致）
+ */
+export async function estimateVideoTaskCredits(
+  request: SubmitVideoTaskRequest,
+  config?: RequestConfig
+): Promise<EstimateTaskCreditsResult> {
+  return (await apiPost<EstimateTaskCreditsData>(
+    '/tools/gen/video-tasks/estimate',
+    request,
+    config
+  )) as EstimateTaskCreditsResult;
 }
 
 // 查询任务状态响应

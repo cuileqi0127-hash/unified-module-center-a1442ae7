@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -47,6 +47,8 @@ import type { VideoModel } from '@/services/videoGenerationApi';
 import { AnimatedText } from './AnimatedText';
 import { MediaViewer } from './MediaViewer';
 import { GenerationChatPanel } from './GenerationChatPanel';
+import { EstimatedCreditsHint } from './EstimatedCreditsHint';
+import { MemoryButtonWithDialog } from '@/components/modules/memory/MemoryButtonWithDialog';
 
 interface TextToVideoProps {
   onNavigate?: (itemId: string) => void;
@@ -74,6 +76,8 @@ function isLandscapeRatio(ratio: string): boolean {
 export function TextToVideo({ onNavigate }: TextToVideoProps) {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+
+  const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
   
   // Canvas ref 用于恢复视频播放、聚焦等
   const canvasRef = useRef<UniversalCanvasHandle>(null);
@@ -127,6 +131,8 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     deletingVideoIds,
     addingVideoIds,
     isOverImageLimit,
+    estimatedCredits,
+    estimateCreditsBizCode,
     // Config
     models,
     secondsOptions,
@@ -168,7 +174,7 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
     viewerOpen,
     setViewerOpen,
     viewerIndex,
-  } = useTextToVideo();
+  } = useTextToVideo({ memoryEntryIds: selectedMemoryIds });
 
   // 视图层辅助函数
   const getStatusText = (status?: string) => {
@@ -724,41 +730,56 @@ export function TextToVideo({ onNavigate }: TextToVideoProps) {
                   </PopoverContent>
                 </Popover>
 
-                {/* Add Button - Upload Image */}
-                <label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      const fileList = e.target.files;
-                      if (fileList?.length) {
-                        for (let i = 0; i < fileList.length; i++) {
-                          handleUploadImage(fileList[i]);
+                {/* 上传参考图 + 预计消耗（与市场洞察报告 EstimatedCreditsHint 一致） */}
+                {/* <div className="flex items-center gap-2 min-w-0">
+                  <label className="shrink-0">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const fileList = e.target.files;
+                        if (fileList?.length) {
+                          for (let i = 0; i < fileList.length; i++) {
+                            handleUploadImage(fileList[i]);
+                          }
+                          e.target.value = '';
                         }
-                        e.target.value = '';
-                      }
-                    }}
-                  />
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-                    asChild
-                  >
-                    <span>
-                      <Plus className="h-3.5 w-3.5" />
-                      {t('textToVideo.actions.add')}
-                    </span>
-                  </Button>
-                </label>
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      asChild
+                    >
+                      <span>
+                        <Plus className="h-3.5 w-3.5" />
+                        {t('textToVideo.actions.add')}
+                      </span>
+                    </Button>
+                  </label>
+                </div> */}
+
+                {/* Memory Button */}
+                <MemoryButtonWithDialog
+                  selectedIds={selectedMemoryIds}
+                  onToggle={(id) =>
+                    setSelectedMemoryIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+                  }
+                />
+
+                {estimatedCredits > 0 && (
+                  <EstimatedCreditsHint className="px-2.5" amount={estimatedCredits} bizCode={estimateCreditsBizCode} />
+                )}
+
               </div>
               
               {/* Send Button */}
               <Button
                 size="icon"
-                className="h-8 w-8 shrink-0 rounded-full"
+                className="h-8 w-8 shrink-0 rounded-full ml-3"
                 onClick={handleGenerate}
                 disabled={!currentSessionId || !prompt.trim() || isGenerating || isOverImageLimit}
               >

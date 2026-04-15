@@ -4,6 +4,10 @@ import { ArrowLeft, Download, FileText, Database, History, Loader2 } from 'lucid
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { submitBrandHealthTask } from '@/services/reportApi';
+import { createMemoryEntry } from '@/services/memoryApi';
+import { useOAuth } from '@/contexts/OAuthContext';
+import { useMemory } from '@/contexts/MemoryContext';
+import { htmlToMarkdown } from '@/lib/htmlToMarkdown';
 import { useReportPolling } from '@/hooks/useReportPolling';
 import { categoryTreeZh, categoryTreeEn, type CategoryTree } from '@/data/tiktok-categories';
 import { MarketInsightComposer } from './MarketInsightComposer';
@@ -17,6 +21,8 @@ interface BrandHealthProps {
 
 export function BrandHealth({ onNavigate }: BrandHealthProps) {
   const { t, i18n } = useTranslation();
+  const { isAuthenticated } = useOAuth();
+  const { refreshMemoryEntries } = useMemory();
   const isZh = i18n.language === 'zh' || i18n.language.startsWith('zh-');
   const categoryTree: CategoryTree = isZh ? categoryTreeZh : categoryTreeEn;
 
@@ -31,6 +37,7 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyKey, setHistoryKey] = useState(0);
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+  const [isCopyingToMemory, setIsCopyingToMemory] = useState(false);
 
   const { reportUrl, isPolling, error } = useReportPolling(reportTaskId, view === 'report');
 
@@ -111,9 +118,52 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
     }
   }, [t, reportUrl]);
 
-  const handleCopyToMemory = useCallback(() => {
-    toast.info(t('brandHealth.copyToMemoryComingSoon'));
-  }, [t]);
+  const handleCopyToMemory = useCallback(async () => {
+    if (!isAuthenticated) {
+      toast.error(t('brandHealth.copyToMemoryNeedLogin'));
+      return;
+    }
+    if (!reportUrl) {
+      toast.error(t('brandHealth.loadingReport'));
+      return;
+    }
+    if (isPolling) {
+      toast.error(t('brandHealth.copyToMemoryWaitGenerating'));
+      return;
+    }
+    setIsCopyingToMemory(true);
+    try {
+      const res = await fetch(reportUrl, { mode: 'cors' });
+      if (!res.ok) throw new Error(res.statusText);
+      const html = await res.text();
+      let contentMd = htmlToMarkdown(html);
+      if (!contentMd.trim()) {
+        toast.error(t('brandHealth.copyToMemoryEmpty'));
+        return;
+      }
+      const rawTitle = `${formData.brandName.trim()} ${t('brandHealth.reportTitle')}`.trim() || t('brandHealth.reportTitle');
+      const title = rawTitle.slice(0, 255);
+      const createRes = await createMemoryEntry({ title, contentMd });
+      if (!createRes?.success) {
+        toast.error(createRes?.msg || t('brandHealth.copyToMemoryFailed'));
+        return;
+      }
+      await refreshMemoryEntries();
+      toast.success(t('brandHealth.copyToMemorySuccess'));
+    } catch (e) {
+      console.error('Copy to memory failed:', e);
+      toast.error(t('brandHealth.copyToMemoryFailed'));
+    } finally {
+      setIsCopyingToMemory(false);
+    }
+  }, [
+    formData.brandName,
+    isAuthenticated,
+    isPolling,
+    refreshMemoryEntries,
+    reportUrl,
+    t,
+  ]);
 
   const historyLabels = {
     title: t('brandHealth.historyRecords'),
@@ -203,8 +253,18 @@ export function BrandHealth({ onNavigate }: BrandHealthProps) {
               {t('brandHealth.backToRegenerate')}
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-2" onClick={handleCopyToMemory}>
-                <Database className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={isCopyingToMemory || isPolling || !reportUrl}
+                onClick={() => void handleCopyToMemory()}
+              >
+                {isCopyingToMemory ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Database className="h-4 w-4" />
+                )}
                 {t('brandHealth.copyToMemory')}
               </Button>
               <Button

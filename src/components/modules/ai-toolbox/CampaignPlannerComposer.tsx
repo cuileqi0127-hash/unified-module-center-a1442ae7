@@ -1,31 +1,54 @@
 import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUp, X, ChevronDown, ChevronLeft, ChevronRight, Check } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ArrowUp, X, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { InlinePicker } from '@/components/ui/inline-picker';
 import { MemoryButtonWithDialog } from '@/components/modules/memory/MemoryButtonWithDialog';
-import { ShowcaseCard } from './app-plaza/ShowcaseCard';
-import { SHOWCASE_CARDS } from './app-plaza/showcaseData';
 import { EstimatedCreditsHint } from './EstimatedCreditsHint';
+import { ReportCasesShowcaseGrid } from './ReportCasesShowcaseGrid';
 
 /* ─── Types ─── */
 export interface CampaignPayload {
   brandName: string;
+  /** 后端枚举：marketingGoal */
   goal: string;
   audience: string[];
   sellingPoints: string[];
+  /** 后端枚举：budgetLevel */
   budget: string;
+  /** 后端枚举：primaryChannels */
   channels: string[];
+  /** 后端枚举：marketingPeriod */
   cycle: string;
+  /** 记忆库选中的条目 id 列表（用于提交 report tasks） */
+  memoryEntryIds?: string[];
 }
 
 /* ─── Constants ─── */
-const GOALS = ['品牌升级', '销量增长', '新品发布', '节点营销', '用户拉新'];
-const BUDGETS = ['S级全域战役', 'A级核心爆破', 'B级日常种草'];
-const CHANNELS = ['抖音', '小红书'];
-const CYCLES = ['Q1', 'Q2', 'Q3', 'Q4', '全年', '双11节点', '618节点'];
+const GOALS = [
+  { value: 'BRAND_UPGRADE', label: '品牌升级' },
+  { value: 'SALES_GROWTH', label: '销量增长' },
+  { value: 'NEW_PRODUCT_LAUNCH', label: '新品上市' },
+  { value: 'KOL_COLLABORATION', label: 'KOL合作' },
+];
+const BUDGETS = [
+  { value: 'S_LEVEL_FULL_CAMPAIGN', label: 'S级全域战役' },
+  { value: 'A_LEVEL_REGIONAL_CAMPAIGN', label: 'A级区域战役' },
+  { value: 'B_LEVEL_LOCAL_CAMPAIGN', label: 'B级局部战役' },
+  { value: 'C_LEVEL_MICRO_CAMPAIGN', label: 'C级迷你战役' },
+];
+const CHANNELS = [
+  { value: 'DOUYIN', label: '抖音' },
+  { value: 'XIAOHONGSHU', label: '小红书' },
+];
+const CYCLES = [
+  { value: 'Q1', label: 'Q1' },
+  { value: 'Q2', label: 'Q2' },
+  { value: 'Q3', label: 'Q3' },
+  { value: 'Q4', label: 'Q4' },
+  { value: 'FULL_YEAR', label: '全年' },
+];
 
 /* ─── Tag input component ─── */
 function TagInput({
@@ -84,66 +107,20 @@ function TagInput({
   );
 }
 
-const CAMPAIGN_CASES = SHOWCASE_CARDS.filter((c) => c.category === 'campaign');
-const CASES_PER_PAGE = 16;
-
-function CampaignCaseSection() {
-  const [page, setPage] = useState(0);
-  const totalPages = Math.ceil(CAMPAIGN_CASES.length / CASES_PER_PAGE);
-  const pagedCases = CAMPAIGN_CASES.slice(page * CASES_PER_PAGE, (page + 1) * CASES_PER_PAGE);
-
-  return (
-    <div className="mt-8 w-full">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {pagedCases.map((card, i) => (
-          <ShowcaseCard
-            key={`campaign-${page}-${i}`}
-            card={card}
-            onClick={() => {
-              if (card.reportUrl) {
-                window.open(card.reportUrl, '_blank');
-              }
-            }}
-          />
-        ))}
-      </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3 mt-6">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="p-1.5 rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-xs text-muted-foreground">
-            {page + 1} / {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page === totalPages - 1}
-            className="p-1.5 rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface CampaignPlannerComposerProps {
   onSubmit: (payload: CampaignPayload) => void;
   disabled?: boolean;
   initialData?: CampaignPayload;
+  estimatedCredits?: number | string;
+  estimateCreditsBizCode?: string | null;
 }
 
 export function CampaignPlannerComposer({
   onSubmit,
   disabled,
   initialData,
+  estimatedCredits = 0,
+  estimateCreditsBizCode,
 }: CampaignPlannerComposerProps) {
   const { t } = useTranslation();
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
@@ -154,7 +131,7 @@ export function CampaignPlannerComposer({
   const [sellingPoints, setSellingPoints] = useState<string[]>(initialData?.sellingPoints || []);
   const [spInput, setSpInput] = useState('');
   const [budget, setBudget] = useState(initialData?.budget || '');
-  const [channels, setChannels] = useState<string[]>(initialData?.channels || ['抖音', '小红书']);
+  const [channels, setChannels] = useState<string[]>(initialData?.channels || ['DOUYIN', 'XIAOHONGSHU']);
   const [cycle, setCycle] = useState(initialData?.cycle || '');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -182,6 +159,7 @@ export function CampaignPlannerComposer({
       budget,
       channels,
       cycle,
+      memoryEntryIds: selectedMemoryIds,
     });
   }, [canSend, disabled, brandName, goal, audience, sellingPoints, budget, channels, cycle, onSubmit]);
 
@@ -299,42 +277,27 @@ export function CampaignPlannerComposer({
                   <span className="whitespace-nowrap text-xs text-muted-foreground mr-2">{t('campaignPlanner.mainChannels')}</span>
                   <div className="flex items-center gap-1.5">
                     {CHANNELS.map((ch) => {
-                      const selected = channels.includes(ch);
-                      const comingSoon = ch === '邮件';
-                      const btn = (
+                      const selected = channels.includes(ch.value);
+                      return (
                         <button
-                          key={ch}
+                          key={ch.value}
                           type="button"
                           onClick={() => {
-                            if (comingSoon) return;
                             setChannels((prev) =>
-                              selected ? prev.filter((c) => c !== ch) : [...prev, ch]
+                              selected ? prev.filter((c) => c !== ch.value) : [...prev, ch.value]
                             );
                           }}
                           className={cn(
                             'px-2.5 py-1 rounded-full text-[11px] transition-all flex items-center gap-1',
                             selected
                               ? 'bg-accent/10 border border-accent/20 text-accent font-medium'
-                              : comingSoon
-                                ? 'bg-muted/30 text-muted-foreground/40 cursor-not-allowed border border-transparent'
-                                : 'bg-muted/30 text-muted-foreground/60 hover:bg-foreground/5 border border-transparent'
+                              : 'bg-muted/30 text-muted-foreground/60 hover:bg-foreground/5 border border-transparent'
                           )}
                         >
                           {selected && <Check className="w-3 h-3" />}
-                          {ch}
+                          {ch.label}
                         </button>
                       );
-                      if (comingSoon) {
-                        return (
-                          <Tooltip key={ch}>
-                            <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
-                              {t('common.comingSoon')}
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      }
-                      return btn;
                     })}
                   </div>
                 </div>
@@ -376,7 +339,7 @@ export function CampaignPlannerComposer({
             </div>
 
             <div className="flex items-center gap-3">
-              <EstimatedCreditsHint amount={200} />
+              <EstimatedCreditsHint amount={estimatedCredits || 0} bizCode={estimateCreditsBizCode} />
               <button
                 type="button"
                 onClick={handleSend}
@@ -396,7 +359,9 @@ export function CampaignPlannerComposer({
       </div>
 
       <div className="w-full max-w-5xl mt-8 relative z-0">
-        <CampaignCaseSection />
+        <div className="mt-8 w-full">
+          <ReportCasesShowcaseGrid reportType="STRATEGY_CASE" pageSize={16} />
+        </div>
       </div>
     </div>
   );

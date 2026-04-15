@@ -39,7 +39,7 @@ export function TopNav() {
         name: e.title,
         desc: e.content.slice(0, 60) + (e.content.length > 60 ? '...' : ''),
         tag: e.category,
-        charCount: e.content.length,
+        byteLength: e.contentLength,
       })),
     [entries]
   );

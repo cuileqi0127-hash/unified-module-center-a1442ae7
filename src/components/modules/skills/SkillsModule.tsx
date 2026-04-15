@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { imageSrc } from '@/lib/imageSrc';
 import { cn } from '@/lib/utils';
 import { useMemory } from '@/contexts/MemoryContext';
+import { getTikTokSolutionTasksPage, type TikTokSolutionTaskListItem } from '@/services/tiktokSolutionApi';
 import { useSkillsEngine, SessionSetup, SkillsState, StreamMessageType } from './useSkillsEngine';
 import { SetupSummary } from './SetupSummary';
 import { AgentCard, AgentClusterCard } from './AgentCard';
 import { RightWorkspace, type RightView } from './RightWorkspace';
 import { ChatInputBar } from './ChatInputBar';
 import {
-  Loader2, RefreshCw, ArrowLeft, PartyPopper, Search, ListChecks, Check, X, History, ChevronRight, Users, FileText, ArrowUp } from
+  Loader2, RefreshCw, ArrowLeft, PartyPopper, Search, ListChecks, Check, X, History, ChevronRight, Users, FileText, ArrowUp, Bot } from
 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
@@ -132,6 +133,7 @@ interface SkillsHistoryItem {
 }
 
 const SKILLS_HISTORY_KEY = 'skills-solution-history-v3';
+const SERVER_TASK_PAGE_SIZE = 20;
 
 function loadSkillsHistory(): SkillsHistoryItem[] {
   try {
@@ -146,7 +148,7 @@ function saveSkillsHistory(items: SkillsHistoryItem[]) {
 
 export function SkillsModule() {
   const {
-    state, CATEGORIES, completeSetup, refreshCandidates, selectVideo,
+    state, CATEGORIES, completeSetup, resumeServerTask, refreshCandidates, selectVideo,
     updatePrompt, confirmGenerate, regenerate, backToVideoSelect,
     setActiveTaskId, setActiveRightView, handleUserInput, resetSession, restoreState
   } = useSkillsEngine();
@@ -159,12 +161,19 @@ export function SkillsModule() {
     name: e.title,
     desc: e.content.slice(0, 60) + (e.content.length > 60 ? '...' : ''),
     tag: e.category,
-    charCount: e.content.length
+    byteLength: e.contentLength,
   })), [entries]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [history, setHistory] = useState<SkillsHistoryItem[]>(loadSkillsHistory);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+  const [activeServerTaskId, setActiveServerTaskId] = useState<string | null>(null);
+  const [serverTasks, setServerTasks] = useState<TikTokSolutionTaskListItem[]>([]);
+  const [serverTotal, setServerTotal] = useState(0);
+  const [serverPage, setServerPage] = useState(1);
+  const [serverLoading, setServerLoading] = useState(false);
+  const [serverLoadingMore, setServerLoadingMore] = useState(false);
+  const [historySheetOpen, setHistorySheetOpen] = useState(false);
   const [activeMemoryId, setActiveMemoryId] = useState<string | null>(null);
   const [chatOnlyInput, setChatOnlyInput] = useState('');
 
@@ -172,6 +181,39 @@ export function SkillsModule() {
     if (!activeMemoryId) return null;
     return entries.find((e) => e.id === activeMemoryId) || null;
   }, [activeMemoryId, entries]);
+
+  const fetchServerHistoryPage = useCallback(async (page: number, append: boolean) => {
+    if (append) setServerLoadingMore(true);
+    else setServerLoading(true);
+    try {
+      const res = await getTikTokSolutionTasksPage({ page, size: SERVER_TASK_PAGE_SIZE });
+      const data = res.data;
+      const records = data?.list ?? [];
+      setServerTotal(typeof data?.total === 'number' ? data.total : 0);
+      setServerPage(page);
+      if (append) setServerTasks((prev) => [...prev, ...records]);
+      else setServerTasks(records);
+    } catch {
+      if (!append) setServerTasks([]);
+    } finally {
+      setServerLoading(false);
+      setServerLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchServerHistoryPage(1, false);
+  }, [fetchServerHistoryPage]);
+
+  const onHistorySheetOpenChange = useCallback(
+    (open: boolean) => {
+      setHistorySheetOpen(open);
+      if (open) void fetchServerHistoryPage(1, false);
+    },
+    [fetchServerHistoryPage]
+  );
+
+  const hasMoreServerTasks = serverTasks.length < serverTotal;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -235,6 +277,7 @@ export function SkillsModule() {
         sellingPoints: text || '',
         category: category || t('skills.categoryOther')
       };
+      setActiveServerTaskId(null);
       addHistory(setup);
       completeSetup(setup);
     } else {
@@ -245,11 +288,13 @@ export function SkillsModule() {
   const handleRestoreHistory = (item: SkillsHistoryItem) => {
     restoreState(item.snapshot);
     setActiveHistoryId(item.id);
+    setActiveServerTaskId(null);
   };
 
   const handleNewSession = () => {
     resetSession();
     setActiveHistoryId(null);
+    setActiveServerTaskId(null);
   };
 
   const showRightPanel = state.activeRightView !== 'none';
@@ -400,7 +445,73 @@ export function SkillsModule() {
               if (agentId === 'agent-04') setActiveRightView('agents', '04');
             }} />);
 
-
+      case 'tk-backend-agents':{
+          const blocks = msg.backendAgents ?? [];
+          if (blocks.length === 0) return null;
+          const formatTs = (iso?: string) => {
+            if (!iso) return '';
+            try {
+              const d = new Date(iso);
+              return d.toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              });
+            } catch {
+              return '';
+            }
+          };
+          return (
+            <div
+              key={msg.id}
+              className="rounded-xl border border-border/30 bg-card/40 overflow-hidden animate-fade-in"
+            >
+              <div className="px-4 py-2.5 border-b border-border/15 bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-foreground/50 shrink-0" />
+                  <span className="text-xs font-medium text-foreground/80">{t('skills.backendAgentFeed')}</span>
+                </div>
+              </div>
+              <div className="px-3 py-3 space-y-3 max-h-[min(70vh,520px)] overflow-y-auto">
+                {blocks.map((agent) => (
+                  <div key={agent.key} className="rounded-lg border border-border/20 bg-background/60 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">{agent.name}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/50 text-muted-foreground shrink-0 uppercase tracking-wide">
+                        {agent.status}
+                      </span>
+                    </div>
+                    <div className="space-y-2 pl-0.5">
+                      {agent.messages.map((m) => (
+                        <div
+                          key={m.id}
+                          className={cn(
+                            'text-xs leading-relaxed border-l-2 pl-2.5 py-0.5',
+                            m.type === 'result' ? 'border-emerald-500/40 text-foreground/85' : 'border-border/50 text-foreground/70'
+                          )}
+                        >
+                          {m.timestamp ?
+                          <span className="block text-[10px] text-muted-foreground/70 mb-0.5 font-mono">
+                              {formatTs(m.timestamp)}
+                            </span> :
+                          null}
+                          {m.tool ?
+                          <span className="block text-[10px] text-muted-foreground/60 font-mono mb-0.5">
+                              {m.tool}
+                            </span> :
+                          null}
+                          <span className="whitespace-pre-wrap break-words">{m.content}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
 
       case 'selection-confirm':
         return (
@@ -463,8 +574,16 @@ export function SkillsModule() {
 
   const isEmpty = !state.setupCompleted && state.messages.length === 0;
 
+  const formatHistoryDate = (iso: string) =>
+    new Date(iso).toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
   const historySheet =
-  <Sheet>
+  <Sheet open={historySheetOpen} onOpenChange={onHistorySheetOpenChange}>
       <SheetTrigger asChild>
         <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted/40">
           <History className="w-3.5 h-3.5" />
@@ -475,52 +594,147 @@ export function SkillsModule() {
         <SheetHeader>
           <SheetTitle className="text-base font-medium">{t('skills.history')}</SheetTitle>
         </SheetHeader>
-        <div className="mt-4 space-y-3 overflow-y-auto max-h-[calc(100vh-6rem)]">
-          {history.map((item) => {
-          const statusKey = deriveSnapshotStatus(item.snapshot);
-          const statusLabel = t(`skills.snapshotStatus.${statusKey}`);
-          const isActive = activeHistoryId === item.id;
-          return (
-            <div
-              key={item.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => handleRestoreHistory(item)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRestoreHistory(item); } }}
-              className={cn(
-                "w-full text-left p-3 rounded-xl border transition-all group relative cursor-pointer",
-                isActive ? "border-primary/40 bg-primary/5" : "border-border/30 hover:border-border/60 hover:bg-muted/20"
-              )}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-foreground">{item.category}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {new Date(item.date).toLocaleString(i18n.language.startsWith('zh') ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground truncate">{item.sellingPoints}</p>
-              <div className="flex gap-1 mt-1.5 flex-wrap">
-                <span className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded-full",
-                  statusKey === 'done' ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400" : "bg-muted/40 text-muted-foreground"
-                )}>
-                  {statusLabel}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); deleteHistory(item.id); }}
-                className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 p-1 rounded-full hover:bg-muted/40 transition-all"
-              >
-                <X className="w-3.5 h-3.5 text-muted-foreground/50" />
-              </button>
-            </div>
-          );
+        <div className="mt-4 space-y-4 overflow-y-auto max-h-[calc(100vh-6rem)]">
+          {serverLoading && serverTasks.length === 0 && history.length === 0 ?
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>{t('common.loading')}</span>
+          </div> :
+          null}
 
-        })}
-          {history.length === 0 &&
-        <p className="text-sm text-muted-foreground text-center py-8">{t('skills.historyEmpty')}</p>
-        }
+          {serverTasks.length > 0 ?
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{t('skills.serverTasks')}</p>
+            <div className="space-y-3">
+              {serverTasks.map((item) => {
+                const idStr = String(item.taskId);
+                const isActive = activeServerTaskId === idStr && String(state.backendTaskId ?? '') === idStr;
+                const statusLabel = t(`skills.tkTaskStatus.${item.status}`);
+                return (
+                  <div
+                    key={idStr}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      resumeServerTask(item);
+                      setActiveHistoryId(null);
+                      setActiveServerTaskId(idStr);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        resumeServerTask(item);
+                        setActiveHistoryId(null);
+                        setActiveServerTaskId(idStr);
+                      }
+                    }}
+                    className={cn(
+                      'w-full text-left p-3 rounded-xl border transition-all cursor-pointer',
+                      isActive ? 'border-primary/40 bg-primary/5' : 'border-border/30 hover:border-border/60 hover:bg-muted/20'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">{item.category || t('skills.categoryOther')}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{formatHistoryDate(item.createTime)}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{(item.sellingPoints ?? []).join(' · ')}</p>
+                    <div className="flex gap-1 mt-1.5 flex-wrap">
+                      <span
+                        className={cn(
+                          'text-[10px] px-1.5 py-0.5 rounded-full bg-muted/40 text-muted-foreground',
+                          item.status === 'completed' && 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400',
+                          (item.status === 'failed' || item.status === 'closed_timeout') && 'bg-destructive/10 text-destructive'
+                        )}
+                      >
+                        {statusLabel}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {hasMoreServerTasks ?
+            <button
+              type="button"
+              disabled={serverLoadingMore}
+              onClick={() => void fetchServerHistoryPage(serverPage + 1, true)}
+              className="w-full text-xs text-muted-foreground hover:text-foreground py-2 rounded-lg border border-border/30 hover:bg-muted/20 disabled:opacity-50"
+            >
+              {serverLoadingMore ?
+              <span className="inline-flex items-center justify-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {t('common.loading')}
+              </span> :
+              t('common.loadMore')}
+            </button> :
+            null}
+          </div> :
+          null}
+
+          {history.length > 0 ?
+          <div className="space-y-2">
+            {serverTasks.length > 0 ?
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{t('skills.localDrafts')}</p> :
+            null}
+            <div className="space-y-3">
+              {history.map((item) => {
+                const statusKey = deriveSnapshotStatus(item.snapshot);
+                const statusLabel = t(`skills.snapshotStatus.${statusKey}`);
+                const isActive = activeHistoryId === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleRestoreHistory(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleRestoreHistory(item);
+                      }
+                    }}
+                    className={cn(
+                      'w-full text-left p-3 rounded-xl border transition-all group relative cursor-pointer',
+                      isActive ? 'border-primary/40 bg-primary/5' : 'border-border/30 hover:border-border/60 hover:bg-muted/20'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-foreground">{item.category}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatHistoryDate(item.date)}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{item.sellingPoints}</p>
+                    <div className="flex gap-1 mt-1.5 flex-wrap">
+                      <span
+                        className={cn(
+                          'text-[10px] px-1.5 py-0.5 rounded-full',
+                          statusKey === 'done' ?
+                            'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' :
+                            'bg-muted/40 text-muted-foreground'
+                        )}
+                      >
+                        {statusLabel}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteHistory(item.id);
+                      }}
+                      className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 p-1 rounded-full hover:bg-muted/40 transition-all"
+                    >
+                      <X className="w-3.5 h-3.5 text-muted-foreground/50" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div> :
+          null}
+
+          {!serverLoading && serverTasks.length === 0 && history.length === 0 ?
+          <p className="text-sm text-muted-foreground text-center py-8">{t('skills.historyEmpty')}</p> :
+          null}
         </div>
       </SheetContent>
     </Sheet>;
@@ -567,6 +781,7 @@ export function SkillsModule() {
                     <span>{t('skills.back')}</span>
                   </button>
                 </div>
+                <div>{historySheet}</div>
               </div>
 
               {/* Messages area */}

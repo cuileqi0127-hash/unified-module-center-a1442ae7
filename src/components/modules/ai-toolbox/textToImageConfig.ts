@@ -48,7 +48,7 @@ export interface WorkModeConfig {
 
 // 模型配置映射
 export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
-  'gemini-3-pro-image-preview-hd': {
+  'gemini-flash-image-vip': {
     label: 'Nano Banana 2',
     maxImages: 9,
     sizes: [
@@ -71,27 +71,27 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
     ],
     defaultQuality: '2k',
   },
-  'gpt-image-1.5': {
-    label: 'GPT-Image',
-    maxImages: 0,
-    sizes: [
-      { id: '2:3', label: '2:3' },
-      { id: '3:2', label: '3:2' },
-      { id: '1:1', label: '1:1' },
-    ],
-    defaultSize: '1:1',
-    qualities: [
-      { id: 'standard', label: 'Standard' },
-      { id: 'hd', label: 'HD' },
-    ],
-    defaultQuality: 'standard',
-    styles: [
-      { id: 'vivid', label: 'Vivid' },
-      { id: 'natural', label: 'Natural' },
-    ],
-    defaultStyle: 'vivid',
-  },
-  'doubao-seedream-4-5-251128': {
+  // 'gpt-image-1.5': {
+  //   label: 'GPT-Image',
+  //   maxImages: 0,
+  //   sizes: [
+  //     { id: '2:3', label: '2:3' },
+  //     { id: '3:2', label: '3:2' },
+  //     { id: '1:1', label: '1:1' },
+  //   ],
+  //   defaultSize: '1:1',
+  //   qualities: [
+  //     { id: 'standard', label: 'Standard' },
+  //     { id: 'hd', label: 'HD' },
+  //   ],
+  //   defaultQuality: 'standard',
+  //   styles: [
+  //     { id: 'vivid', label: 'Vivid' },
+  //     { id: 'natural', label: 'Natural' },
+  //   ],
+  //   defaultStyle: 'vivid',
+  // },
+  'seedream-5.0': {
     label: '即梦',
     maxImages: 1,
     sizes: [
@@ -101,22 +101,22 @@ export const MODEL_CONFIGS: Record<ImageModel, Omit<ModelConfig, 'id'>> = {
     ],
     defaultSize: '2048x2048',
   },
-  'kling-v1-5': {
-    label: '可灵',
-    maxImages: 0,
-    sizes: [
-      { id: '1:1', label: '1:1' },
-      { id: '2:3', label: '2:3' },
-      { id: '3:2', label: '3:2' },
-      { id: '3:4', label: '3:4' },
-      { id: '4:3', label: '4:3' },
-      { id: '4:5', label: '4:5' },
-      { id: '5:4', label: '5:4' },
-      { id: '9:16', label: '9:16' },
-      { id: '16:9', label: '16:9' },
-    ],
-    defaultSize: '1:1',
-  },
+  // 'kling-v1-5': {
+  //   label: '可灵',
+  //   maxImages: 0,
+  //   sizes: [
+  //     { id: '1:1', label: '1:1' },
+  //     { id: '2:3', label: '2:3' },
+  //     { id: '3:2', label: '3:2' },
+  //     { id: '3:4', label: '3:4' },
+  //     { id: '4:3', label: '4:3' },
+  //     { id: '4:5', label: '4:5' },
+  //     { id: '5:4', label: '5:4' },
+  //     { id: '9:16', label: '9:16' },
+  //     { id: '16:9', label: '16:9' },
+  //   ],
+  //   defaultSize: '1:1',
+  // },
 };
 
 // 默认模型配置（用于其他未定义的模型）
@@ -199,7 +199,7 @@ export function getWorkModes(): WorkModeConfig[] {
 }
 
 // 默认模型
-export const DEFAULT_MODEL: ImageModel = 'gemini-3-pro-image-preview-hd';
+export const DEFAULT_MODEL: ImageModel = 'gemini-flash-image-vip';
 
 // 默认尺寸（会根据模型自动调整）
 export const DEFAULT_SIZE = '1:1';

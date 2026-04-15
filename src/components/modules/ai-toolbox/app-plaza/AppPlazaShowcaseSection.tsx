@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ShowcaseCard, type ShowcaseCardData } from './ShowcaseCard';
 import { ShowcaseDetailDialog } from './ShowcaseDetailDialog';
 import { SHOWCASE_CARDS } from './showcaseData';
 import { useReplicatePrefill } from '@/contexts/ReplicatePrefillContext';
+import { ReportCasesShowcaseGrid } from '../ReportCasesShowcaseGrid';
+import { getInspirationVideoDetail, getInspirationVideosPage, type MaterialSquareItem } from '@/services/inspirationVideoApi';
 
 const CASE_CATEGORIES = [
   { id: 'market', label: '市场洞察' },
@@ -24,6 +26,8 @@ export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionP
   const [activeCaseCategory, setActiveCaseCategory] = useState<string>('market');
   const [page, setPage] = useState(0);
   const [detailCard, setDetailCard] = useState<ShowcaseCardData | null>(null);
+  const [videoList, setVideoList] = useState<MaterialSquareItem[]>([]);
+  const [videoTotal, setVideoTotal] = useState(0);
 
   const isVisualCategory = activeCaseCategory === VISUAL_CATEGORY;
   const itemsPerPage = isVisualCategory ? 12 : 16;
@@ -35,6 +39,65 @@ export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionP
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage) || 1;
   const pagedCases = filteredCases.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
+  const visualTotalPages = Math.max(1, Math.ceil(videoTotal / itemsPerPage) || 1);
+  const displayTotalPages = isVisualCategory ? visualTotalPages : totalPages;
+
+  const formatCompact = (n?: number) => {
+    if (typeof n !== 'number' || !Number.isFinite(n)) return '0';
+    const loc = typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US';
+    return new Intl.NumberFormat(loc, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+  };
+
+  const buildVideoCardFromItem = (item: MaterialSquareItem): ShowcaseCardData => {
+    const desc = item.category ? `${item.category}${item.publisher ? ` · ${item.publisher}` : ''}` : (item.publisher || '');
+    return {
+      title: item.title,
+      desc: desc || '',
+      hoverText: '点击复刻此爆款视频',
+      // visual variant uses <video src={card.image}>
+      image: item.sourceUrl || item.previewUrl || '/app-plaza-inspiration-temp.mp4',
+      miniTitle: item.title,
+      targetId: 'replicate-video',
+      category: 'video',
+      detail: {
+        author: item.publisher || undefined,
+        sourceUrl: item.sourceUrl,
+        previewUrl: item.previewUrl ?? null,
+        stats: {
+          views: formatCompact(item.viewCount),
+          likes: formatCompact(item.likeCount),
+          comments: formatCompact(item.commentCount),
+          shares: formatCompact(item.shareCount),
+        },
+        tags: item.tags ?? [],
+      },
+    };
+  };
+
+  // Load inspiration videos when tab/page changes
+  useEffect(() => {
+    if (!isVisualCategory) return;
+    const ac = new AbortController();
+    void (async () => {
+      try {
+        const res = await getInspirationVideosPage({
+          page: page + 1,
+          size: itemsPerPage,
+          mediaType: 'video',
+          signal: ac.signal,
+        });
+        if (ac.signal.aborted) return;
+        setVideoList(res.list);
+        setVideoTotal(res.total);
+      } catch {
+        if (!ac.signal.aborted) {
+          setVideoList([]);
+          setVideoTotal(0);
+        }
+      }
+    })();
+    return () => ac.abort();
+  }, [isVisualCategory, page, itemsPerPage]);
 
   const handleCategoryChange = (id: string) => {
     setActiveCaseCategory(id);
@@ -91,39 +154,75 @@ export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionP
         </div>
 
         <div className="flex flex-col">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-            {pagedCases.map((card, i) => (
-              <ShowcaseCard
-                key={`${card.category}-${page}-${i}-${card.title}`}
-                card={card}
-                variant={isVisualCategory ? 'visual' : 'default'}
-                onClick={() => handleCardClick(card)}
-              />
-            ))}
-          </div>
+          {isVisualCategory ? (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {(videoList.length ? videoList.map(buildVideoCardFromItem) : pagedCases).map((card, i) => (
+                  <ShowcaseCard
+                    key={`${card.category}-${page}-${i}-${card.title}`}
+                    card={card}
+                    variant="visual"
+                    onClick={() => {
+                      // if card came from API list, fetch detail for extra fields
+                      const rawItem = videoList[i];
+                      if (rawItem?.id != null) {
+                        const ac = new AbortController();
+                        void (async () => {
+                          try {
+                            const d = await getInspirationVideoDetail(rawItem.id, ac.signal);
+                            const base = buildVideoCardFromItem(d);
+                            base.detail = {
+                              ...(base.detail || {}),
+                              purpose: d.purpose || undefined,
+                              audience: d.targetAudience || undefined,
+                              techHighlight: d.aiTech || undefined,
+                            };
+                            setDetailCard(base);
+                          } catch {
+                            setDetailCard(card);
+                          }
+                        })();
+                      } else {
+                        setDetailCard(card);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-4 shrink-0">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="p-1.5 rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-muted-foreground">
-                {page + 1} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page === totalPages - 1}
-                className="p-1.5 rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+              {displayTotalPages > 1 && (
+                <div className="flex items-center justify-center gap-3 mt-4 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="p-1.5 rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs text-muted-foreground">
+                    {page + 1} / {displayTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(displayTotalPages - 1, p + 1))}
+                    disabled={page === displayTotalPages - 1}
+                    className="p-1.5 rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            // 接口 GET .../cases/page 的 reportType：市场洞察=MARKET_INSIGHT，策划方案=STRATEGY_CASE
+            <ReportCasesShowcaseGrid
+              key={activeCaseCategory}
+              reportType={activeCaseCategory === 'market' ? 'MARKET_INSIGHT' : 'STRATEGY_CASE'}
+              pageSize={16}
+              gridClassName="grid grid-cols-2 lg:grid-cols-4 gap-2"
+              paginationClassName="mt-4"
+            />
           )}
         </div>
       </section>

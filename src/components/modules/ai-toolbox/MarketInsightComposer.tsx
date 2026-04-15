@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback } from 'react';
-import { ArrowUp, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUp, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CategoryCascader } from '@/components/ui/category-cascader';
-import { ShowcaseCard } from './app-plaza/ShowcaseCard';
-import { SHOWCASE_CARDS } from './app-plaza/showcaseData';
 import { EstimatedCreditsHint } from './EstimatedCreditsHint';
+import { ReportCasesShowcaseGrid } from './ReportCasesShowcaseGrid';
 import type { CategoryTree } from '@/types/category';
+import { MemoryButtonWithDialog } from '@/components/modules/memory/MemoryButtonWithDialog';
 
 export interface HistoryEntry {
   id: string;
@@ -19,6 +19,8 @@ export interface HistoryEntry {
 interface MarketInsightComposerProps {
   categoryTree: CategoryTree;
   onSubmit: (payload: { brandName: string; category: string; competitors: string[] }) => void;
+  /** 可选：包含记忆库选择 */
+  onSubmitWithMemory?: (payload: { brandName: string; category: string; competitors: string[] }, memoryEntryIds: string[]) => void;
   disabled?: boolean;
   initialData?: { brandName: string; category: string; competitors: string[] };
   /** i18n */
@@ -30,11 +32,18 @@ interface MarketInsightComposerProps {
   competitorAddPlaceholder?: string;
   searchPlaceholder?: string;
   searchEmptyText?: string;
+  /** 预估积分展示 */
+  estimatedCredits?: number | string;
+  estimateCreditsBizCode?: string | null;
+  /** 记忆库选择（受控）。不传则不展示记忆库按钮 */
+  selectedMemoryIds?: string[];
+  onToggleMemory?: (id: string) => void;
 }
 
 export function MarketInsightComposer({
   categoryTree,
   onSubmit,
+  onSubmitWithMemory,
   disabled,
   initialData,
   title = '市场洞察报告',
@@ -45,24 +54,26 @@ export function MarketInsightComposer({
   competitorAddPlaceholder = '添加竞品...',
   searchPlaceholder = '输入关键词检索',
   searchEmptyText = '暂无匹配品类',
+  estimatedCredits = 0,
+  estimateCreditsBizCode,
+  selectedMemoryIds,
+  onToggleMemory,
 }: MarketInsightComposerProps) {
   const [brandName, setBrandName] = useState(initialData?.brandName || '');
   const [category, setCategory] = useState(initialData?.category || '');
   const [competitors, setCompetitors] = useState<string[]>(initialData?.competitors || []);
   const [competitorInput, setCompetitorInput] = useState('');
-  const [casesPage, setCasesPage] = useState(0);
   const competitorInputRef = useRef<HTMLInputElement>(null);
 
   const canSend = Boolean(brandName.trim() && category.trim() && competitors.length > 0);
 
   const handleSend = useCallback(() => {
     if (!canSend || disabled) return;
-    onSubmit({
-      brandName: brandName.trim(),
-      category,
-      competitors,
-    });
-  }, [canSend, disabled, brandName, category, competitors, onSubmit]);
+    const payload = { brandName: brandName.trim(), category, competitors };
+    const ids = selectedMemoryIds ?? [];
+    if (onSubmitWithMemory) onSubmitWithMemory(payload, ids);
+    else onSubmit(payload);
+  }, [canSend, disabled, brandName, category, competitors, onSubmit, onSubmitWithMemory, selectedMemoryIds]);
 
   const addCompetitor = (value: string) => {
     const trimmed = value.trim();
@@ -183,7 +194,13 @@ export function MarketInsightComposer({
             </div>
 
             <div className="flex items-center gap-3">
-              <EstimatedCreditsHint amount={200} />
+              <EstimatedCreditsHint amount={estimatedCredits || 0} bizCode={estimateCreditsBizCode} />
+              {selectedMemoryIds && onToggleMemory && (
+                <MemoryButtonWithDialog
+                  selectedIds={selectedMemoryIds}
+                  onToggle={onToggleMemory}
+                />
+              )}
               <button
                 type="button"
                 onClick={handleSend}
@@ -202,55 +219,9 @@ export function MarketInsightComposer({
         </div>
       </div>
 
-      {/* Case Cards - full width, synced with App Plaza */}
-      {(() => {
-        const allMarketCases = SHOWCASE_CARDS.filter((c) => c.category === 'market');
-        const ITEMS_PER_PAGE = 16;
-        const totalPages = Math.ceil(allMarketCases.length / ITEMS_PER_PAGE);
-        const pagedCases = allMarketCases.slice(casesPage * ITEMS_PER_PAGE, (casesPage + 1) * ITEMS_PER_PAGE);
-
-        return allMarketCases.length > 0 ? (
-          <div className="mt-10 w-full max-w-5xl">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-              {pagedCases.map((card, i) => (
-                <ShowcaseCard
-                  key={`market-${casesPage}-${i}`}
-                  card={card}
-                  variant="default"
-                  onClick={() => {
-                    if (card.reportUrl) {
-                      window.open(card.reportUrl, '_blank');
-                    }
-                  }}
-                />
-              ))}
-            </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-3 mt-5">
-                <button
-                  type="button"
-                  onClick={() => setCasesPage((p) => Math.max(0, p - 1))}
-                  disabled={casesPage === 0}
-                  className="p-1.5 rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-xs text-muted-foreground">
-                  {casesPage + 1} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCasesPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={casesPage === totalPages - 1}
-                  className="p-1.5 rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        ) : null;
-      })()}
+      <div className="mt-10 w-full max-w-5xl">
+        <ReportCasesShowcaseGrid reportType="MARKET_INSIGHT" pageSize={16} gridClassName="grid grid-cols-2 lg:grid-cols-4 gap-5" />
+      </div>
     </div>
   );
 }

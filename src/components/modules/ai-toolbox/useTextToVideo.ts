@@ -15,6 +15,7 @@ import {
   createSession,
   saveGenerationResult,
   submitVideoTask,
+  estimateVideoTaskCredits,
   getTaskStatus,
   updateSession,
   updateCanvasItem,
@@ -22,6 +23,7 @@ import {
   getSessionDetail,
   type Session,
   type SessionDetail,
+  type SubmitVideoTaskRequest,
 } from '@/services/generationSessionApi';
 import { redirectToLogin } from '@/services/oauthApi';
 import { debounce } from '@/utils/debounce';
@@ -42,6 +44,7 @@ import {
   isValidResolutionForModel,
   DEFAULT_VIDEO_MODEL,
   VIDEO_MODEL_CONFIGS,
+  normalizeVideoModel,
 } from './textToVideoConfig';
 import { type SelectedImage } from './ImageCapsule';
 import { uploadFile, validateFileFormat, validateFileSize } from '@/services/fileUploadApi';
@@ -97,7 +100,7 @@ interface VideoTaskQueueItem {
 const mockHistory: ChatMessage[] = [];
 const initialCanvasVideos: CanvasVideo[] = [];
 
-export function useTextToVideo() {
+export function useTextToVideo(options?: { memoryEntryIds?: string[] }) {
   const { t } = useTranslation();
 
   // Refs
@@ -386,7 +389,12 @@ export function useTextToVideo() {
                     const generation = generationsMap.get(asset.generationId.toString());
                     if (generation) {
                       if (generation.prompt) prompt = generation.prompt;
-                      modelName = VIDEO_MODEL_CONFIGS[generation.model as VideoModel]?.label ?? generation.model;
+                      {
+                        const vm = normalizeVideoModel(
+                          generation.model != null ? String(generation.model) : undefined
+                        );
+                        modelName = VIDEO_MODEL_CONFIGS[vm]?.label ?? String(generation.model);
+                      }
                     }
                   }
                   
@@ -508,7 +516,9 @@ export function useTextToVideo() {
                     messageId: `gen-${gen.id}`,
                     sessionId: session.id,
                     prompt: gen.prompt,
-                    model: (gen.model as VideoModel) || (session.settings?.model as VideoModel) || DEFAULT_VIDEO_MODEL,
+                    model: normalizeVideoModel(
+                      String(gen.model ?? session.settings?.model ?? DEFAULT_VIDEO_MODEL)
+                    ),
                     seconds: (session.settings as { seconds?: string })?.seconds ?? getModelDefaultSeconds(DEFAULT_VIDEO_MODEL),
                     size: gen.size || session.settings?.size || getModelDefaultSize(DEFAULT_VIDEO_MODEL),
                     status: gen.status as 'queued' | 'processing',
@@ -721,7 +731,12 @@ export function useTextToVideo() {
             const generation = generationsMap.get(asset.generationId.toString());
             if (generation) {
               if (generation.prompt) prompt = generation.prompt;
-              modelName = VIDEO_MODEL_CONFIGS[generation.model as VideoModel]?.label ?? generation.model;
+              {
+                const vm = normalizeVideoModel(
+                  generation.model != null ? String(generation.model) : undefined
+                );
+                modelName = VIDEO_MODEL_CONFIGS[vm]?.label ?? String(generation.model);
+              }
             }
           }
           return {
@@ -893,7 +908,9 @@ export function useTextToVideo() {
               messageId: `gen-${gen.id}`,
               sessionId: session.id,
               prompt: gen.prompt,
-              model: (gen.model as VideoModel) || (session.settings?.model as VideoModel) || DEFAULT_VIDEO_MODEL,
+              model: normalizeVideoModel(
+                String(gen.model ?? session.settings?.model ?? DEFAULT_VIDEO_MODEL)
+              ),
               seconds: (session.settings as { seconds?: string })?.seconds ?? getModelDefaultSeconds(DEFAULT_VIDEO_MODEL),
               size: gen.size || session.settings?.size || getModelDefaultSize(DEFAULT_VIDEO_MODEL),
               status: gen.status as 'queued' | 'processing',
@@ -1517,6 +1534,7 @@ export function useTextToVideo() {
         modelName: model,
         modelVersion: getModelVersion(model),
         prompt: currentPrompt,
+        memoryEntryIds: options?.memoryEntryIds,
         duration: parseInt(seconds, 10),
         aspectRatio: ensureAspectRatioEnum(size),
         resolution: resolutionOptions.length > 0 ? resolution : undefined,
@@ -1534,6 +1552,12 @@ export function useTextToVideo() {
       });
 
       if (!response.success || !response.data) {
+        const bizCode = (response as any)?.bizCode;
+        const code = (response as any)?.code;
+        if (String(code) === '400' && bizCode === 'TOOLS_GEN_MEMORY_PROMPT_TOO_LONG') {
+          toast.error(t('toast.memoryPromptTooLong'));
+          throw new Error('TOOLS_GEN_MEMORY_PROMPT_TOO_LONG');
+        }
         throw new Error(response.msg || 'Submit video task failed');
       }
 
@@ -1597,7 +1621,7 @@ export function useTextToVideo() {
         )
       );
     }
-  }, [prompt, isGenerating, model, seconds, size, resolution, resolutionOptions, enhanceSwitch, modelSupportsEnhanceSwitch, selectedVideoIds, selectedVideoId, canvasVideos, taskPlaceholders, t, getVideoDimensions, handleAddSelectedVideo, currentSessionId, getModelMaxImages, VIDEO_MODEL_CONFIGS]);
+  }, [prompt, isGenerating, model, seconds, size, resolution, resolutionOptions, enhanceSwitch, modelSupportsEnhanceSwitch, options?.memoryEntryIds, selectedVideoIds, selectedVideoId, canvasVideos, taskPlaceholders, t, getVideoDimensions, handleAddSelectedVideo, currentSessionId, getModelMaxImages, VIDEO_MODEL_CONFIGS]);
 
   // 轮询会话任务状态（/api/tools/gen/sessions/{id}/tasks/{任务id}），会话 id、任务 id 均为字符串原样传递
   const pollSessionTaskWithCancel = useCallback(
@@ -2437,6 +2461,115 @@ export function useTextToVideo() {
     });
   }, []);
 
+  const [apiEstimatedCredits, setApiEstimatedCredits] = useState<number | null>(null);
+  const [estimateCreditsBizCode, setEstimateCreditsBizCode] = useState<string | null>(null);
+
+  const hasPrompt = prompt.trim().length > 0;
+  const estimatedCredits = hasPrompt ? (apiEstimatedCredits ?? 0) : 0;
+  const effectiveEstimateBizCode = hasPrompt ? estimateCreditsBizCode : null;
+
+  useEffect(() => {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
+      setApiEstimatedCredits(null);
+      setEstimateCreditsBizCode(null);
+      return;
+    }
+
+    const ac = new AbortController();
+    const tid = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const sourceImages: string[] = [];
+          const selectedCanvasVideoIds =
+            selectedVideoIds.length > 0 ? selectedVideoIds : selectedVideoId ? [selectedVideoId] : [];
+          if (selectedCanvasVideoIds.length > 0) {
+            const selectedImage = canvasVideos.find(
+              (v) =>
+                selectedCanvasVideoIds.includes(v.id) &&
+                (v.type === 'image' || !!v.url.match(/\.(jpg|jpeg|png|gif|webp)$/i))
+            );
+            if (selectedImage && !sourceImages.includes(selectedImage.url)) {
+              sourceImages.push(selectedImage.url);
+            }
+          }
+
+          const [ratioW, ratioH] = size.includes(':') ? size.split(':').map(Number) : size.split('x').map(Number);
+          const rW = ratioW || 16;
+          const rH = ratioH || 9;
+          const maxSize = 400;
+          const placeholderSize =
+            rW >= rH
+              ? { width: maxSize, height: Math.round(maxSize * rH / rW) }
+              : { width: Math.round(maxSize * rW / rH), height: maxSize };
+          const existingRects = [
+            ...canvasVideos.map((v) => ({ x: v.x, y: v.y, width: v.width, height: v.height })),
+            ...taskPlaceholders.map((p) => ({ x: p.x, y: p.y, width: p.width, height: p.height })),
+          ];
+          const position = findNonOverlappingPosition(
+            { width: placeholderSize.width, height: placeholderSize.height },
+            existingRects,
+            300,
+            200,
+            10,
+            10,
+            100,
+            12
+          );
+
+          const body = {
+            modelName: model,
+            modelVersion: getModelVersion(model),
+            prompt: trimmedPrompt,
+            duration: parseInt(seconds, 10),
+            aspectRatio: ensureAspectRatioEnum(size),
+            resolution: resolutionOptions.length > 0 ? resolution : undefined,
+            ...(modelSupportsEnhanceSwitch(model) && { enhanceSwitch }),
+            sourceImages: sourceImages.length > 0 ? sourceImages : undefined,
+            canvasItem: {
+              x: position.x,
+              y: position.y,
+              width: placeholderSize.width,
+              height: placeholderSize.height,
+              rotate: 0,
+              visible: true,
+              zindex: canvasVideos.length,
+            },
+          } as SubmitVideoTaskRequest;
+
+          const res = await estimateVideoTaskCredits(body, { signal: ac.signal });
+          if (ac.signal.aborted) return;
+          if (res.success && res.data && typeof res.data.estimatedCredits === 'number') {
+            setApiEstimatedCredits(res.data.estimatedCredits);
+            setEstimateCreditsBizCode(res.bizCode ?? null);
+          }
+        } catch {
+          if (!ac.signal.aborted) {
+            setApiEstimatedCredits(null);
+            setEstimateCreditsBizCode(null);
+          }
+        }
+      })();
+    }, 400);
+
+    return () => {
+      ac.abort();
+      window.clearTimeout(tid);
+    };
+  }, [
+    model,
+    seconds,
+    size,
+    resolution,
+    enhanceSwitch,
+    prompt,
+    selectedVideoIds,
+    selectedVideoId,
+    canvasVideos,
+    taskPlaceholders,
+    resolutionOptions.length,
+  ]);
+
   return {
     // Refs
     chatEndRef,
@@ -2483,6 +2616,8 @@ export function useTextToVideo() {
     deletingVideoIds,
     addingVideoIds,
     isOverImageLimit,
+    estimatedCredits,
+    estimateCreditsBizCode: effectiveEstimateBizCode,
     
     // Config
     models,

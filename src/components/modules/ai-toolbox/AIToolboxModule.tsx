@@ -7,6 +7,7 @@ import { TikTokInsights } from './TikTokInsights';
 import { TikTokTrendingVideo } from './TikTokTrendingVideo';
 import { VideoReplication } from './VideoReplication';
 import { CampaignPlanner } from './CampaignPlanner';
+import { MarketInsights } from './MarketInsights';
 import { SkillsModule } from '@/components/modules/skills/SkillsModule';
 
 interface AIToolboxModuleProps {
@@ -31,7 +32,7 @@ export function AIToolboxModule({ activeItem, onNavigate }: AIToolboxModuleProps
 
       // 洞察报告（统一入口，已整合 market-insights / brand-health）
       case 'market-insights':
-        return <BrandHealth onNavigate={onNavigate} />;
+        return <MarketInsights />;
 
       // 策划方案（统一入口，已整合 planning-solutions / campaign-planner）
       case 'planning-solutions':

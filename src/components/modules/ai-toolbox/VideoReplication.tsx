@@ -3,7 +3,6 @@ import {
   Video,
   Image as ImageIcon,
   FileText,
-  Sparkles,
   Copy,
   Download,
   X,
@@ -20,12 +19,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { uploadVideoFile, uploadMediaFile, createVideoTask, pollTaskUntilComplete } from '@/services/videoReplicationApi';
+import {
+  confirmVideoReplicaPrompt,
+  createVideoReplicaTask,
+  estimateVideoReplicaCredits,
+  getVideoReplicaTasksPage,
+  pollVideoReplicaTaskUntilTerminal,
+  type VideoReplicaTaskDetail,
+  type VideoReplicaTaskListItem,
+} from '@/services/videoReplicationApi';
 import { MemoryButtonWithDialog } from '@/components/modules/memory/MemoryButtonWithDialog';
 import { EstimatedCreditsHint } from './EstimatedCreditsHint';
+import { uploadFile } from '@/services/fileUploadApi';
 
 interface VideoReplicationProps {
   onNavigate?: (itemId: string) => void;
@@ -39,7 +46,7 @@ interface UploadedFile {
   file?: File;
 }
 
-type ViewState = 'upload' | 'analyzing' | 'prompt' | 'image-upload' | 'generating' | 'result';
+type ViewState = 'upload' | 'result';
 
 export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const { t } = useTranslation();
@@ -48,11 +55,9 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   
   const [viewState, setViewState] = useState<ViewState>('upload');
   const [originalVideo, setOriginalVideo] = useState<UploadedFile | null>(null);
-  const [referenceImage, setReferenceImage] = useState<UploadedFile | null>(null);
+  const [productImages, setProductImages] = useState<UploadedFile[]>([]);
   const [isVideoUploading, setIsVideoUploading] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
-  const [imageFileId, setImageFileId] = useState<string>('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isReplicating, setIsReplicating] = useState(false);
   const [sellingPoints, setSellingPoints] = useState<string>('');
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
@@ -61,20 +66,63 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const [isImageDragOver, setIsImageDragOver] = useState(false);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
-  const [dynamicsLevel, setDynamicsLevel] = useState(0.6);
-  const [resolution, setResolution] = useState<'720p' | '1080p' | '2k'>('1080p');
-  const [ratio, setRatio] = useState<'16:9' | '9:16'>('16:9');
+  const [estimatedCredits, setEstimatedCredits] = useState<number>(0);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | number | null>(null);
+  const [pendingPrompt, setPendingPrompt] = useState('');
+  const [isAwaitingPromptConfirmation, setIsAwaitingPromptConfirmation] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyItems, setHistoryItems] = useState<VideoReplicaTaskListItem[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  /** 与 toolbox ReplicateWorkspace 一致的粗略计费展示（样式对齐） */
-  const estimatedCost = useMemo(() => {
-    let cost = 0;
-    if (originalVideo) cost += 8;
-    if (referenceImage) cost += 2;
-    const spLines = sellingPoints.split(/[\n,，]/).map((s) => s.trim()).filter(Boolean);
-    cost += spLines.length;
-    cost += selectedMemoryIds.length;
-    return Math.max(cost, 0);
-  }, [originalVideo, referenceImage, sellingPoints, selectedMemoryIds]);
+  const sellingPointsLines = useMemo(
+    () => sellingPoints.split(/[\n,，]/).map((s) => s.trim()).filter(Boolean),
+    [sellingPoints]
+  );
+
+  const benchmarkVideoUrl = originalVideo?.url || '';
+  const productImageUrls = useMemo(() => productImages.map((x) => x.url).filter(Boolean), [productImages]);
+  const memoryEntryIds = useMemo(
+    () => selectedMemoryIds.map((id) => Number(id)).filter((n) => Number.isFinite(n)),
+    [selectedMemoryIds]
+  );
+
+  const hasRequiredInputs = !!benchmarkVideoUrl && productImageUrls.length > 0 && sellingPointsLines.length > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasRequiredInputs) {
+      setEstimatedCredits(0);
+      setEstimateError(null);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const res = await estimateVideoReplicaCredits({
+          sellingPoints: sellingPointsLines,
+          productImageUrls,
+          benchmarkVideoUrl,
+          ...(memoryEntryIds.length ? { memoryEntryIds } : {}),
+        });
+        if (cancelled) return;
+        setEstimatedCredits(res.data?.estimatedCredits ?? 0);
+        setEstimateError(null);
+      } catch (e) {
+        if (cancelled) return;
+        setEstimatedCredits(0);
+        setEstimateError(e instanceof Error ? e.message : t('videoReplication.errors.estimateFailed'));
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [benchmarkVideoUrl, productImageUrls, sellingPointsLines, memoryEntryIds, hasRequiredInputs, t]);
 
   useEffect(() => {
     const url = sessionStorage.getItem('videoReplicationInitialVideoUrl');
@@ -122,11 +170,11 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     }
     setIsVideoUploading(true);
     try {
-    const url = URL.createObjectURL(file);
+        const { url } = await uploadFile(file);
         setOriginalVideo({ id: crypto.randomUUID(), type: 'video', name: file.name, url, file });
-      toast.success(t('videoReplication.uploadSuccess'));
+        toast.success(t('videoReplication.success.videoUploaded'));
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : t('videoReplication.uploadVideo'));
+        toast.error(e instanceof Error ? e.message : t('videoReplication.errors.uploadVideoFailed'));
     } finally {
       setIsVideoUploading(false);
     }
@@ -151,18 +199,21 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
       }
       setIsImageUploading(true);
       try {
-        const res = await uploadMediaFile(file);
-        if (res?.fileId) {
-          setImageFileId(res.fileId);
-          setReferenceImage({
-            id: crypto.randomUUID(),
-            type: 'image',
-            name: file.name,
-            url: URL.createObjectURL(file),
-            file,
-          });
-          toast.success(t('videoReplication.success.imageUploaded'));
-        } else throw new Error(t('videoReplication.errors.uploadImage'));
+        const { url } = await uploadFile(file);
+        setProductImages((prev) => {
+          if (prev.length >= 5) return prev;
+          return [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              type: 'image',
+              name: file.name,
+              url,
+              file,
+            },
+          ];
+        });
+        toast.success(t('videoReplication.success.imageUploaded'));
       } catch (e) {
         toast.error(e instanceof Error ? e.message : t('videoReplication.errors.uploadImage'));
       } finally {
@@ -182,8 +233,10 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   );
   const handleImageUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) processImageFile(file);
+      const files = Array.from(e.target.files ?? []);
+      for (const file of files) {
+        void processImageFile(file);
+      }
       e.target.value = '';
     },
     [processImageFile]
@@ -208,54 +261,109 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     [processImageFile]
   );
 
-  const handleAnalyzeVideo = useCallback(async () => {
-    if (!originalVideo?.file) return;
-    setViewState('analyzing');
-    setIsGenerating(true);
-    try {
-      const res = await uploadVideoFile(originalVideo.file);
-      if (res?.prompt_text && typeof res.prompt_text === 'string') {
-        setSellingPoints(res.prompt_text);
-        setViewState('prompt');
-      } else throw new Error(t('videoReplication.errors.generatePrompt'));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('videoReplication.errors.generatePrompt'));
-      setViewState('upload');
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [originalVideo, t]);
+  const runTaskToResult = useCallback(
+    async (taskId: number | string) => {
+      setActiveTaskId(taskId);
+      setIsReplicating(true);
+      setGenerationError(null);
+
+      try {
+        // 先轮询到“终态/待确认”
+        const detail: VideoReplicaTaskDetail = await pollVideoReplicaTaskUntilTerminal(taskId, () => {});
+        if (detail.status === 'awaiting_confirmation') {
+          setPendingPrompt(detail.pendingPrompt ?? '');
+          setIsAwaitingPromptConfirmation(true);
+          return;
+        }
+        if (detail.status === 'failed') {
+          throw new Error(detail.errorMessage || t('videoReplication.errors.generateVideo'));
+        }
+        if (detail.status === 'completed' && detail.videoUrl) {
+          setGeneratedVideo(detail.videoUrl);
+          setViewState('result');
+          toast.success(t('videoReplication.success.videoGenerated'));
+          return;
+        }
+        throw new Error(t('videoReplication.errors.noVideoUrl'));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : t('videoReplication.errors.generateVideo');
+        setGenerationError(msg);
+        toast.error(msg);
+        setViewState('upload');
+      } finally {
+        setIsReplicating(false);
+      }
+    },
+    [t]
+  );
 
   const handleStartReplication = useCallback(async () => {
-    if (!imageFileId) {
-      toast.error(t('videoReplication.errors.uploadImageFirst'));
-      return;
-    }
     if (!sellingPoints.trim()) {
       toast.error(t('videoReplication.errors.enterSellingPoints'));
       return;
     }
-    setViewState('generating');
+    if (!originalVideo?.url) {
+      toast.error(t('videoReplication.errors.uploadBenchmarkVideoFirst'));
+      return;
+    }
+    if (productImageUrls.length === 0) {
+      toast.error(t('videoReplication.errors.uploadImageFirst'));
+      return;
+    }
     setIsReplicating(true);
     setGenerationError(null);
     try {
-      const createResponse = await createVideoTask({ prompt: sellingPoints.trim(), fileId: imageFileId });
-      if (!createResponse?.task_id) throw new Error(t('videoReplication.errors.createTask'));
-      const finalStatus = await pollTaskUntilComplete(createResponse.task_id, () => {});
-      if (finalStatus.video_url) {
-        setGeneratedVideo(finalStatus.video_url);
-        setViewState('result');
-        toast.success(t('videoReplication.success.videoGenerated'));
-      } else throw new Error(t('videoReplication.errors.noVideoUrl'));
+      const createRes = await createVideoReplicaTask({
+        sellingPoints: sellingPointsLines,
+        productImageUrls,
+        benchmarkVideoUrl,
+        ...(memoryEntryIds.length ? { memoryEntryIds } : {}),
+      });
+      const taskId = createRes.data?.taskId;
+      if (!taskId) throw new Error(t('videoReplication.errors.createTask'));
+      await runTaskToResult(taskId);
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('videoReplication.errors.generateVideo');
       setGenerationError(msg);
       toast.error(msg);
-      setViewState('image-upload');
+      setViewState('upload');
     } finally {
       setIsReplicating(false);
     }
-  }, [imageFileId, sellingPoints, t]);
+  }, [sellingPoints, originalVideo, productImageUrls, benchmarkVideoUrl, sellingPointsLines, memoryEntryIds, runTaskToResult, t]);
+
+  const handleConfirmPendingPrompt = useCallback(async () => {
+    if (!activeTaskId) return;
+    const prompt = pendingPrompt.trim();
+    if (!prompt) {
+      toast.error(t('videoReplication.errors.promptEmpty'));
+      return;
+    }
+    try {
+      setIsReplicating(true);
+      await confirmVideoReplicaPrompt(activeTaskId, { prompt });
+      const detail = await pollVideoReplicaTaskUntilTerminal(activeTaskId, () => {});
+      if (detail.status === 'completed' && detail.videoUrl) {
+        setGeneratedVideo(detail.videoUrl);
+        setViewState('result');
+        setIsAwaitingPromptConfirmation(false);
+        toast.success(t('videoReplication.success.videoGenerated'));
+      } else if (detail.status === 'failed') {
+        throw new Error(detail.errorMessage || t('videoReplication.errors.generateVideo'));
+      } else if (detail.status === 'awaiting_confirmation') {
+        // 理论上不会再次返回，但兜底
+        setPendingPrompt(detail.pendingPrompt ?? prompt);
+        setIsAwaitingPromptConfirmation(true);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : t('videoReplication.errors.generateVideo');
+      toast.error(msg);
+      setGenerationError(msg);
+      setViewState('upload');
+    } finally {
+      setIsReplicating(false);
+    }
+  }, [activeTaskId, pendingPrompt, t]);
 
   const handleCopyPrompt = useCallback(() => {
     navigator.clipboard.writeText(sellingPoints).then(() => toast.success(t('videoReplication.success.promptCopied')));
@@ -273,21 +381,21 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
   const handleBackToStart = useCallback(() => {
     setViewState('upload');
     setOriginalVideo(null);
-    setReferenceImage(null);
-    setImageFileId('');
+    setProductImages([]);
     setSellingPoints('');
     setGeneratedVideo(null);
     setGenerationError(null);
+    setEstimatedCredits(0);
+    setEstimateError(null);
+    setActiveTaskId(null);
+    setPendingPrompt('');
+    setIsAwaitingPromptConfirmation(false);
   }, []);
 
-  const canSend =
-    (!!originalVideo && !!referenceImage && sellingPoints.trim().length > 0) ||
-    (!!originalVideo && !sellingPoints.trim()); // can analyze when video only
-  const isPrimaryAnalyze = !!originalVideo && !sellingPoints.trim();
-  const isPrimaryReplicate = !!sellingPoints.trim() && !!imageFileId;
+  const isPrimaryReplicate = hasRequiredInputs;
 
   const historySheet = (
-    <Sheet>
+    <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
       <SheetTrigger asChild>
         <button
           type="button"
@@ -302,11 +410,88 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
           <SheetTitle className="text-base font-medium">{t('videoReplication.history')}</SheetTitle>
         </SheetHeader>
         <div className="mt-4">
-          <p className="text-sm text-muted-foreground text-center py-8">{t('videoReplication.noHistory')}</p>
+          {isLoadingHistory ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{t('common.loading')}</p>
+          ) : historyItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{t('videoReplication.noHistory')}</p>
+          ) : (
+            <div className="space-y-2">
+              {historyItems.map((item) => (
+                <button
+                  key={String(item.taskId)}
+                  type="button"
+                  className="w-full rounded-xl border border-border/30 bg-card/60 px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                  onClick={() => {
+                    setHistoryOpen(false);
+                    void runTaskToResult(item.taskId);
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground truncate">#{String(item.taskId)}</p>
+                    <span className="text-[11px] text-muted-foreground">
+                      {t(`videoReplication.status.${item.status}`, { defaultValue: item.status })}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-foreground/80 line-clamp-2">
+                    {item.sellingPoints?.slice(0, 3).join('，') || '-'}
+                  </p>
+                </button>
+              ))}
+              {historyItems.length < historyTotal && (
+                <div className="pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={async () => {
+                      if (isLoadingHistory) return;
+                      setIsLoadingHistory(true);
+                      try {
+                        const nextPage = historyPage + 1;
+                        const res = await getVideoReplicaTasksPage({ page: nextPage, size: 10 });
+                        setHistoryItems((prev) => [...prev, ...(res.data?.list ?? [])]);
+                        setHistoryPage(nextPage);
+                        setHistoryTotal((prev) => res.data?.total ?? prev);
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : t('videoReplication.errors.loadHistoryFailed'));
+                      } finally {
+                        setIsLoadingHistory(false);
+                      }
+                    }}
+                  >
+                    {t('common.loadMore')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>
   );
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    let cancelled = false;
+    setIsLoadingHistory(true);
+    (async () => {
+      try {
+        const res = await getVideoReplicaTasksPage({ page: 1, size: 10 });
+        if (cancelled) return;
+        setHistoryItems(res.data?.list ?? []);
+        setHistoryTotal(res.data?.total ?? 0);
+        setHistoryPage(1);
+      } catch (e) {
+        if (cancelled) return;
+        toast.error(e instanceof Error ? e.message : t('videoReplication.errors.loadHistoryFailed'));
+      } finally {
+        if (!cancelled) setIsLoadingHistory(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [historyOpen, t]);
 
   if (viewState === 'result' && generatedVideo) {
     return (
@@ -376,10 +561,54 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
     );
   }
 
+  if (isAwaitingPromptConfirmation && activeTaskId) {
+    return (
+      <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-background">
+        <div className="shrink-0 px-6 py-3 border-b border-border/20 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleBackToStart}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {t('videoReplication.back')}
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-6 py-8 space-y-5">
+            <div className="rounded-xl border border-border/30 bg-card/60 p-4 space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-foreground/70">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500/80 flex items-center justify-center text-[10px] text-white">!</span>
+                  <span>{t('videoReplication.pendingPromptTitle')}</span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">{t('videoReplication.pendingPromptHint')}</p>
+              <Textarea
+                value={pendingPrompt}
+                onChange={(e) => setPendingPrompt(e.target.value)}
+                placeholder={t('videoReplication.pendingPromptPlaceholder')}
+                className="min-h-[220px] rounded-lg border border-border/30 bg-muted/10 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20 resize-y"
+              />
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="ghost" size="sm" onClick={handleBackToStart} disabled={isReplicating}>
+                  {t('videoReplication.startOver')}
+                </Button>
+                <Button size="sm" onClick={() => void handleConfirmPendingPrompt()} disabled={isReplicating}>
+                  {isReplicating ? <Loader2 className="w-4 h-4 animate-spin" /> : t('videoReplication.confirmPrompt')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-full">
       <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
-      <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
 
       <div className="absolute top-4 right-4 z-20">{historySheet}</div>
 
@@ -423,7 +652,7 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                       onClick={() => !isVideoUploading && fileInputRef.current?.click()}
                     >
                       {isVideoUploading ? (
-                        <LoadingSpinner className="w-5 h-5 text-primary" />
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
                       ) : (
                         <>
                           <Plus className="w-5 h-5 text-muted-foreground/60" />
@@ -435,38 +664,30 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 </div>
 
                 <div className="shrink-0">
-                  {referenceImage ? (
-                    <div className="relative w-[120px] h-[120px] rounded-xl overflow-hidden border border-border/40 bg-white group">
-                      <img src={referenceImage.url} alt="" className="w-full h-full object-contain" />
-                      <button
-                        type="button"
-                        className="absolute top-1 right-1 p-0.5 rounded-full bg-background/80 hover:bg-background transition-colors opacity-0 group-hover:opacity-100"
-                        onClick={() => { setReferenceImage(null); setImageFileId(''); }}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      className={cn(
-                        'w-[120px] h-[100px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-1.5 transition-colors border-border/40 hover:border-foreground/20 hover:bg-muted/20 cursor-pointer',
-                        isImageDragOver && 'border-primary bg-primary/5'
-                      )}
-                      onDragOver={(e) => { e.preventDefault(); setIsImageDragOver(true); }}
-                      onDragLeave={(e) => { e.preventDefault(); setIsImageDragOver(false); }}
-                      onDrop={handleImageDrop}
-                      onClick={() => !isImageUploading && imageInputRef.current?.click()}
-                    >
-                      {isImageUploading ? (
-                        <LoadingSpinner className="w-5 h-5 text-primary" />
-                      ) : (
-                        <>
-                          <ImageIcon className="w-5 h-5 text-muted-foreground/60" />
-                          <span className="text-[11px] text-muted-foreground/60 leading-tight text-center px-1">{t('videoReplication.uploadImageLabel')}</span>
-                        </>
-                      )}
-                    </div>
-                  )}
+                  <div
+                    className={cn(
+                      'w-[120px] h-[100px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-1.5 transition-colors border-border/40 hover:border-foreground/20 hover:bg-muted/20 cursor-pointer',
+                      isImageDragOver && 'border-primary bg-primary/5'
+                    )}
+                    onDragOver={(e) => { e.preventDefault(); setIsImageDragOver(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); setIsImageDragOver(false); }}
+                    onDrop={handleImageDrop}
+                    onClick={() => !isImageUploading && imageInputRef.current?.click()}
+                  >
+                    {isImageUploading ? (
+                      <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                    ) : (
+                      <>
+                        <ImageIcon className="w-5 h-5 text-muted-foreground/60" />
+                        <span className="text-[11px] text-muted-foreground/60 leading-tight text-center px-1">
+                          {t('videoReplication.uploadImageLabel')}
+                        </span>
+                        {productImages.length > 0 && (
+                          <span className="text-[10px] text-muted-foreground/60">{productImages.length}/5</span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -507,26 +728,24 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <EstimatedCreditsHint amount={estimatedCost} />
+                <EstimatedCreditsHint amount={estimatedCredits} />
                 <button
                   type="button"
                   onClick={() => {
-                    if (isPrimaryAnalyze) handleAnalyzeVideo();
-                    else if (isPrimaryReplicate) handleStartReplication();
+                    if (isPrimaryReplicate) void handleStartReplication();
                   }}
                   disabled={
-                    (isPrimaryAnalyze && isGenerating) ||
                     (isPrimaryReplicate && isReplicating) ||
-                    (!isPrimaryAnalyze && !isPrimaryReplicate)
+                    (!isPrimaryReplicate)
                   }
                   className={cn(
                     'w-9 h-9 rounded-full flex items-center justify-center transition-all',
-                    (isPrimaryAnalyze || isPrimaryReplicate) && !(isGenerating || isReplicating)
+                    (isPrimaryReplicate) && !(isReplicating)
                       ? 'bg-foreground text-background hover:bg-foreground/90'
                       : 'bg-muted/60 text-muted-foreground/40 cursor-not-allowed'
                   )}
                 >
-                  {(isGenerating || isReplicating) ? (
+                  {(isReplicating) ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <ArrowUp className="w-4 h-4" />
@@ -550,19 +769,13 @@ export function VideoReplication({ onNavigate }: VideoReplicationProps) {
         </div>
       </div>
 
-      {(viewState === 'analyzing' || viewState === 'generating') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4 max-w-md text-center">
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
-            <p className="font-medium text-foreground">
-              {viewState === 'analyzing' ? t('videoReplication.analyzingLabel') : t('videoReplication.generatingLabel')}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {viewState === 'analyzing' ? t('videoReplication.analyzingVideoHint') : t('videoReplication.generatingVideoHint')}
-            </p>
-          </div>
+      {estimateError && (
+        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-full border border-border/30 bg-background/90 px-4 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
+          {estimateError}
         </div>
       )}
+
+      {/* 提交/轮询时不展示全屏 loading，避免打断操作；按钮内会显示 spinner */}
     </div>
   );
 }

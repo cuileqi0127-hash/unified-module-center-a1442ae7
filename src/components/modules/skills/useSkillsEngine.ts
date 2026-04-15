@@ -1,5 +1,14 @@
 import { useState, useCallback, useRef } from 'react';
 import type { AgentInfo } from './AgentCard';
+import {
+  confirmTikTokSolutionPrompt,
+  createTikTokSolutionTask,
+  estimateTikTokSolutionCredits,
+  getTikTokSolutionTaskDetail,
+  selectTikTokSolutionCandidateVideo,
+  type TikTokSolutionTaskDetail,
+  type TikTokSolutionTaskListItem,
+} from '@/services/tiktokSolutionApi';
 
 export type TaskStatus = 'queued' | 'running' | 'done' | 'skipped' | 'error';
 
@@ -43,6 +52,24 @@ export interface CandidateVideo {
   strategy?: string;
   sellingPointHitRate?: number;
   tiktokUrl?: string;
+  /** 卡片内预览（如 OSS mp4），有则 TrendingVideoCard 用 video 元素 */
+  previewVideoUrl?: string;
+}
+
+/** 任务详情接口 `agents` 字段：左侧聊天区展示 */
+export interface TikTokBackendAgentMessage {
+  id: string;
+  type: string;
+  content: string;
+  timestamp?: string;
+  tool?: string;
+}
+
+export interface TikTokBackendAgent {
+  key: string;
+  name: string;
+  status: string;
+  messages: TikTokBackendAgentMessage[];
 }
 
 export interface SessionSetup {
@@ -70,7 +97,8 @@ export type StreamMessageType =
   | 'result-preview'
   | 'video-gen-status'
   | 'selection-confirm'
-  | 'final-result';
+  | 'final-result'
+  | 'tk-backend-agents';
 
 export interface StreamMessage {
   id: string;
@@ -83,6 +111,9 @@ export interface StreamMessage {
   agentNames?: { name: string; avatar: string }[];
   /** For read-memory messages – memory entry id */
   memoryId?: string;
+  /** GET /tasks/{id} 的 agents 同步到左侧聊天 */
+  backendAgents?: TikTokBackendAgent[];
+  backendEventSeq?: number;
 }
 
 export interface SkillsState {
@@ -107,17 +138,122 @@ export interface SkillsState {
   /** Checklist items */
   checklistItems: string[];
   checklistDone: boolean[];
+  /** backend task id */
+  backendTaskId?: string | number | null;
 }
 
 const CATEGORIES = ['美妆个护', '3C数码', '服饰鞋包', '家居日用', '食品饮料', '母婴用品', '其它'];
 
-const mockVideos = (): CandidateVideo[] => [
-  { id: `v-${Date.now()}-1`, cover: '', title: 'These come in handy daily! @MINISO #translationearbuds', duration: '0:43', tags: ['美妆', '种草'], views: '28.0M', likes: '1.1M', comments: '12.3K', shares: '8.5K', salesCount: 268, growthRate: '0.0%', analysis: '视频解析', strategy: '开场直击跑步场景痛点，展现佩戴稳固与运动舒适。', sellingPointHitRate: 0, tiktokUrl: 'https://www.tiktok.com/@miniso' },
-  { id: `v-${Date.now()}-2`, cover: '', title: '沉浸式开箱ASMR｜超治愈解压', duration: '0:45', tags: ['开箱', 'ASMR'], views: '15.2M', likes: '890K', comments: '6.7K', shares: '4.2K', salesCount: 1520, growthRate: '12.3%', analysis: '视频解析', strategy: '利用ASMR声效配合近景展示产品细节，引发感官共鸣。', sellingPointHitRate: 35, tiktokUrl: 'https://www.tiktok.com/' },
-  { id: `v-${Date.now()}-3`, cover: '', title: '日常妆容教程｜通勤必备5分钟出门', duration: '1:02', tags: ['教程', '日常'], views: '42.1M', likes: '2.3M', comments: '18.9K', shares: '15.1K', salesCount: 3890, growthRate: '8.7%', analysis: '视频解析', strategy: '以通勤场景切入，展示快速上妆流程，突出便携性。', sellingPointHitRate: 72, tiktokUrl: 'https://www.tiktok.com/' },
-  { id: `v-${Date.now()}-4`, cover: '', title: '产品对比测评TOP3｜真实体验分享', duration: '0:58', tags: ['测评', '对比'], views: '8.9M', likes: '520K', comments: '9.1K', shares: '3.8K', salesCount: 756, growthRate: '5.2%', analysis: '视频解析', strategy: '横向对比同类产品，通过数据和实测突出性价比优势。', sellingPointHitRate: 45, tiktokUrl: 'https://www.tiktok.com/' },
-  { id: `v-${Date.now()}-5`, cover: '', title: '一分钟get氛围感穿搭｜秋冬必入', duration: '0:28', tags: ['穿搭', '氛围'], views: '31.2M', likes: '1.8M', comments: '14.2K', shares: '11.3K', salesCount: 2340, growthRate: '15.6%', analysis: '视频解析', strategy: '快节奏换装展示多套搭配，突出单品百搭特性。', sellingPointHitRate: 58, tiktokUrl: 'https://www.tiktok.com/' },
-];
+function toLines(text: string): string[] {
+  return text
+    .split(/[\n,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function looksLikeVideoUrl(u: string | undefined | null): boolean {
+  if (!u) return false;
+  return /\.(mp4|webm|mov)(\?|$)/i.test(u);
+}
+
+function formatMetricNumber(n: unknown): string {
+  if (typeof n === 'number' && Number.isFinite(n)) {
+    const loc = typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US';
+    if (Math.abs(n) >= 10000) {
+      return new Intl.NumberFormat(loc, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+    }
+    return new Intl.NumberFormat(loc, { maximumFractionDigits: 0 }).format(n);
+  }
+  if (typeof n === 'string' && n.trim()) return n;
+  return '-';
+}
+
+function parseHashtagTags(raw: unknown): string[] {
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  return raw
+    .split(/[\s#]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function normalizeBackendAgentsFromDetail(detail: TikTokSolutionTaskDetail): TikTokBackendAgent[] {
+  const raw = detail.agents;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw.map((a, i) => {
+    const rec = a as Record<string, unknown>;
+    const msgsRaw = rec.messages;
+    const messages: TikTokBackendAgentMessage[] = Array.isArray(msgsRaw)
+      ? (msgsRaw as Record<string, unknown>[]).map((m, j) => {
+          const mr = m;
+          return {
+            id: String(mr.id ?? `${rec.key ?? i}-${j}`),
+            type: String(mr.type ?? 'text'),
+            content: String(mr.content ?? ''),
+            timestamp: mr.timestamp != null ? String(mr.timestamp) : undefined,
+            tool: mr.tool != null ? String(mr.tool) : undefined,
+          };
+        })
+      : [];
+    return {
+      key: String(rec.key ?? i),
+      name: String(rec.name ?? rec.key ?? 'Agent'),
+      status: String(rec.status ?? ''),
+      messages,
+    };
+  });
+}
+
+function mapDetailCandidateVideos(detail: TikTokSolutionTaskDetail): CandidateVideo[] {
+  return (detail.candidateVideos ?? []).map((v) => {
+    const title = (v.title as string | undefined) ?? `#${v.rankNo}`;
+    const views = formatMetricNumber(v.views);
+    const likes = formatMetricNumber(v.likes);
+    const duration =
+      typeof v.duration === 'number'
+        ? `${Math.floor(v.duration / 60)}:${String(Math.round(v.duration % 60)).padStart(2, '0')}`
+        : (v.duration as string | undefined) ?? '-';
+    const strategy = (v.strategy as string | undefined) ?? '';
+    const ar = v.analysis_result as { overall_match_percent?: number; video_description?: string } | undefined;
+    const analysisFromDesc = typeof ar?.video_description === 'string' ? ar.video_description : '';
+    const analysis =
+      analysisFromDesc ||
+      (v.analysis_result ? JSON.stringify(v.analysis_result, null, 2) : (v.analysis as string | undefined)) ||
+      '';
+    const overall = typeof ar?.overall_match_percent === 'number' ? ar.overall_match_percent : undefined;
+    const spm = typeof v.sellingPointMatch === 'number' ? v.sellingPointMatch : undefined;
+    const hitRate = overall != null && overall > 0 ? overall : spm;
+    const mediaUrl = v.url;
+    const previewVideoUrl = looksLikeVideoUrl(mediaUrl) ? mediaUrl : undefined;
+    const salesRaw = v.sales;
+    const salesCount = typeof salesRaw === 'number' && Number.isFinite(salesRaw) ? salesRaw : undefined;
+    const convRaw = v.conversionRate;
+    const growthRate =
+      typeof convRaw === 'number' && Number.isFinite(convRaw)
+        ? `${(convRaw * 100).toFixed(convRaw < 0.01 && convRaw > 0 ? 2 : 0)}%`
+        : undefined;
+    const tagStr = (v.hashtags as string | undefined) ?? '';
+    const tags = parseHashtagTags(tagStr);
+    const id = (v.id as string | undefined) || v.candidateKey;
+    return {
+      id,
+      cover: mediaUrl,
+      previewVideoUrl,
+      title,
+      duration,
+      tags,
+      views,
+      likes,
+      analysis,
+      strategy,
+      sellingPointHitRate: hitRate,
+      tiktokUrl: v.sourceVideoUrl,
+      salesCount,
+      growthRate,
+    };
+  });
+}
 
 function now() {
   return new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -129,6 +265,51 @@ const initialAgents: AgentInfo[] = [
   { id: 'agent-03', number: '03', name: 'Prompt专家', role: 'TikTok爆款视频Prompt设计', avatar: 'strategist', statusText: '等待启动', progress: 0, status: 'idle' },
   { id: 'agent-04', number: '04', name: '视频专家', role: '视频生成与合成', avatar: 'video', statusText: '等待启动', progress: 0, status: 'idle' },
 ];
+
+function buildSkillsTasks(setup: SessionSetup): SkillTask[] {
+  return [
+    {
+      id: 'task-crawl', title: '抓取同品类 TK 爆款视频',
+      status: 'queued', progress: 0, logs: [], children: [
+        { id: 'task-crawl-spider', title: '启动 TikTok 爬虫', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '爬虫专家', avatar: 'crawler', role: '数据爬取专家' } },
+        { id: 'task-crawl-analyze', title: '分析卖点匹配度', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '数据专家', avatar: 'analyst', role: '数据分析专家' } },
+        { id: 'task-crawl-rank', title: '排序生成 Top 20', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '策略专家', avatar: 'strategist', role: '策略专家' } },
+        { id: 'task-crawl-cover', title: '提取视频封面', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '视频专家', avatar: 'video', role: '视频制作专家' } },
+      ],
+      moduleChain: ['TikTokCrawler', 'ContentAnalyzer', 'RankingEngine', 'ThumbnailGen'],
+      input: `品类: ${setup.category}, 卖点: ${setup.sellingPoints.slice(0, 50)}`,
+      expert: { name: '爬虫', avatar: 'crawler', role: '' },
+    },
+    {
+      id: 'task-memory', title: '构建记忆库特征向量',
+      status: setup.memoryEnabled ? 'queued' : 'skipped',
+      progress: 0, logs: [], children: [
+        { id: 'task-memory-connect', title: '连接记忆库', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '记忆专家', avatar: 'memory', role: '记忆管理专家' } },
+        { id: 'task-memory-retrieve', title: '检索相关记忆', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '检索专家', avatar: 'search', role: '信息检索专家' } },
+        { id: 'task-memory-context', title: '构建上下文向量', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '数据专家', avatar: 'analyst', role: '数据分析专家' } },
+      ],
+      expert: { name: '记忆库', avatar: 'memory', role: '' },
+    },
+    {
+      id: 'task-reverse-prompt', title: '设计专属Prompt',
+      status: 'queued', progress: 0, logs: [], children: [
+        { id: 'rp-frame', title: '视频帧分析', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '视频专家', avatar: 'video', role: '视频制作专家' } },
+        { id: 'rp-style', title: '风格特征提取', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '设计专家', avatar: 'designer', role: '创意制作专家' } },
+        { id: 'rp-prompt', title: '提示词生成', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '策略专家', avatar: 'strategist', role: '策略专家' } },
+      ],
+      expert: { name: '提示词', avatar: 'strategist', role: '' },
+    },
+    {
+      id: 'task-generate-video', title: '生成爆款视频',
+      status: 'queued', progress: 0, logs: [], children: [
+        { id: 'sub-scene', title: '渲染场景', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '设计专家', avatar: 'designer', role: '创意制作专家' } },
+        { id: 'sub-audio', title: '音频合成', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '音频专家', avatar: 'audio', role: '音频制作专家' } },
+        { id: 'sub-compose', title: '视频合成', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '视频专家', avatar: 'video', role: '视频制作专家' } },
+      ],
+      expert: { name: '视频', avatar: 'video', role: '' },
+    },
+  ];
+}
 
 export function useSkillsEngine() {
   const [state, setState] = useState<SkillsState>({
@@ -148,14 +329,142 @@ export function useSkillsEngine() {
     activeRightView: 'none',
     checklistItems: [],
     checklistDone: [],
+    backendTaskId: null,
   });
 
   const streamTimers = useRef<number[]>([]);
+  const pollingTimer = useRef<number | null>(null);
+  const pollingTaskId = useRef<string | number | null>(null);
 
   const clearTimers = () => {
     streamTimers.current.forEach(clearTimeout);
     streamTimers.current = [];
   };
+
+  const stopPolling = useCallback(() => {
+    if (pollingTimer.current) {
+      window.clearTimeout(pollingTimer.current);
+      pollingTimer.current = null;
+    }
+    pollingTaskId.current = null;
+  }, []);
+
+  const applyDetailToState = useCallback((detail: TikTokSolutionTaskDetail) => {
+    const candidates = mapDetailCandidateVideos(detail);
+    setState((prev) => {
+      let selectedVideo = prev.selectedVideo;
+      if (detail.selectedVideoUrl) {
+        const found = candidates.find(
+          (c) =>
+            c.cover === detail.selectedVideoUrl ||
+            c.tiktokUrl === detail.selectedVideoUrl ||
+            c.previewVideoUrl === detail.selectedVideoUrl
+        );
+        selectedVideo =
+          found ??
+          ({
+            id: 'selected-video',
+            cover: detail.selectedVideoUrl,
+            title: '已选对标视频',
+            duration: '-',
+            tags: [],
+            views: '-',
+            likes: '-',
+            analysis: '',
+            strategy: '',
+          } as CandidateVideo);
+      } else if (detail.status === 'awaiting_selection') {
+        selectedVideo = null;
+      }
+
+      const generatedPrompt =
+        detail.status === 'completed'
+          ? (detail.confirmedPrompt ?? detail.pendingPrompt ?? prev.generatedPrompt)
+          : (detail.pendingPrompt ?? prev.generatedPrompt);
+
+      const agents = prev.agents.map((a) => {
+        if (detail.status === 'awaiting_selection') {
+          if (a.id === 'agent-01') return { ...a, status: 'done' as const, progress: 100, statusText: '已完成爆款视频匹配，请选择对标视频' };
+          return a.id === 'agent-02' || a.id === 'agent-03' || a.id === 'agent-04'
+            ? { ...a, status: 'idle' as const, progress: 0, statusText: '等待启动' }
+            : a;
+        }
+        if (detail.status === 'awaiting_confirmation') {
+          if (a.id === 'agent-03') return { ...a, status: 'running' as const, progress: 80, statusText: '已生成待确认 Prompt，请确认或编辑' };
+          return a;
+        }
+        if (detail.status === 'completed') {
+          if (a.id === 'agent-04') return { ...a, status: 'done' as const, progress: 100, statusText: '视频已生成完成' };
+          return a.status === 'idle' ? a : { ...a, status: 'done' as const, progress: 100, statusText: a.statusText };
+        }
+        if (detail.status === 'failed' || detail.status === 'closed_timeout') {
+          return { ...a, status: 'error' as const, progress: a.progress, statusText: detail.errorMessage || '任务失败或超时' };
+        }
+        if (a.status === 'idle') return { ...a, status: 'running' as const, progress: 30, statusText: '处理中...' };
+        return a;
+      });
+
+      const backendAgents = normalizeBackendAgentsFromDetail(detail);
+      const messages =
+        backendAgents.length > 0
+          ? (() => {
+              const rest = prev.messages.filter((m) => m.id !== 'feed-backend-agents');
+              const feedMsg: StreamMessage = {
+                id: 'feed-backend-agents',
+                type: 'tk-backend-agents',
+                content: '',
+                backendAgents,
+                backendEventSeq: detail.latestEventSeq,
+              };
+              return [...rest, feedMsg];
+            })()
+          : prev.messages;
+
+      return {
+        ...prev,
+        backendTaskId: detail.taskId,
+        candidateVideos: candidates,
+        selectedVideo,
+        generatedPrompt,
+        resultVideo: detail.videoUrl ? { url: detail.videoUrl, cover: detail.videoUrl } : prev.resultVideo,
+        isProcessing: detail.status === 'processing' || detail.status === 'queued',
+        agents,
+        messages,
+      };
+    });
+  }, []);
+
+  const pollDetail = useCallback(async (taskId: string | number) => {
+    pollingTaskId.current = taskId;
+    const tick = async () => {
+      if (pollingTaskId.current !== taskId) return;
+      try {
+        const res = await getTikTokSolutionTaskDetail(taskId);
+        const detail = res.data;
+        applyDetailToState(detail);
+
+        if (detail.status === 'processing' || detail.status === 'queued') {
+          pollingTimer.current = window.setTimeout(tick, 3000);
+          return;
+        }
+        // break statuses: awaiting_selection / awaiting_confirmation / completed / failed / closed_timeout
+        if (detail.status === 'awaiting_selection') {
+          setState((prev) => ({ ...prev, activeRightView: 'agents', activeAgentTab: '01', isProcessing: false }));
+        } else if (detail.status === 'awaiting_confirmation') {
+          setState((prev) => ({ ...prev, activeRightView: 'agents', activeAgentTab: '03', isProcessing: false }));
+        } else if (detail.status === 'completed') {
+          setState((prev) => ({ ...prev, activeRightView: 'agents', activeAgentTab: '04', isProcessing: false, checklistDone: [true, true, true, true] }));
+        } else {
+          setState((prev) => ({ ...prev, isProcessing: false }));
+        }
+        stopPolling();
+      } catch {
+        // retry next tick
+        pollingTimer.current = window.setTimeout(tick, 4000);
+      }
+    };
+    await tick();
+  }, [applyDetailToState, stopPolling]);
 
   // Helpers
   const addMessage = useCallback((msg: Omit<StreamMessage, 'id'>) => {
@@ -249,8 +558,9 @@ export function useSkillsEngine() {
     }));
   }, []);
 
-  // ─── Phase 0: Complete setup ───
+  // ─── Phase 0: Complete setup (real backend) ───
   const completeSetup = useCallback((setup: SessionSetup) => {
+    stopPolling();
     const checklistItems = [
       '匹配对标品类和卖点的爆款视频列表',
       '构建记忆库特征向量',
@@ -258,49 +568,7 @@ export function useSkillsEngine() {
       '生成专属爆款视频',
     ];
 
-    // Create tasks
-    const tasks: SkillTask[] = [
-      {
-        id: 'task-crawl', title: '抓取同品类 TK 爆款视频',
-        status: 'queued', progress: 0, logs: [], children: [
-          { id: 'task-crawl-spider', title: '启动 TikTok 爬虫', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '爬虫专家', avatar: 'crawler', role: '数据爬取专家' } },
-          { id: 'task-crawl-analyze', title: '分析卖点匹配度', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '数据专家', avatar: 'analyst', role: '数据分析专家' } },
-          { id: 'task-crawl-rank', title: '排序生成 Top 20', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '策略专家', avatar: 'strategist', role: '策略专家' } },
-          { id: 'task-crawl-cover', title: '提取视频封面', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '视频专家', avatar: 'video', role: '视频制作专家' } },
-        ],
-        moduleChain: ['TikTokCrawler', 'ContentAnalyzer', 'RankingEngine', 'ThumbnailGen'],
-        input: `品类: ${setup.category}, 卖点: ${setup.sellingPoints.slice(0, 50)}`,
-        expert: { name: '爬虫', avatar: 'crawler', role: '' },
-      },
-      {
-        id: 'task-memory', title: '构建记忆库特征向量',
-        status: setup.memoryEnabled ? 'queued' : 'skipped',
-        progress: 0, logs: [], children: [
-          { id: 'task-memory-connect', title: '连接记忆库', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '记忆专家', avatar: 'memory', role: '记忆管理专家' } },
-          { id: 'task-memory-retrieve', title: '检索相关记忆', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '检索专家', avatar: 'search', role: '信息检索专家' } },
-          { id: 'task-memory-context', title: '构建上下文向量', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '数据专家', avatar: 'analyst', role: '数据分析专家' } },
-        ],
-        expert: { name: '记忆库', avatar: 'memory', role: '' },
-      },
-      {
-        id: 'task-reverse-prompt', title: '设计专属Prompt',
-        status: 'queued', progress: 0, logs: [], children: [
-          { id: 'rp-frame', title: '视频帧分析', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '视频专家', avatar: 'video', role: '视频制作专家' } },
-          { id: 'rp-style', title: '风格特征提取', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '设计专家', avatar: 'designer', role: '创意制作专家' } },
-          { id: 'rp-prompt', title: '提示词生成', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '策略专家', avatar: 'strategist', role: '策略专家' } },
-        ],
-        expert: { name: '提示词', avatar: 'strategist', role: '' },
-      },
-      {
-        id: 'task-generate-video', title: '生成爆款视频',
-        status: 'queued', progress: 0, logs: [], children: [
-          { id: 'sub-scene', title: '渲染场景', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '设计专家', avatar: 'designer', role: '创意制作专家' } },
-          { id: 'sub-audio', title: '音频合成', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '音频专家', avatar: 'audio', role: '音频制作专家' } },
-          { id: 'sub-compose', title: '视频合成', status: 'queued', progress: 0, logs: [], children: [], expert: { name: '视频专家', avatar: 'video', role: '视频制作专家' } },
-        ],
-        expert: { name: '视频', avatar: 'video', role: '' },
-      },
-    ];
+    const tasks = buildSkillsTasks(setup);
 
     setState(prev => ({
       ...prev,
@@ -316,348 +584,115 @@ export function useSkillsEngine() {
     addMessage({ type: 'setup-summary', content: JSON.stringify(setup) });
 
     (async () => {
-      // Intro text
-      streamText('现在让我为你编写专属TikTok解决方案。', async () => {
-        await pause(600);
+      // 预估 + 提交任务
+      const sellingPointsArr = toLines(setup.sellingPoints);
+      if (!setup.image || sellingPointsArr.length === 0) {
+        setState((prev) => ({ ...prev, isProcessing: false }));
+        return;
+      }
+      const memoryEntryIds = (setup.selectedMemoryIds ?? [])
+        .map((x) => Number(x))
+        .filter((n) => Number.isFinite(n));
+      const lang = navigator.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 
-        // Show checklist
+      try {
         addMessage({ type: 'checklist', content: '' });
-        await pause(800);
+        addMessage({ type: 'text', content: '🔍 正在预估积分…' });
+        const estimate = await estimateTikTokSolutionCredits({
+          sellingPoints: sellingPointsArr,
+          productImageUrls: [setup.image],
+          searchKeyword: setup.category,
+          candidateCount: 10,
+          aspectRatio: '9:16',
+          duration: 15,
+          lang,
+          ...(memoryEntryIds.length ? { memoryEntryIds } : {}),
+        });
+        addMessage({ type: 'text', content: `✅ 预计消耗：${estimate.data.estimatedCredits} 积分` });
 
-        // ─── Phase 1: Agent 01 - 爆款专家 ───
-        addMessage({ type: 'create-agent', content: '创建TikTok爆款专家代理', agentNames: [{ name: 'TikTok爆款专家', avatar: 'search' }] });
-        await pause(400);
+        addMessage({ type: 'text', content: '🎯 正在提交任务并启动 Agent…' });
+        const created = await createTikTokSolutionTask({
+          sellingPoints: sellingPointsArr,
+          productImageUrls: [setup.image],
+          searchKeyword: setup.category,
+          candidateCount: 10,
+          aspectRatio: '9:16',
+          duration: 15,
+          lang,
+          ...(memoryEntryIds.length ? { memoryEntryIds } : {}),
+        });
 
-        const agent01: AgentInfo = {
-          id: 'agent-01', number: '01', name: 'TikTok爆款专家', role: 'TK爆款视频匹配',
-          avatar: 'search', status: 'running',
-          statusText: `正在为你匹配对标「${setup.category}」品类和「${setup.sellingPoints.slice(0, 20)}」卖点的爆款视频列表`,
-          progress: 10,
-        };
-
-        setState(prev => ({
-          ...prev,
-          agents: prev.agents.map(a => a.id === 'agent-01' ? agent01 : a),
-          activeRightView: 'agents',
-          activeAgentTab: '01',
-        }));
-
-        addMessage({ type: 'agent-cluster', content: '', agents: [agent01] });
-        await pause(400);
-
-        // Run crawl task
-        updateTask('task-crawl', { status: 'running', startAt: now() });
-        addTaskLog('task-crawl', 'TikTok爆款专家启动 TikTok 爬虫...');
-
-        // Sub 1: Spider
-        updateChild('task-crawl', 'task-crawl-spider', { status: 'running', title: '爬虫专家正在启动 TikTok 爬虫' });
-        updateAgentInMessages('agent-01', { progress: 25, statusText: '正在抓取TikTok视频数据...' });
-        updateAgent('agent-01', { progress: 25, statusText: '正在抓取TikTok视频数据...' });
-        await backendDelay();
-        updateChild('task-crawl', 'task-crawl-spider', { status: 'done', progress: 100, title: '爬虫专家完成启动 TikTok 爬虫' });
-        const crawlCount = Math.floor(Math.random() * 251) + 50;
-        addTaskLog('task-crawl', `爬虫专家完成抓取 → 共获取 ${crawlCount} 条视频数据`);
-
-        // Sub 2: Analyze
-        updateChild('task-crawl', 'task-crawl-analyze', { status: 'running', title: '数据专家正在分析卖点匹配度' });
-        addTaskLog('task-crawl', '数据专家正在分析卖点匹配度...');
-        updateAgentInMessages('agent-01', { progress: 50, statusText: '正在分析卖点匹配度...' });
-        updateAgent('agent-01', { progress: 50, statusText: '正在分析卖点匹配度...' });
-        await backendDelay();
-        updateChild('task-crawl', 'task-crawl-analyze', { status: 'done', progress: 100, title: '数据专家完成分析卖点匹配度' });
-        const matchRate = (Math.random() * 50 + 50).toFixed(1);
-        const highMatchCount = Math.floor(Math.random() * 21) + 10;
-        addTaskLog('task-crawl', `数据专家完成分析 → 平均匹配度 ${matchRate}%，高匹配 ${highMatchCount} 条`);
-
-        // Sub 3: Rank
-        updateChild('task-crawl', 'task-crawl-rank', { status: 'running', title: '策略专家正在排序生成 Top 20' });
-        updateAgentInMessages('agent-01', { progress: 75, statusText: '正在生成 Top 20 排名...' });
-        updateAgent('agent-01', { progress: 75, statusText: '正在生成 Top 20 排名...' });
-        await randDelay();
-        updateChild('task-crawl', 'task-crawl-rank', { status: 'done', progress: 100, title: '策略专家完成排序生成 Top 20' });
-        addTaskLog('task-crawl', '策略专家完成排序 → Top 6候选已生成');
-
-        // Sub 4: Cover
-        updateChild('task-crawl', 'task-crawl-cover', { status: 'running', title: '视频专家正在提取视频封面' });
-        updateAgentInMessages('agent-01', { progress: 90, statusText: '正在提取视频封面...' });
-        updateAgent('agent-01', { progress: 90, statusText: '正在提取视频封面...' });
-        await subDelay();
-        updateChild('task-crawl', 'task-crawl-cover', { status: 'done', progress: 100, title: '视频专家完成提取视频封面' });
-        addTaskLog('task-crawl', '视频专家完成封面提取 → 26张高清封面已缓存');
-
-        updateTask('task-crawl', { status: 'done', progress: 100, endAt: now(), output: '抓取 142 条，Top 20 已排序' });
-        updateAgentInMessages('agent-01', { progress: 100, status: 'done', statusText: '已完成爆款视频匹配，请选择对标视频' });
-        updateAgent('agent-01', { progress: 100, status: 'done', statusText: '已完成爆款视频匹配，请选择对标视频' });
-
-        // Update checklist
-        setState(prev => ({
-          ...prev,
-          checklistDone: [true, ...prev.checklistDone.slice(1)],
-        }));
-
-        // Show video candidates
-        const videos = mockVideos();
-        setState(prev => ({
-          ...prev,
-          candidateVideos: videos,
-          isProcessing: false,
-          activeRightView: 'agents',
-          activeAgentTab: '01',
-        }));
-
-        addMessage({ type: 'video-gen-status', content: '请从右侧面板选择一条对标视频进行复刻 →' });
-      });
+        const taskId = created.data?.taskId;
+        if (!taskId) throw new Error('taskId missing');
+        setState((prev) => ({ ...prev, backendTaskId: taskId, activeRightView: 'agents', activeAgentTab: '01' }));
+        await pollDetail(taskId);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '请求失败';
+        addMessage({ type: 'text', content: `❌ ${msg}` });
+        setState((prev) => ({ ...prev, isProcessing: false }));
+      }
     })();
-  }, [streamText, addMessage, updateTask, addTaskLog, updateChild, updateAgent, updateAgentInMessages]);
+  }, [addMessage, pollDetail, stopPolling]);
 
-  // ─── Select video → Phase 2: Agent 02 + 03 parallel ───
+  // ─── Select video (real backend) ───
   const selectVideo = useCallback((video: CandidateVideo) => {
+    if (!state.backendTaskId) return;
+    stopPolling();
     setState(prev => ({
       ...prev,
       selectedVideo: video,
       isProcessing: true,
     }));
 
-    addMessage({ type: 'selection-confirm', content: `已选择「${video.title}」作为对标视频，现在为你生成专属爆款视频Prompt。` });
-
+    addMessage({ type: 'selection-confirm', content: `已选择「${video.title}」作为对标视频，正在提交选择…` });
     (async () => {
-      await pause(600);
-      addMessage({ type: 'read-checklist', content: '读取待办清单' });
-      await pause(400);
-
-      // Show memory files if enabled
-      if (state.setup.memoryEnabled && state.setup.selectedMemoryIds.length > 0) {
-        for (const memId of state.setup.selectedMemoryIds) {
-          addMessage({ type: 'read-memory', content: '', memoryId: memId });
-          await pause(300);
-        }
-        await pause(200);
+      try {
+        await selectTikTokSolutionCandidateVideo(state.backendTaskId as any, { url: video.cover });
+        await pollDetail(state.backendTaskId as any);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '选择失败';
+        addMessage({ type: 'text', content: `❌ ${msg}` });
+        setState((prev) => ({ ...prev, isProcessing: false }));
       }
-
-      addMessage({ type: 'create-agent', content: '创建记忆库信息和Prompt设计专家代理', agentNames: [{ name: '记忆库专家', avatar: 'memory' }, { name: 'Prompt专家', avatar: 'strategist' }] });
-      await pause(400);
-
-      // Agent 02 + 03 cluster
-      const agent02: AgentInfo = {
-        id: 'agent-02', number: '02', name: '记忆库专家', role: '记忆库特征向量构建',
-        avatar: 'memory', status: 'running',
-        statusText: '正在为你构建记忆库特征向量',
-        progress: 10,
-      };
-      const agent03: AgentInfo = {
-        id: 'agent-03', number: '03', name: 'Prompt专家', role: 'Prompt设计',
-        avatar: 'strategist', status: 'running',
-        statusText: '正在为你设计专属TikTok爆款视频Prompt',
-        progress: 10,
-      };
-
-      setState(prev => ({
-        ...prev,
-        agents: prev.agents.map(a => {
-          if (a.id === 'agent-02') return agent02;
-          if (a.id === 'agent-03') return agent03;
-          return a;
-        }),
-        activeRightView: 'agents',
-        activeAgentTab: '02',
-      }));
-
-      addMessage({ type: 'agent-cluster', content: '', agents: [agent02, agent03] });
-
-      // Run Agent 02 (memory) and Agent 03 (prompt) in parallel
-      const runAgent02 = async () => {
-        const setup = state.setup;
-        if (!setup.memoryEnabled) {
-          updateTask('task-memory', { status: 'skipped', endAt: now() });
-          updateAgentInMessages('agent-02', { status: 'skipped' as any, progress: 0, statusText: '未选择记忆库，已跳过' });
-          updateAgent('agent-02', { status: 'skipped' as any, progress: 0, statusText: '未选择记忆库，已跳过' });
-          return;
-        }
-
-        updateTask('task-memory', { status: 'running', startAt: now() });
-        addTaskLog('task-memory', '记忆专家正在连接记忆库...');
-
-        updateChild('task-memory', 'task-memory-connect', { status: 'running', title: '记忆专家正在连接记忆库' });
-        updateAgentInMessages('agent-02', { progress: 20, statusText: '正在连接记忆库...' });
-        updateAgent('agent-02', { progress: 20, statusText: '正在连接记忆库...' });
-        await subDelay();
-        updateChild('task-memory', 'task-memory-connect', { status: 'done', progress: 100, title: '记忆专家完成连接记忆库' });
-        addTaskLog('task-memory', '记忆专家完成连接记忆库 → 已建立安全连接');
-
-        updateChild('task-memory', 'task-memory-retrieve', { status: 'running', title: '检索专家正在检索相关记忆' });
-        updateAgentInMessages('agent-02', { progress: 50, statusText: '正在检索相关记忆...' });
-        updateAgent('agent-02', { progress: 50, statusText: '正在检索相关记忆...' });
-        await subDelay();
-        const memoryCount = setup.selectedMemoryIds.length || 4;
-        updateChild('task-memory', 'task-memory-retrieve', { status: 'done', progress: 100, title: '检索专家完成检索相关记忆' });
-        addTaskLog('task-memory', `检索专家完成检索 → 命中 ${memoryCount} 条相关记忆`);
-
-        updateChild('task-memory', 'task-memory-context', { status: 'running', title: '数据专家正在构建上下文向量' });
-        updateAgentInMessages('agent-02', { progress: 80, statusText: '正在构建特征向量...' });
-        updateAgent('agent-02', { progress: 80, statusText: '正在构建特征向量...' });
-        await subDelay();
-        updateChild('task-memory', 'task-memory-context', { status: 'done', progress: 100, title: '数据专家完成构建上下文向量' });
-        const vectorDim = Math.floor(Math.random() * 50) + 1;
-        addTaskLog('task-memory', `数据专家完成构建上下文向量 → 生成 ${vectorDim} 维特征向量`);
-
-        updateTask('task-memory', { status: 'done', progress: 100, endAt: now(), output: `已检索 ${memoryCount} 条记忆，构建上下文完成` });
-        updateAgentInMessages('agent-02', { status: 'done', progress: 100, statusText: `已完成，检索到 ${memoryCount} 条记忆` });
-        updateAgent('agent-02', { status: 'done', progress: 100, statusText: `已完成，检索到 ${memoryCount} 条记忆` });
-
-        setState(prev => ({
-          ...prev,
-          checklistDone: [prev.checklistDone[0], true, ...prev.checklistDone.slice(2)],
-        }));
-      };
-
-      const runAgent03 = async () => {
-        updateTask('task-reverse-prompt', { status: 'running', startAt: now(), input: `视频: ${video.title}` });
-        addTaskLog('task-reverse-prompt', '开始分析视频内容...');
-
-        updateChild('task-reverse-prompt', 'rp-frame', { status: 'running', title: '视频专家正在分析视频帧' });
-        updateAgentInMessages('agent-03', { progress: 20, statusText: '正在分析视频帧...' });
-        updateAgent('agent-03', { progress: 20, statusText: '正在分析视频帧...' });
-        await randDelay();
-        updateChild('task-reverse-prompt', 'rp-frame', { status: 'done', progress: 100, title: '视频专家完成视频帧分析' });
-        const keyFrames = Math.floor(Math.random() * 41) + 20;
-        addTaskLog('task-reverse-prompt', `视频专家完成视频帧分析 → 提取 ${keyFrames} 个关键帧`);
-
-        updateChild('task-reverse-prompt', 'rp-style', { status: 'running', title: '设计专家正在提取风格特征' });
-        updateAgentInMessages('agent-03', { progress: 50, statusText: '正在提取风格特征...' });
-        updateAgent('agent-03', { progress: 50, statusText: '正在提取风格特征...' });
-        await randDelay();
-        updateChild('task-reverse-prompt', 'rp-style', { status: 'done', progress: 100, title: '设计专家完成风格特征提取' });
-        addTaskLog('task-reverse-prompt', '设计专家完成风格特征提取');
-
-        updateChild('task-reverse-prompt', 'rp-prompt', { status: 'running', title: '策略专家正在生成提示词' });
-        updateAgentInMessages('agent-03', { progress: 80, statusText: '正在生成Prompt...' });
-        updateAgent('agent-03', { progress: 80, statusText: '正在生成Prompt...' });
-        await backendDelay();
-        updateChild('task-reverse-prompt', 'rp-prompt', { status: 'done', progress: 100, title: '策略专家完成提示词生成' });
-        addTaskLog('task-reverse-prompt', '策略专家完成提示词生成 → 包含镜头、节奏、结构等 6 个维度');
-
-        updateTask('task-reverse-prompt', { status: 'done', progress: 100, endAt: now(), output: '提示词生成完成' });
-        updateAgentInMessages('agent-03', { status: 'done', progress: 100, statusText: '已完成Prompt设计' });
-        updateAgent('agent-03', { status: 'done', progress: 100, statusText: '已完成Prompt设计' });
-
-        setState(prev => ({
-          ...prev,
-          checklistDone: [prev.checklistDone[0], prev.checklistDone[1], true, ...prev.checklistDone.slice(3)],
-        }));
-      };
-
-      await Promise.all([runAgent02(), runAgent03()]);
-
-      const mockPrompt = `【爆款复刻 Prompt】\n\n镜头风格：近景特写 + 俯拍切换，暖色调滤镜\n节奏：快节奏剪辑，BGM 节拍同步\n内容结构：\n1. 开场 - 产品白底展示，旋转 360°（0-3s）\n2. 使用场景 - 手部特写展示质感（3-8s）\n3. 效果对比 - 使用前后对比（8-15s）\n4. 口播种草 - 真人出镜，口述卖点（15-25s）\n5. 结尾 CTA - 点击链接，限时优惠（25-30s）\n\n关键词：${state.setup.sellingPoints.slice(0, 30)}\n品类：${state.setup.category}\n参考来源：${video.title}`;
-
-      setState(prev => ({
-        ...prev,
-        generatedPrompt: mockPrompt,
-        isProcessing: false,
-      }));
-
-      addMessage({ type: 'video-gen-status', content: '✅ Prompt已生成，请在右侧面板查看和编辑，确认后生成视频 →' });
     })();
-  }, [state.setup, addMessage, updateTask, addTaskLog, updateChild, updateAgent, updateAgentInMessages]);
+  }, [addMessage, pollDetail, state.backendTaskId, stopPolling]);
 
-  // ─── Confirm prompt → Phase 3: Agent 04 ───
+  // ─── Confirm prompt (real backend) ───
   const confirmGenerate = useCallback(() => {
-    setState(prev => ({ ...prev, isProcessing: true }));
-
+    if (!state.backendTaskId) return;
+    const prompt = state.generatedPrompt.trim();
+    if (!prompt) return;
+    stopPolling();
+    setState((prev) => ({ ...prev, isProcessing: true }));
     (async () => {
-      addMessage({ type: 'read-checklist', content: '读取待办清单' });
-      await pause(400);
-      addMessage({ type: 'create-agent', content: '创建视频生成专家代理', agentNames: [{ name: '视频专家', avatar: 'video' }] });
-      await pause(400);
-
-      const agent04: AgentInfo = {
-        id: 'agent-04', number: '04', name: '视频专家', role: '视频生成与合成',
-        avatar: 'video', status: 'running',
-        statusText: '正在为你生成专属爆款视频',
-        progress: 10,
-      };
-
-      setState(prev => ({
-        ...prev,
-        agents: prev.agents.map(a => a.id === 'agent-04' ? agent04 : a),
-        activeRightView: 'agents',
-        activeAgentTab: '04',
-      }));
-
-      addMessage({ type: 'agent-cluster', content: '', agents: [agent04] });
-
-      // Run video generation
-      const genTaskId = 'task-generate-video';
-      updateTask(genTaskId, { status: 'running', startAt: now() });
-      addTaskLog(genTaskId, '开始渲染视频...');
-
-      // Scene
-      updateChild(genTaskId, 'sub-scene', { status: 'running', title: '设计专家正在渲染场景' });
-      updateAgentInMessages('agent-04', { progress: 20, statusText: '正在渲染场景...' });
-      updateAgent('agent-04', { progress: 20, statusText: '正在渲染场景...' });
-      await backendDelay();
-      addTaskLog(genTaskId, '设计专家渲染场景');
-      await pause(800);
-      updateChild(genTaskId, 'sub-scene', { status: 'done', progress: 100, title: '设计专家完成渲染场景' });
-      addTaskLog(genTaskId, '设计专家完成场景渲染');
-
-      // Audio
-      updateChild(genTaskId, 'sub-audio', { status: 'running', title: '音频专家正在合成音频' });
-      updateAgentInMessages('agent-04', { progress: 55, statusText: '正在合成音频...' });
-      updateAgent('agent-04', { progress: 55, statusText: '正在合成音频...' });
-      addTaskLog(genTaskId, '音频专家正在合成音频...');
-      await randDelay();
-      updateChild(genTaskId, 'sub-audio', { status: 'done', progress: 100, title: '音频专家完成合成音频' });
-      addTaskLog(genTaskId, '音频专家完成音频合成 → BGM 节拍同步，时长 30s');
-
-      // Compose
-      updateChild(genTaskId, 'sub-compose', { status: 'running', title: '视频专家正在合成视频' });
-      updateAgentInMessages('agent-04', { progress: 80, statusText: '正在合成最终视频...' });
-      updateAgent('agent-04', { progress: 80, statusText: '正在合成最终视频...' });
-      addTaskLog(genTaskId, '视频专家正在合成视频...');
-      await backendDelay();
-      updateChild(genTaskId, 'sub-compose', { status: 'done', progress: 100, title: '视频专家完成合成视频' });
-      addTaskLog(genTaskId, '视频专家完成视频合成 → 1080p，30s');
-      addTaskLog(genTaskId, '质量检测通过');
-
-      updateTask(genTaskId, { status: 'done', progress: 100, endAt: now(), output: '视频生成完成，时长 30s' });
-      updateAgentInMessages('agent-04', { status: 'done', progress: 100, statusText: '视频生成完成！' });
-      updateAgent('agent-04', { status: 'done', progress: 100, statusText: '视频生成完成！' });
-
-      setState(prev => ({
-        ...prev,
-        checklistDone: [true, true, true, true],
-        resultVideo: { url: '', cover: '' },
-        isProcessing: false,
-      }));
-
-      addMessage({ type: 'video-gen-status', content: '🎉 所有任务已完成！复刻视频已生成，请在右侧面板查看和下载。' });
+      try {
+        await confirmTikTokSolutionPrompt(state.backendTaskId as any, { prompt });
+        await pollDetail(state.backendTaskId as any);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '确认失败';
+        addMessage({ type: 'text', content: `❌ ${msg}` });
+        setState((prev) => ({ ...prev, isProcessing: false }));
+      }
     })();
-  }, [addMessage, updateTask, addTaskLog, updateChild, updateAgent, updateAgentInMessages]);
+  }, [addMessage, pollDetail, state.backendTaskId, state.generatedPrompt, stopPolling]);
 
   // Update prompt
   const updatePrompt = useCallback((prompt: string) => {
     setState(prev => ({ ...prev, generatedPrompt: prompt }));
   }, []);
 
-  // Refresh candidates
+  // Refresh candidates: backend does not expose refresh in v1; just re-poll detail to refresh signed URLs
   const refreshCandidates = useCallback(() => {
-    setState(prev => ({ ...prev, isProcessing: true }));
-    const newVideos = mockVideos();
-    const timer = window.setTimeout(() => {
-      setState(prev => ({
-        ...prev,
-        candidateVideos: newVideos,
-        isProcessing: false,
-      }));
-      streamText('🔄 已更新候选视频列表，请重新选择。');
-    }, 1500);
-    streamTimers.current.push(timer);
-  }, [streamText]);
+    if (!state.backendTaskId) return;
+    setState((prev) => ({ ...prev, isProcessing: true }));
+    stopPolling();
+    void pollDetail(state.backendTaskId);
+  }, [pollDetail, state.backendTaskId, stopPolling]);
 
   // Back to video select
   const backToVideoSelect = useCallback(() => {
     clearTimers();
+    stopPolling();
     setState(prev => ({
       ...prev,
       generatedPrompt: '',
@@ -695,29 +730,36 @@ export function useSkillsEngine() {
 
   // Regenerate
   const regenerate = useCallback(() => {
-    clearTimers();
-    setState(prev => ({
-      ...prev,
-      resultVideo: null,
-      isProcessing: false,
-      activeRightView: 'agents',
-      activeAgentTab: '04',
-      agents: prev.agents.map(a => a.id === 'agent-04' ? { ...a, status: 'idle' as const, progress: 0, statusText: '等待启动' } : a),
-      messages: prev.messages.filter(m =>
-        !(m.type === 'agent-cluster' && m.agents?.some(a => a.id === 'agent-04')) &&
-        !(m.type === 'create-agent' && m.content.includes('视频生成')) &&
-        !(m.type === 'read-checklist' && prev.messages.indexOf(m) > prev.messages.length - 5) &&
-        !(m.type === 'video-gen-status' && m.content.includes('🎉'))
-      ),
-      tasks: prev.tasks.map(t => t.id === 'task-generate-video' ? {
-        ...t, status: 'queued' as TaskStatus, progress: 0, startAt: undefined, endAt: undefined, output: undefined, logs: [],
-        children: t.children.map(c => ({ ...c, status: 'queued' as TaskStatus, progress: 0 })),
-      } : t),
-      checklistDone: [true, true, true, false],
-    }));
-    const timer = window.setTimeout(() => confirmGenerate(), 300);
-    streamTimers.current.push(timer);
-  }, [confirmGenerate]);
+    // backend v1: regenerate by creating a new task with same setup
+    const setup = state.setup;
+    if (!setup.image) return;
+    stopPolling();
+    setState((prev) => ({ ...prev, resultVideo: null, isProcessing: true }));
+    (async () => {
+      try {
+        const sellingPointsArr = toLines(setup.sellingPoints);
+        const memoryEntryIds = (setup.selectedMemoryIds ?? []).map((x) => Number(x)).filter((n) => Number.isFinite(n));
+        const lang = navigator.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+        const created = await createTikTokSolutionTask({
+          sellingPoints: sellingPointsArr,
+          productImageUrls: [setup.image],
+          searchKeyword: setup.category,
+          candidateCount: 10,
+          aspectRatio: '9:16',
+          duration: 15,
+          lang,
+          ...(memoryEntryIds.length ? { memoryEntryIds } : {}),
+        });
+        const taskId = created.data?.taskId;
+        if (!taskId) throw new Error('taskId missing');
+        setState((prev) => ({ ...prev, backendTaskId: taskId, selectedVideo: null, candidateVideos: [], generatedPrompt: '' }));
+        await pollDetail(taskId);
+      } catch (e) {
+        setState((prev) => ({ ...prev, isProcessing: false }));
+        addMessage({ type: 'text', content: `❌ ${(e instanceof Error ? e.message : '重试失败')}` });
+      }
+    })();
+  }, [addMessage, pollDetail, state.setup, stopPolling]);
 
   const setActiveTaskId = useCallback((id: string | null) => {
     setState(prev => ({ ...prev, activeTaskId: id }));
@@ -747,6 +789,7 @@ export function useSkillsEngine() {
 
   const resetSession = useCallback(() => {
     clearTimers();
+    stopPolling();
     setState({
       sessionId: `session-${Date.now()}`,
       setupCompleted: false,
@@ -764,6 +807,7 @@ export function useSkillsEngine() {
       activeRightView: 'none',
       checklistItems: [],
       checklistDone: [],
+      backendTaskId: null,
     });
   }, []);
 
@@ -772,10 +816,55 @@ export function useSkillsEngine() {
     setState({ ...snapshot, isProcessing: false });
   }, []);
 
+  const resumeServerTask = useCallback(
+    (item: TikTokSolutionTaskListItem) => {
+      stopPolling();
+      clearTimers();
+      const setup: SessionSetup = {
+        image: null,
+        imageName: null,
+        memoryEnabled: false,
+        selectedMemoryIds: [],
+        sellingPoints: (item.sellingPoints ?? []).join('\n'),
+        category: item.category ?? '',
+      };
+      const checklistItems = [
+        '匹配对标品类和卖点的爆款视频列表',
+        '构建记忆库特征向量',
+        '设计专属TikTok爆款视频Prompt',
+        '生成专属爆款视频',
+      ];
+      const tasks = buildSkillsTasks(setup);
+      setState({
+        sessionId: `session-${Date.now()}`,
+        setupCompleted: true,
+        setup,
+        uiMode: 'single',
+        activeTaskId: String(item.taskId),
+        tasks,
+        messages: [{ id: `msg-${Date.now()}`, type: 'text', content: `已载入任务 #${item.taskId}` }],
+        candidateVideos: [],
+        selectedVideo: null,
+        generatedPrompt: '',
+        resultVideo: null,
+        isProcessing: true,
+        agents: [...initialAgents],
+        activeRightView: 'agents',
+        activeAgentTab: '01',
+        checklistItems,
+        checklistDone: [false, false, false, false],
+        backendTaskId: item.taskId,
+      });
+      void pollDetail(item.taskId);
+    },
+    [pollDetail, stopPolling]
+  );
+
   return {
     state,
     CATEGORIES,
     completeSetup,
+    resumeServerTask,
     refreshCandidates,
     selectVideo,
     updatePrompt,

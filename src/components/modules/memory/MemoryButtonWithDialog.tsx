@@ -38,7 +38,7 @@ export function MemoryButtonWithDialog({
     name: e.title,
     desc: e.content.slice(0, 60),
     tag: e.category,
-    charCount: e.content.length,
+    byteLength: e.contentLength,
   }));
 
   return (
@@ -47,12 +47,13 @@ export function MemoryButtonWithDialog({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] transition-colors',
-          'bg-muted/30 text-muted-foreground/60 hover:bg-foreground/5 hover:text-muted-foreground',
+          // 与「生图/生视频」底部筛选胶囊（ghost sm）保持一致：h-7 + text-xs + rounded-full
+          'w-[max-content] inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs transition-colors',
+          'text-muted-foreground hover:text-foreground hover:bg-muted',
           buttonClassName
         )}
       >
-        <Database className="w-3 h-3 shrink-0" />
+        <Database className="h-3.5 w-3.5 shrink-0" />
         <span>{t('common.memoryLibrary')}{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}</span>
       </button>
       <MemorySelectionDialog
