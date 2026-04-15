@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ShowcaseCard, type ShowcaseCardData } from './ShowcaseCard';
 import { ShowcaseDetailDialog } from './ShowcaseDetailDialog';
@@ -9,12 +10,6 @@ import { useReplicatePrefill } from '@/contexts/ReplicatePrefillContext';
 import { ReportCasesShowcaseGrid } from '../ReportCasesShowcaseGrid';
 import { getInspirationVideoDetail, getInspirationVideosPage, type MaterialSquareItem } from '@/services/inspirationVideoApi';
 
-const CASE_CATEGORIES = [
-  { id: 'market', label: '市场洞察' },
-  { id: 'campaign', label: '策划方案' },
-  { id: 'video', label: '灵感库' },
-] as const;
-
 const VISUAL_CATEGORY = 'video';
 
 interface AppPlazaShowcaseSectionProps {
@@ -22,12 +17,24 @@ interface AppPlazaShowcaseSectionProps {
 }
 
 export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionProps) {
+  const { t } = useTranslation();
   const { setPrefill } = useReplicatePrefill();
   const [activeCaseCategory, setActiveCaseCategory] = useState<string>('market');
   const [page, setPage] = useState(0);
   const [detailCard, setDetailCard] = useState<ShowcaseCardData | null>(null);
   const [videoList, setVideoList] = useState<MaterialSquareItem[]>([]);
   const [videoTotal, setVideoTotal] = useState(0);
+  const [videoLoading, setVideoLoading] = useState(false);
+
+  const CASE_CATEGORIES = useMemo(
+    () =>
+      [
+        { id: 'market', label: t('appPlaza.caseCategories.market') },
+        { id: 'campaign', label: t('appPlaza.caseCategories.campaign') },
+        { id: 'video', label: t('appPlaza.caseCategories.video') },
+      ] as const,
+    [t]
+  );
 
   const isVisualCategory = activeCaseCategory === VISUAL_CATEGORY;
   const itemsPerPage = isVisualCategory ? 12 : 16;
@@ -53,7 +60,7 @@ export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionP
     return {
       title: item.title,
       desc: desc || '',
-      hoverText: '点击复刻此爆款视频',
+      hoverText: t('appPlaza.hoverReplicateTrendingVideo'),
       // visual variant uses <video src={card.image}>
       image: item.sourceUrl || item.previewUrl || '/app-plaza-inspiration-temp.mp4',
       miniTitle: item.title,
@@ -77,6 +84,7 @@ export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionP
   // Load inspiration videos when tab/page changes
   useEffect(() => {
     if (!isVisualCategory) return;
+    setVideoLoading(true);
     const ac = new AbortController();
     void (async () => {
       try {
@@ -94,6 +102,8 @@ export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionP
           setVideoList([]);
           setVideoTotal(0);
         }
+      } finally {
+        if (!ac.signal.aborted) setVideoLoading(false);
       }
     })();
     return () => ac.abort();
@@ -135,7 +145,7 @@ export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionP
   return (
     <>
       <section id="showcase-section" className="flex flex-col px-0 pt-2 pb-2">
-        <h2 className="text-lg font-normal text-foreground/60 mb-2 shrink-0">案例</h2>
+        <h2 className="text-lg font-normal text-foreground/60 mb-2 shrink-0">{t('appPlaza.caseSectionTitle')}</h2>
         <div className="flex gap-1 mb-2 shrink-0">
           {CASE_CATEGORIES.map((cat) => (
             <button
@@ -156,41 +166,46 @@ export function AppPlazaShowcaseSection({ onNavigate }: AppPlazaShowcaseSectionP
         <div className="flex flex-col">
           {isVisualCategory ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                {(videoList.length ? videoList.map(buildVideoCardFromItem) : pagedCases).map((card, i) => (
-                  <ShowcaseCard
-                    key={`${card.category}-${page}-${i}-${card.title}`}
-                    card={card}
-                    variant="visual"
-                    onClick={() => {
-                      // if card came from API list, fetch detail for extra fields
-                      const rawItem = videoList[i];
-                      if (rawItem?.id != null) {
-                        const ac = new AbortController();
-                        void (async () => {
-                          try {
-                            const d = await getInspirationVideoDetail(rawItem.id, ac.signal);
-                            const base = buildVideoCardFromItem(d);
-                            base.detail = {
-                              ...(base.detail || {}),
-                              purpose: d.purpose || undefined,
-                              audience: d.targetAudience || undefined,
-                              techHighlight: d.aiTech || undefined,
-                            };
-                            setDetailCard(base);
-                          } catch {
-                            setDetailCard(card);
-                          }
-                        })();
-                      } else {
-                        setDetailCard(card);
-                      }
-                    }}
-                  />
-                ))}
-              </div>
+              {videoLoading ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">{t('common.loading')}</div>
+              ) : videoList.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">{t('appPlaza.inspirationEmpty')}</div>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  {videoList.map(buildVideoCardFromItem).map((card, i) => (
+                    <ShowcaseCard
+                      key={`${card.category}-${page}-${i}-${card.title}`}
+                      card={card}
+                      variant="visual"
+                      onClick={() => {
+                        const rawItem = videoList[i];
+                        if (rawItem?.id != null) {
+                          const ac = new AbortController();
+                          void (async () => {
+                            try {
+                              const d = await getInspirationVideoDetail(rawItem.id, ac.signal);
+                              const base = buildVideoCardFromItem(d);
+                              base.detail = {
+                                ...(base.detail || {}),
+                                purpose: d.purpose || undefined,
+                                audience: d.targetAudience || undefined,
+                                techHighlight: d.aiTech || undefined,
+                              };
+                              setDetailCard(base);
+                            } catch {
+                              setDetailCard(card);
+                            }
+                          })();
+                        } else {
+                          setDetailCard(card);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
 
-              {displayTotalPages > 1 && (
+              {videoList.length > 0 && displayTotalPages > 1 && (
                 <div className="flex items-center justify-center gap-3 mt-4 shrink-0">
                   <button
                     type="button"

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowUp, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CategoryCascader } from '@/components/ui/category-cascader';
@@ -46,19 +47,29 @@ export function MarketInsightComposer({
   onSubmitWithMemory,
   disabled,
   initialData,
-  title = '市场洞察报告',
-  subtitle = '输入品牌与品类信息，一键生成洞察报告',
-  brandPlaceholder = '品牌名称',
-  categoryPlaceholder = '选择品类',
-  competitorPlaceholder = '输入竞品，回车添加',
-  competitorAddPlaceholder = '添加竞品...',
-  searchPlaceholder = '输入关键词检索',
-  searchEmptyText = '暂无匹配品类',
+  title,
+  subtitle,
+  brandPlaceholder,
+  categoryPlaceholder,
+  competitorPlaceholder,
+  competitorAddPlaceholder,
+  searchPlaceholder,
+  searchEmptyText,
   estimatedCredits = 0,
   estimateCreditsBizCode,
   selectedMemoryIds,
   onToggleMemory,
 }: MarketInsightComposerProps) {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t('marketInsights.composerTitle');
+  const resolvedSubtitle = subtitle ?? t('marketInsights.composerSubtitle');
+  const resolvedBrandPlaceholder = brandPlaceholder ?? t('marketInsights.composerBrandPlaceholder');
+  const resolvedCategoryPlaceholder = categoryPlaceholder ?? t('marketInsights.composerCategoryPlaceholder');
+  const resolvedCompetitorPlaceholder = competitorPlaceholder ?? t('marketInsights.composerCompetitorPlaceholder');
+  const resolvedCompetitorAddPlaceholder = competitorAddPlaceholder ?? t('marketInsights.composerCompetitorAddPlaceholder');
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('marketInsights.cascaderSearchPlaceholder');
+  const resolvedSearchEmptyText = searchEmptyText ?? t('marketInsights.cascaderSearchEmpty');
+
   const [brandName, setBrandName] = useState(initialData?.brandName || '');
   const [category, setCategory] = useState(initialData?.category || '');
   const [competitors, setCompetitors] = useState<string[]>(initialData?.competitors || []);
@@ -103,8 +114,8 @@ export function MarketInsightComposer({
       <div className="w-full max-w-2xl animate-fade-in mt-[80px]">
         {/* Title */}
         <div className="text-center mb-10">
-          <h1 className="text-2xl md:text-3xl tracking-tight text-[#3d3d3d] font-normal">{title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+          <h1 className="text-2xl md:text-3xl tracking-tight text-[#3d3d3d] font-normal">{resolvedTitle}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{resolvedSubtitle}</p>
         </div>
 
         {/* Composer Card */}
@@ -112,13 +123,13 @@ export function MarketInsightComposer({
           <div className="p-5">
             {/* Fixed sentence structure with inline inputs */}
             <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
-              <span className="whitespace-nowrap">为我生成</span>
+              <span className="whitespace-nowrap">{t('marketInsights.composePrefix')}</span>
 
               {/* Brand name - inline input */}
               <input
                 value={brandName}
                 onChange={(e) => setBrandName(e.target.value)}
-                placeholder={brandPlaceholder}
+                placeholder={resolvedBrandPlaceholder}
                 className={cn(
                   'mx-1.5 px-2.5 h-7 bg-muted/20 border border-border/30 rounded-full text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20 transition-colors',
                   'w-[100px]'
@@ -139,9 +150,9 @@ export function MarketInsightComposer({
                   tree={categoryTree}
                   value={category}
                   onChange={setCategory}
-                  placeholder={categoryPlaceholder}
-                  searchPlaceholder={searchPlaceholder}
-                  searchEmptyText={searchEmptyText}
+                  placeholder={resolvedCategoryPlaceholder}
+                  searchPlaceholder={resolvedSearchPlaceholder}
+                  searchEmptyText={resolvedSearchEmptyText}
                 />
               </div>
 
@@ -172,12 +183,12 @@ export function MarketInsightComposer({
                   onBlur={() => {
                     if (competitorInput.trim()) addCompetitor(competitorInput);
                   }}
-                  placeholder={competitors.length === 0 ? competitorPlaceholder : competitorAddPlaceholder}
+                  placeholder={competitors.length === 0 ? resolvedCompetitorPlaceholder : resolvedCompetitorAddPlaceholder}
                   className="h-6 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none w-[120px]"
                 />
               </div>
 
-              <span className="whitespace-nowrap">的洞察报告</span>
+              <span className="whitespace-nowrap">{t('marketInsights.composeSuffix')}</span>
             </div>
           </div>
 
@@ -189,7 +200,7 @@ export function MarketInsightComposer({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent/60 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-accent/80" />
                 </span>
-                <span className="text-[11px] font-medium">联网搜索中</span>
+                <span className="text-[11px] font-medium">{t('campaignPlanner.searchingOnline')}</span>
               </div>
             </div>
 

@@ -7,6 +7,7 @@
  */
 
 import { apiPost, apiGet, type ApiResponse } from './apiClient';
+import i18n from '@/i18n';
 
 export interface TiktokInsightJobPageItem {
   id: string | number;
@@ -125,10 +126,10 @@ export async function pollTiktokInsightJobStatus(
   for (let i = 0; i < maxAttempts; i++) {
     const res = await getTiktokInsightJobStatus(jobId);
     const data = res?.data;
-    if (!data) throw new Error(res?.msg ?? '获取任务状态失败');
+    if (!data) throw new Error(res?.msg ?? i18n.t('errors.taskStatusFailed'));
     if (onProgress) onProgress(data);
     if (data.status === 'completed' || data.status === 'failed') return data;
     await new Promise((r) => setTimeout(r, interval));
   }
-  throw new Error('任务超时，请稍后重试');
+  throw new Error(i18n.t('errors.taskTimeoutRetry'));
 }

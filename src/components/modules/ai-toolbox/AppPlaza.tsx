@@ -10,7 +10,7 @@ export function AppPlaza({ onNavigate }: AppPlazaProps) {
 
   return (
     <div ref={scrollRef} className="min-h-full scrollbar-thin">
-      <div className="px-6 sm:px-10 lg:px-16 max-w-7xl mx-auto w-full">
+      <div className="px-6 pb-10 sm:px-10 lg:px-16 max-w-7xl mx-auto w-full">
         <HeroSection onNavigate={onNavigate} />
       </div>
     </div>

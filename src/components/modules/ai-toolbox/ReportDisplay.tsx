@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface ReportDisplayProps {
@@ -21,10 +22,11 @@ const REPORT_FALLBACK_SCRIPT =
 export function ReportDisplay({
   reportUrl,
   reportTitle,
-  generatingLabel = '生成中...',
-  generatingHint = '正在生成报告，请稍候…',
+  generatingLabel,
+  generatingHint,
   onIframeRef,
 }: ReportDisplayProps) {
+  const { t } = useTranslation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [reportHtml, setReportHtml] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState(false);
@@ -81,11 +83,11 @@ export function ReportDisplay({
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/30">
             {fetchError ? (
-              <p className="text-sm text-muted-foreground">报告加载失败</p>
+              <p className="text-sm text-muted-foreground">{t('reportDisplay.loadFailed')}</p>
             ) : (
               <>
                 <LoadingSpinner className="text-primary" />
-                <p className="mt-2 text-sm text-muted-foreground">{generatingHint}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{generatingHint ?? t('reportDisplay.generatingHint')}</p>
               </>
             )}
           </div>
@@ -104,15 +106,16 @@ interface ReportPollingOverlayProps {
 /** 轮询中的全屏 loading 遮罩 */
 export function ReportPollingOverlay({
   show,
-  generatingLabel = '生成中...',
-  generatingHint = '正在生成报告，请稍候…',
+  generatingLabel,
+  generatingHint,
 }: ReportPollingOverlayProps) {
+  const { t } = useTranslation();
   if (!show) return null;
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
       <LoadingSpinner className="text-primary" />
-      <p className="mt-4 font-medium text-foreground">{generatingLabel}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{generatingHint}</p>
+      <p className="mt-4 font-medium text-foreground">{generatingLabel ?? t('reportDisplay.generatingLabel')}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{generatingHint ?? t('reportDisplay.generatingHint')}</p>
     </div>
   );
 }

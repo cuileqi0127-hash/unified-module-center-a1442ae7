@@ -5,6 +5,7 @@
  */
 
 import { getCachedToken, clearOAuthCache, redirectToLogin } from './oauthApi';
+import i18n from '@/i18n';
 
 /** 触发清空 token 并跳转登录的 code 或 HTTP 状态 */
 const AUTH_ERROR_CODES = [401, 400, 404, 500, 501];
@@ -74,7 +75,7 @@ export async function handleApiResponse(response: Response): Promise<Response> {
   // HTTP 状态码 401/400/404/500/501：清空 token 并跳转登录
   if (AUTH_ERROR_CODES.includes(response.status) || response.status === 403) {
     clearTokenAndRedirectToLogin();
-    throw new Error('Token expired or invalid, please login again');
+    throw new Error(i18n.t('errors.tokenExpiredLoginAgain'));
   }
 
   // HTTP 200 时检查响应体中的 code 字段（401/400/404/500/501 同样处理）
@@ -86,11 +87,11 @@ export async function handleApiResponse(response: Response): Promise<Response> {
         const data = await clonedResponse.json();
         if (data && isAuthErrorCode(data.code)) {
           clearTokenAndRedirectToLogin();
-          throw new Error('Token expired or invalid, please login again');
+          throw new Error(i18n.t('errors.tokenExpiredLoginAgain'));
         }
       }
     } catch (error) {
-      if (error instanceof Error && error.message === 'Token expired or invalid, please login again') {
+      if (error instanceof Error && error.message === i18n.t('errors.tokenExpiredLoginAgain')) {
         throw error;
       }
     }

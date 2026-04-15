@@ -26,29 +26,10 @@ export interface CampaignPayload {
 }
 
 /* ─── Constants ─── */
-const GOALS = [
-  { value: 'BRAND_UPGRADE', label: '品牌升级' },
-  { value: 'SALES_GROWTH', label: '销量增长' },
-  { value: 'NEW_PRODUCT_LAUNCH', label: '新品上市' },
-  { value: 'KOL_COLLABORATION', label: 'KOL合作' },
-];
-const BUDGETS = [
-  { value: 'S_LEVEL_FULL_CAMPAIGN', label: 'S级全域战役' },
-  { value: 'A_LEVEL_REGIONAL_CAMPAIGN', label: 'A级区域战役' },
-  { value: 'B_LEVEL_LOCAL_CAMPAIGN', label: 'B级局部战役' },
-  { value: 'C_LEVEL_MICRO_CAMPAIGN', label: 'C级迷你战役' },
-];
-const CHANNELS = [
-  { value: 'DOUYIN', label: '抖音' },
-  { value: 'XIAOHONGSHU', label: '小红书' },
-];
-const CYCLES = [
-  { value: 'Q1', label: 'Q1' },
-  { value: 'Q2', label: 'Q2' },
-  { value: 'Q3', label: 'Q3' },
-  { value: 'Q4', label: 'Q4' },
-  { value: 'FULL_YEAR', label: '全年' },
-];
+const GOALS = ['BRAND_UPGRADE', 'SALES_GROWTH', 'NEW_PRODUCT_LAUNCH', 'KOL_COLLABORATION'] as const;
+const BUDGETS = ['S_LEVEL_FULL_CAMPAIGN', 'A_LEVEL_REGIONAL_CAMPAIGN', 'B_LEVEL_LOCAL_CAMPAIGN', 'C_LEVEL_MICRO_CAMPAIGN'] as const;
+const CHANNELS = ['DOUYIN', 'XIAOHONGSHU'] as const;
+const CYCLES = ['Q1', 'Q2', 'Q3', 'Q4', 'FULL_YEAR'] as const;
 
 /* ─── Tag input component ─── */
 function TagInput({
@@ -123,6 +104,10 @@ export function CampaignPlannerComposer({
   estimateCreditsBizCode,
 }: CampaignPlannerComposerProps) {
   const { t } = useTranslation();
+  const goalOptions = GOALS.map((value) => ({ value, label: t(`campaignPlanner.goals.${value}`) }));
+  const budgetOptions = BUDGETS.map((value) => ({ value, label: t(`campaignPlanner.budgets.${value}`) }));
+  const channelOptions = CHANNELS.map((value) => ({ value, label: t(`campaignPlanner.channels.${value}`) }));
+  const cycleOptions = CYCLES.map((value) => ({ value, label: t(`campaignPlanner.cycles.${value}`) }));
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
   const [brandName, setBrandName] = useState(initialData?.brandName || '');
   const [goal, setGoal] = useState(initialData?.goal || '');
@@ -213,7 +198,7 @@ export function CampaignPlannerComposer({
               />
               <span className="whitespace-nowrap">{t('campaignPlanner.planLabel')}</span>
               <InlinePicker
-                options={GOALS}
+                options={goalOptions}
                 value={goal}
                 onChange={setGoal}
                 placeholder={t('campaignPlanner.goalPlaceholder')}
@@ -251,7 +236,7 @@ export function CampaignPlannerComposer({
             <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
               <span className="whitespace-nowrap">{t('campaignPlanner.budgetLevel')}</span>
               <InlinePicker
-                options={BUDGETS}
+                options={budgetOptions}
                 value={budget}
                 onChange={setBudget}
                 placeholder={t('campaignPlanner.budgetPlaceholder')}
@@ -276,8 +261,8 @@ export function CampaignPlannerComposer({
                 <div className="flex items-center flex-wrap gap-y-2 text-sm text-foreground/70 leading-relaxed">
                   <span className="whitespace-nowrap text-xs text-muted-foreground mr-2">{t('campaignPlanner.mainChannels')}</span>
                   <div className="flex items-center gap-1.5">
-                    {CHANNELS.map((ch) => {
-                      const selected = channels.includes(ch.value);
+                    {channelOptions.map((ch) => {
+                      const selected = channels.includes(ch.value as string);
                       return (
                         <button
                           key={ch.value}
@@ -307,7 +292,7 @@ export function CampaignPlannerComposer({
                     {t('campaignPlanner.cycleLabel')}
                   </span>
                   <InlinePicker
-                    options={CYCLES}
+                    options={cycleOptions}
                     value={cycle}
                     onChange={setCycle}
                     placeholder={t('campaignPlanner.cyclePlaceholder')}

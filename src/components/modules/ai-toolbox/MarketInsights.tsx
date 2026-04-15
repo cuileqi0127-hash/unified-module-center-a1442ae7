@@ -107,7 +107,7 @@ export function MarketInsights() {
           setTaskId(String(res.data.taskId));
           setView('report');
         } else {
-          toast.error(res?.msg || 'Request failed');
+          toast.error(res?.msg || t('errors.requestFailed'));
         }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : String(e));
@@ -115,21 +115,21 @@ export function MarketInsights() {
         setIsSubmitting(false);
       }
     },
-    []
+    [t]
   );
 
   const historyLabels = {
-    title: isZh ? '历史记录' : 'History',
-    triggerButton: isZh ? '历史记录' : 'History',
-    empty: isZh ? '暂无历史报告' : 'No history yet',
-    loadFailed: isZh ? '加载历史记录失败' : 'Failed to load history',
-    total: isZh ? '共 {{total}} 条' : '{{total}} total',
-    prevPage: isZh ? '上一页' : 'Prev',
-    nextPage: isZh ? '下一页' : 'Next',
-    statusCompleted: isZh ? '已完成' : 'Completed',
-    statusProcessing: isZh ? '生成中' : 'Processing',
-    statusFailed: isZh ? '失败' : 'Failed',
-    statusQueued: isZh ? '排队中' : 'Queued',
+    title: t('unifiedHistory.title'),
+    triggerButton: t('unifiedHistory.triggerButton'),
+    empty: t('unifiedHistory.empty'),
+    loadFailed: t('unifiedHistory.loadFailed'),
+    total: t('unifiedHistory.total', { total: 0 }).replace('0', '{{total}}'),
+    prevPage: t('unifiedHistory.prevPage'),
+    nextPage: t('unifiedHistory.nextPage'),
+    statusCompleted: t('unifiedHistory.statusCompleted'),
+    statusProcessing: t('unifiedHistory.statusProcessing'),
+    statusFailed: t('unifiedHistory.statusFailed'),
+    statusQueued: t('unifiedHistory.statusQueued'),
   };
 
   if (view === 'input') {
@@ -185,7 +185,7 @@ export function MarketInsights() {
                 setTaskId(null);
               }}
             >
-              ‹ {isZh ? '返回' : 'Back'}
+              ‹ {t('common.back')}
             </button>
             <div className="flex items-center gap-2">
               <UnifiedReportHistorySheet
@@ -203,21 +203,23 @@ export function MarketInsights() {
           </div>
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-foreground">{formData.brandName} {isZh ? '洞察报告' : 'Insight Report'}</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              {t('marketInsights.reportTitleWithBrand', { brand: formData.brandName })}
+            </h1>
           </div>
 
           <div className="relative flex flex-col h-[calc(100vh-14rem)] min-h-[420px] rounded-lg border bg-card overflow-hidden mb-6">
             <ReportPollingOverlay
               show={isPolling}
-              generatingLabel={isZh ? '生成中...' : 'Generating...'}
-              generatingHint={isZh ? '正在生成报告，请稍候…' : 'Generating report, please wait…'}
+              generatingLabel={t('reportDisplay.generatingLabel')}
+              generatingHint={t('reportDisplay.generatingHint')}
             />
             {reportUrl && (
               <ReportDisplay
                 reportUrl={reportUrl}
-                reportTitle={isZh ? '市场洞察报告' : 'Market Insight Report'}
-                generatingLabel={isZh ? '生成中...' : 'Generating...'}
-                generatingHint={isZh ? '正在生成报告，请稍候…' : 'Generating report, please wait…'}
+                reportTitle={t('marketInsights.reportTitle')}
+                generatingLabel={t('reportDisplay.generatingLabel')}
+                generatingHint={t('reportDisplay.generatingHint')}
               />
             )}
           </div>

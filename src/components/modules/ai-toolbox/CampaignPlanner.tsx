@@ -9,7 +9,7 @@ import { estimateUnifiedReportTask, createUnifiedReportTask } from '@/services/u
 import { useReportPolling } from '@/hooks/useReportPolling';
 
 export function CampaignPlanner() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isZh = i18n.language === 'zh' || i18n.language.startsWith('zh-');
 
   const [view, setView] = useState<'input' | 'report'>('input');
@@ -104,27 +104,27 @@ export function CampaignPlanner() {
         setTaskId(String(res.data.taskId));
         setView('report');
       } else {
-        toast.error(res?.msg || 'Request failed');
+        toast.error(res?.msg || t('errors.requestFailed'));
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
       setIsSubmitting(false);
     }
-  }, []);
+  }, [t]);
 
   const historyLabels = {
-    title: isZh ? '历史记录' : 'History',
-    triggerButton: isZh ? '历史记录' : 'History',
-    empty: isZh ? '暂无历史报告' : 'No history yet',
-    loadFailed: isZh ? '加载历史记录失败' : 'Failed to load history',
-    total: isZh ? '共 {{total}} 条' : '{{total}} total',
-    prevPage: isZh ? '上一页' : 'Prev',
-    nextPage: isZh ? '下一页' : 'Next',
-    statusCompleted: isZh ? '已完成' : 'Completed',
-    statusProcessing: isZh ? '生成中' : 'Processing',
-    statusFailed: isZh ? '失败' : 'Failed',
-    statusQueued: isZh ? '排队中' : 'Queued',
+    title: t('unifiedHistory.title'),
+    triggerButton: t('unifiedHistory.triggerButton'),
+    empty: t('unifiedHistory.empty'),
+    loadFailed: t('unifiedHistory.loadFailed'),
+    total: t('unifiedHistory.total', { total: 0 }).replace('0', '{{total}}'),
+    prevPage: t('unifiedHistory.prevPage'),
+    nextPage: t('unifiedHistory.nextPage'),
+    statusCompleted: t('unifiedHistory.statusCompleted'),
+    statusProcessing: t('unifiedHistory.statusProcessing'),
+    statusFailed: t('unifiedHistory.statusFailed'),
+    statusQueued: t('unifiedHistory.statusQueued'),
   };
 
   if (view === 'input') {
@@ -167,7 +167,7 @@ export function CampaignPlanner() {
                 setTaskId(null);
               }}
             >
-              ‹ {isZh ? '返回' : 'Back'}
+              ‹ {t('common.back')}
             </button>
             <UnifiedReportHistorySheet
               open={historyOpen}
@@ -185,15 +185,15 @@ export function CampaignPlanner() {
           <div className="relative flex flex-col h-[calc(100vh-14rem)] min-h-[420px] rounded-lg border bg-card overflow-hidden mb-6">
             <ReportPollingOverlay
               show={isPolling}
-              generatingLabel={isZh ? '生成中...' : 'Generating...'}
-              generatingHint={isZh ? '正在生成方案，请稍候…' : 'Generating, please wait…'}
+              generatingLabel={t('reportDisplay.generatingLabel')}
+              generatingHint={t('campaignPlanner.generatingHint')}
             />
             {reportUrl && (
               <ReportDisplay
                 reportUrl={reportUrl}
-                reportTitle={isZh ? '策划方案' : 'Strategy Case'}
-                generatingLabel={isZh ? '生成中...' : 'Generating...'}
-                generatingHint={isZh ? '正在生成方案，请稍候…' : 'Generating, please wait…'}
+                reportTitle={t('campaignPlanner.reportTitle')}
+                generatingLabel={t('reportDisplay.generatingLabel')}
+                generatingHint={t('campaignPlanner.generatingHint')}
               />
             )}
           </div>

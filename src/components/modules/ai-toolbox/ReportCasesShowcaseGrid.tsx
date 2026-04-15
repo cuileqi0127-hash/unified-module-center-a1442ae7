@@ -186,7 +186,7 @@ export function ReportCasesShowcaseGrid({
         >
           <DialogHeader className="px-4 py-3 border-b border-border/20 shrink-0 space-y-0">
             <DialogTitle className="text-base font-medium line-clamp-1 pr-8">
-              {activeDetail?.title || (isZh ? '案例详情' : 'Case detail')}
+              {activeDetail?.title || t('reportCases.caseDetailTitle')}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 min-h-0 relative bg-muted/20">

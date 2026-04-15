@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useOAuth } from '@/contexts/OAuthContext';
 import { getMemoryEntriesPage, type ToolsMemoryEntryPageResp } from '@/services/memoryApi';
@@ -62,6 +63,7 @@ function isServerSideMemoryId(id: string): boolean {
 }
 
 export function MemoryProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const { isAuthenticated, isLoading: oauthLoading } = useOAuth();
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -142,8 +144,8 @@ export function MemoryProvider({ children }: { children: ReactNode }) {
         updatedAt: now,
       },
     ]);
-    toast.success('已添加到记忆库');
-  }, []);
+    toast.success(t('memory.addedToMemory'));
+  }, [t]);
 
   const updateEntry = useCallback((entry: MemoryEntry) => {
     const now = new Date().toISOString().slice(0, 10);

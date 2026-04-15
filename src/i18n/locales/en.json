@@ -29,7 +29,11 @@
     "copy": "Copy"
   },
   "errors": {
-    "uploadFailed": "Upload failed"
+    "uploadFailed": "Upload failed",
+    "requestFailed": "Request failed",
+    "taskStatusFailed": "Failed to get task status",
+    "taskTimeoutRetry": "Task timed out, please try again later",
+    "tokenExpiredLoginAgain": "Token expired or invalid, please login again"
   },
   "reportCases": {
     "hoverMarketInsight": "Click to view market insight case",
@@ -37,8 +41,14 @@
     "empty": "No cases yet",
     "loadFailed": "Failed to load cases",
     "detailLoadFailed": "Failed to load case detail",
+    "caseDetailTitle": "Case detail",
     "openingReport": "Loading...",
     "openingReportHint": "Loading report content…"
+  },
+  "reportDisplay": {
+    "generatingLabel": "Generating...",
+    "generatingHint": "Generating report, please wait…",
+    "loadFailed": "Failed to load report"
   },
   "imageCapsule": {
     "defaultLabel": "Image",
@@ -112,10 +122,26 @@
     "invoice": "Invoice",
     "noMoreData": "No more data",
     "noData": "No data"
+    ,
+    "back": "Back"
+  },
+  "unifiedHistory": {
+    "title": "History",
+    "triggerButton": "History",
+    "empty": "No history yet",
+    "loadFailed": "Failed to load history",
+    "total": "{{total}} total",
+    "prevPage": "Prev",
+    "nextPage": "Next",
+    "statusCompleted": "Completed",
+    "statusProcessing": "Processing",
+    "statusFailed": "Failed",
+    "statusQueued": "Queued"
   },
   "memory": {
     "dialogTitle": "Select Memory",
     "noMemory": "No memory yet",
+    "addedToMemory": "Added to Memory",
     "bytesSelected": "{{current}} / {{max}} bytes selected (UTF-8)",
     "overLimit": "Over limit",
     "reduceSelection": "Please reduce selection, {{count}} bytes over limit",
@@ -164,6 +190,14 @@
   "appPlaza": {
     "title": "App Plaza",
     "subtitle": "Discover and explore AI-powered tools for your business",
+    "caseSectionTitle": "Cases",
+    "caseCategories": {
+      "market": "Market Insights",
+      "campaign": "Strategy Cases",
+      "video": "Inspiration Library"
+    },
+    "hoverReplicateTrendingVideo": "Click to replicate this trending video",
+    "inspirationEmpty": "No inspiration videos yet",
     "digitalHuman": {
       "tag": "Digital Human",
       "title": "Digital Human Generator",
@@ -255,7 +289,47 @@
     "advancedSettings": "Advanced (optional)",
     "cycleLabel": "Campaign cycle",
     "pageTitle": "Campaign Plan",
-    "pageSubtitle": "Enter brand and marketing goals, AI generates campaign plan in one click"
+    "pageSubtitle": "Enter brand and marketing goals, AI generates campaign plan in one click",
+    "reportTitle": "Strategy Case",
+    "generatingHint": "Generating, please wait…"
+    ,
+    "goals": {
+      "BRAND_UPGRADE": "Brand upgrade",
+      "SALES_GROWTH": "Sales growth",
+      "NEW_PRODUCT_LAUNCH": "New product launch",
+      "KOL_COLLABORATION": "KOL collaboration"
+    },
+    "budgets": {
+      "S_LEVEL_FULL_CAMPAIGN": "S-level full campaign",
+      "A_LEVEL_REGIONAL_CAMPAIGN": "A-level regional campaign",
+      "B_LEVEL_LOCAL_CAMPAIGN": "B-level local campaign",
+      "C_LEVEL_MICRO_CAMPAIGN": "C-level micro campaign"
+    },
+    "channels": {
+      "DOUYIN": "Douyin",
+      "XIAOHONGSHU": "Xiaohongshu"
+    },
+    "cycles": {
+      "Q1": "Q1",
+      "Q2": "Q2",
+      "Q3": "Q3",
+      "Q4": "Q4",
+      "FULL_YEAR": "Full year"
+    }
+  },
+  "marketInsights": {
+    "composerTitle": "Market Insight Report",
+    "composerSubtitle": "Enter brand and category, generate insights in one click",
+    "composerBrandPlaceholder": "Brand name",
+    "composerCategoryPlaceholder": "Select category",
+    "composerCompetitorPlaceholder": "Enter competitors, press Enter to add",
+    "composerCompetitorAddPlaceholder": "Add competitor...",
+    "cascaderSearchPlaceholder": "Search by keyword",
+    "cascaderSearchEmpty": "No matching category",
+    "composePrefix": "Generate for me",
+    "composeSuffix": "insight report",
+    "reportTitle": "Market Insight Report",
+    "reportTitleWithBrand": "{{brand}} Insight Report"
   },
   "canvas": {
     "contextMenu": {

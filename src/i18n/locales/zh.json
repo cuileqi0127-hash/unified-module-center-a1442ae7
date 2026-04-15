@@ -29,7 +29,11 @@
     "copy": "复制"
   },
   "errors": {
-    "uploadFailed": "上传失败"
+    "uploadFailed": "上传失败",
+    "requestFailed": "请求失败",
+    "taskStatusFailed": "获取任务状态失败",
+    "taskTimeoutRetry": "任务超时，请稍后重试",
+    "tokenExpiredLoginAgain": "登录已过期或无效，请重新登录"
   },
   "reportCases": {
     "hoverMarketInsight": "点击查看市场洞察报告案例",
@@ -37,8 +41,14 @@
     "empty": "暂无案例",
     "loadFailed": "案例列表加载失败",
     "detailLoadFailed": "案例详情加载失败",
+    "caseDetailTitle": "案例详情",
     "openingReport": "加载中...",
     "openingReportHint": "正在加载报告内容…"
+  },
+  "reportDisplay": {
+    "generatingLabel": "生成中...",
+    "generatingHint": "正在生成报告，请稍候…",
+    "loadFailed": "报告加载失败"
   },
   "imageCapsule": {
     "defaultLabel": "图片",
@@ -112,10 +122,26 @@
     "invoice": "发票",
     "noMoreData": "暂无更多数据",
     "noData": "暂无数据"
+    ,
+    "back": "返回"
+  },
+  "unifiedHistory": {
+    "title": "历史记录",
+    "triggerButton": "历史记录",
+    "empty": "暂无历史记录",
+    "loadFailed": "加载历史记录失败",
+    "total": "共 {{total}} 条",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "statusCompleted": "已完成",
+    "statusProcessing": "生成中",
+    "statusFailed": "失败",
+    "statusQueued": "排队中"
   },
   "memory": {
     "dialogTitle": "选择记忆库",
     "noMemory": "暂无记忆",
+    "addedToMemory": "已添加到记忆库",
     "bytesSelected": "已选 {{current}} / {{max}} 字节（UTF-8）",
     "overLimit": "超出上限",
     "reduceSelection": "请减少选择，当前超出 {{count}} 字节",
@@ -164,6 +190,14 @@
   "appPlaza": {
     "title": "应用广场",
     "subtitle": "发现和探索AI智能工具，助力您的业务增长",
+    "caseSectionTitle": "案例",
+    "caseCategories": {
+      "market": "市场洞察",
+      "campaign": "策划方案",
+      "video": "灵感库"
+    },
+    "hoverReplicateTrendingVideo": "点击复刻此爆款视频",
+    "inspirationEmpty": "暂无灵感库内容",
     "digitalHuman": {
       "tag": "数字人",
       "title": "数字人生成",
@@ -255,7 +289,47 @@
     "advancedSettings": "高级设置 (选填)",
     "cycleLabel": "营销周期",
     "pageTitle": "策划方案",
-    "pageSubtitle": "输入品牌与营销目标，AI 一键生成营销策划方案"
+    "pageSubtitle": "输入品牌与营销目标，AI 一键生成营销策划方案",
+    "reportTitle": "策划方案",
+    "generatingHint": "正在生成方案，请稍候…"
+    ,
+    "goals": {
+      "BRAND_UPGRADE": "品牌升级",
+      "SALES_GROWTH": "销量增长",
+      "NEW_PRODUCT_LAUNCH": "新品上市",
+      "KOL_COLLABORATION": "KOL合作"
+    },
+    "budgets": {
+      "S_LEVEL_FULL_CAMPAIGN": "S级全域战役",
+      "A_LEVEL_REGIONAL_CAMPAIGN": "A级区域战役",
+      "B_LEVEL_LOCAL_CAMPAIGN": "B级局部战役",
+      "C_LEVEL_MICRO_CAMPAIGN": "C级迷你战役"
+    },
+    "channels": {
+      "DOUYIN": "抖音",
+      "XIAOHONGSHU": "小红书"
+    },
+    "cycles": {
+      "Q1": "Q1",
+      "Q2": "Q2",
+      "Q3": "Q3",
+      "Q4": "Q4",
+      "FULL_YEAR": "全年"
+    }
+  },
+  "marketInsights": {
+    "composerTitle": "市场洞察报告",
+    "composerSubtitle": "输入品牌与品类信息，一键生成洞察报告",
+    "composerBrandPlaceholder": "品牌名称",
+    "composerCategoryPlaceholder": "选择品类",
+    "composerCompetitorPlaceholder": "输入竞品，回车添加",
+    "composerCompetitorAddPlaceholder": "添加竞品...",
+    "cascaderSearchPlaceholder": "输入关键词检索",
+    "cascaderSearchEmpty": "暂无匹配品类",
+    "composePrefix": "为我生成",
+    "composeSuffix": "的洞察报告",
+    "reportTitle": "市场洞察报告",
+    "reportTitleWithBrand": "{{brand}} 洞察报告"
   },
   "canvas": {
     "contextMenu": {
